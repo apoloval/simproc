@@ -7,8 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::old_io as io;
-use std::num::{ToPrimitive, SignedInt, Int};
-use std::u8;
+use std::num::{Int};
 
 /// An immediate value that comes after an opcode. 
 pub type Immediate = i8;
