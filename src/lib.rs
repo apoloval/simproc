@@ -1,3 +1,3 @@
 #![feature(io)]
 
-mod sp80;
+pub mod sp80;
