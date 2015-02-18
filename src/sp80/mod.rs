@@ -21,30 +21,36 @@ pub type RelAddr = i16;
 /// General purpose 8-bit Regs. 
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
 
-/// Encode a general purpose register into its binary representation
-pub fn enc_reg(r: Reg) -> u8 {
-	match r {
-		Reg::R0 => 0x00,
-		Reg::R1 => 0x01,
-		Reg::R2 => 0x02,
-		Reg::R3 => 0x03,
-		Reg::R4 => 0x04,
-		Reg::R5 => 0x05,
-		Reg::R6 => 0x06,
-		Reg::R7 => 0x07,
+impl Reg {
+
+	/// Encode a general purpose register into its binary representation
+	pub fn encode(&self) -> u8 {
+		match self {
+			&Reg::R0 => 0x00,
+			&Reg::R1 => 0x01,
+			&Reg::R2 => 0x02,
+			&Reg::R3 => 0x03,
+			&Reg::R4 => 0x04,
+			&Reg::R5 => 0x05,
+			&Reg::R6 => 0x06,
+			&Reg::R7 => 0x07,
+		}
 	}
 }
 
 /// 16-bits address Regs. 
 pub enum AddrReg { A0, A1, A2, A3 }
 
-/// Encode a general purpose register into its binary representation
-pub fn enc_areg(r: AddrReg) -> u8 {
-	match r {
-		AddrReg::A0 => 0x00,
-		AddrReg::A1 => 0x01,
-		AddrReg::A2 => 0x02,
-		AddrReg::A3 => 0x03,
+impl AddrReg {
+	
+	/// Encode a general purpose register into its binary representation
+	pub fn encode(&self) -> u8 {
+		match self {
+			&AddrReg::A0 => 0x00,
+			&AddrReg::A1 => 0x01,
+			&AddrReg::A2 => 0x02,
+			&AddrReg::A3 => 0x03,
+		}
 	}
 }
 
@@ -114,8 +120,7 @@ enum EncError {
 /// The result of an encoding operation
 pub type EncResult = Option<EncError>;
 
-/// Encode a instruction using the given writer
-pub fn encode<W: Writer>(i: Instruction, w: &mut W) -> EncResult {	
+impl Instruction {
 
 	fn enc<W: Writer>(w: &mut W, byte: u8) -> EncResult {
 		match w.write_u8(byte) {
@@ -124,46 +129,46 @@ pub fn encode<W: Writer>(i: Instruction, w: &mut W) -> EncResult {
 		}
 	}	
 
-	fn enc_with_reg<W: Writer>(w: &mut W, byte: u8, reg: Reg) -> EncResult {
-		match w.write_u8(byte | enc_reg(reg)) {
+	fn enc_with_reg<W: Writer>(w: &mut W, byte: u8, reg: &Reg) -> EncResult {
+		match w.write_u8(byte | reg.encode()) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
 	}
 
-	fn enc_with_areg<W: Writer>(w: &mut W, byte: u8, areg: AddrReg) -> EncResult {
-		match w.write_u8(byte | enc_areg(areg)) {
+	fn enc_with_areg<W: Writer>(w: &mut W, byte: u8, areg: &AddrReg) -> EncResult {
+		match w.write_u8(byte | areg.encode()) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
 	}
 
-	fn enc_with_reg_k<W: Writer>(w: &mut W, byte: u8, reg: Reg, k: i8) -> EncResult {
-		match w.write_all(&[byte | enc_reg(reg), k as u8]) {
+	fn enc_with_reg_k<W: Writer>(w: &mut W, byte: u8, reg: &Reg, k: i8) -> EncResult {
+		match w.write_all(&[byte | reg.encode(), k as u8]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
 	}
 
-	fn enc_with_reg_word<W: Writer>(w: &mut W, byte: u8, reg: Reg, word: u16) -> EncResult {
+	fn enc_with_reg_word<W: Writer>(w: &mut W, byte: u8, reg: &Reg, word: u16) -> EncResult {
 		let l = (word.to_be() >> 8) as u8;
 		let r = word.to_be() as u8;
-		match w.write_all(&[byte | enc_reg(reg), l, r]) {
+		match w.write_all(&[byte | reg.encode(), l, r]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
 	}
 
-	fn enc_with_areg_reg<W: Writer>(w: &mut W, byte: u8, areg: AddrReg, reg: Reg) -> EncResult {
-		let regs = enc_reg(reg) | (enc_areg(areg) << 3);
+	fn enc_with_areg_reg<W: Writer>(w: &mut W, byte: u8, areg: &AddrReg, reg: &Reg) -> EncResult {
+		let regs = reg.encode() | (areg.encode() << 3);
 		match w.write_all(&[byte, regs]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
 	}
 
-	fn enc_with_reg_areg<W: Writer>(w: &mut W, byte: u8, reg: Reg, areg: AddrReg) -> EncResult {
-		let regs = enc_areg(areg) | (enc_reg(reg) << 3);
+	fn enc_with_reg_areg<W: Writer>(w: &mut W, byte: u8, reg: &Reg, areg: &AddrReg) -> EncResult {
+		let regs = areg.encode() | (reg.encode() << 3);
 		match w.write_all(&[byte, regs]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
@@ -171,8 +176,8 @@ pub fn encode<W: Writer>(i: Instruction, w: &mut W) -> EncResult {
 	}
 
 	fn enc_with_reg_reg<W: Writer>(w: &mut W, byte: u8, 
-								   mask: u8, reg1: Reg, reg2: Reg) -> EncResult {
-		let regs = mask | enc_reg(reg2) | (enc_reg(reg1) << 3);
+								   mask: u8, reg1: &Reg, reg2: &Reg) -> EncResult {
+		let regs = mask | reg2.encode() | (reg1.encode() << 3);
 		match w.write_all(&[byte, regs]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
@@ -180,8 +185,8 @@ pub fn encode<W: Writer>(i: Instruction, w: &mut W) -> EncResult {
 	}
 
 	fn enc_with_areg_areg<W: Writer>(w: &mut W, byte: u8, 
-								   mask: u8, areg1: AddrReg, areg2: AddrReg) -> EncResult {
-		let regs = mask | enc_areg(areg2) | (enc_areg(areg1) << 3);
+								   mask: u8, areg1: &AddrReg, areg2: &AddrReg) -> EncResult {
+		let regs = mask | areg2.encode() | (areg1.encode() << 3);
 		match w.write_all(&[byte, regs]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
@@ -207,53 +212,102 @@ pub fn encode<W: Writer>(i: Instruction, w: &mut W) -> EncResult {
 		}
 	}
 
-	match i {
-		Instruction::Add(r1, r2) => { enc_with_reg_reg(w, 0xf8, 0x00, r1, r2) },
-		Instruction::Addw(a1, a2) => { enc_with_areg_areg(w, 0xf8, 0x40, a1, a2) },
-		Instruction::Addi(r, k) => { enc_with_reg_k(w, 0xc0, r, k) },
-		Instruction::Sub(r1, r2) => { enc_with_reg_reg(w, 0xf8, 0x80, r1, r2) },
-		Instruction::Subw(a1, a2) => { enc_with_areg_areg(w, 0xf8, 0xc0, a1, a2) },
-		Instruction::Subi(r, k) => { enc_with_reg_k(w, 0xc8, r, k) },
-		Instruction::Mulw(a1, a2) => { enc_with_areg_areg(w, 0xf8, 0x40, a1, a2) },
-		Instruction::And(r1, r2) => { enc_with_reg_reg(w, 0xf9, 0x00, r1, r2) },
-		Instruction::Or(r1, r2) => { enc_with_reg_reg(w, 0xf9, 0x80, r1, r2) },
-		Instruction::Xor(r1, r2) => { enc_with_reg_reg(w, 0xfa, 0x00, r1, r2) },
-		Instruction::Lsl(r1, r2) => { enc_with_reg_reg(w, 0xfc, 0x00, r1, r2) },
-		Instruction::Lsr(r1, r2) => { enc_with_reg_reg(w, 0xfc, 0x80, r1, r2) },
-		Instruction::Asr(r1, r2) => { enc_with_reg_reg(w, 0xfd, 0x80, r1, r2) },
-		Instruction::Not(r) => { enc_with_reg(w, 0xd0, r) },
-		Instruction::Comp(r) => { enc_with_reg(w, 0xd8, r) },
-		Instruction::Inc(r) => { enc_with_reg(w, 0xe0, r) },
-		Instruction::Incw(a) => { enc_with_areg(w, 0xf0, a) },
-		Instruction::Dec(r) => { enc_with_reg(w, 0xe8, r) },
-		Instruction::Decw(a) => { enc_with_areg(w, 0xf4, a) },
-		Instruction::Mov(r1, r2) => { enc_with_reg_reg(w, 0x78, 0x00, r1, r2) },
-		Instruction::Ld(r, a) => { enc_with_reg_areg(w, 0x79, r, a) },
-		Instruction::St(a, r) => { enc_with_areg_reg(w, 0x7a, a, r) },
-		Instruction::Ldd(r, a) => { enc_with_reg_word(w, 0x40, r, a) },
-		Instruction::Std(a, r) => { enc_with_reg_word(w, 0x48, r, a) },
-		Instruction::Ldi(r, k) => { enc_with_reg_k(w, 0x50, r, k) },
-		Instruction::Ldsp(r) => { enc_with_areg(w, 0x58, r) },
-		Instruction::Push(r) => { enc_with_reg(w, 0x60, r) },
-		Instruction::Pop(r) => { enc_with_reg(w, 0x70, r) },
-		Instruction::Je(o) => { enc_with_offset(w, 0x80, o) },
-		Instruction::Jne(o) => { enc_with_offset(w, 0x84, o) },
-		Instruction::Jl(o) => { enc_with_offset(w, 0x88, o) },
-		Instruction::Jge(o) => { enc_with_offset(w, 0x8c, o) },
-		Instruction::Jcc(o) => { enc_with_offset(w, 0x90, o) },
-		Instruction::Jcs(o) => { enc_with_offset(w, 0x94, o) },
-		Instruction::Jvc(o) => { enc_with_offset(w, 0x98, o) },
-		Instruction::Jvs(o) => { enc_with_offset(w, 0x9c, o) },
-		Instruction::Jmp(a) => { enc_with_word(w, 0xa0, a) },
-		Instruction::Rjmp(o) => { enc_with_offset(w, 0xa4, o) },
-		Instruction::Ijmp(a) => { enc_with_areg(w, 0xa8, a) },
-		Instruction::Call(a) => { enc_with_word(w, 0xac, a) },
-		Instruction::Rcall(o) => { enc_with_offset(w, 0xb0, o) },
-		Instruction::Icall(a) => { enc_with_areg(w, 0xb4, a) },
-		Instruction::Ret => { enc(w, 0xb8) },
-		Instruction::Reti => { enc(w, 0xbc) },
-		Instruction::Nop => { enc(w, 0x00) },
-		Instruction::Halt => { enc(w, 0x15) },
+	/// Encode a instruction using the given writer
+	pub fn encode<W: Writer>(&self, w: &mut W) -> EncResult {	
+		match self {
+			&Instruction::Add(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xf8, 0x00, &r1, &r2),
+			&Instruction::Addw(ref a1, ref a2) =>
+				Instruction::enc_with_areg_areg(w, 0xf8, 0x40, &a1, &a2),
+			&Instruction::Addi(ref r, k) =>
+				Instruction::enc_with_reg_k(w, 0xc0, &r, k),
+			&Instruction::Sub(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xf8, 0x80, &r1, &r2),
+			&Instruction::Subw(ref a1, ref a2) =>
+				Instruction::enc_with_areg_areg(w, 0xf8, 0xc0, &a1, &a2), 
+			&Instruction::Subi(ref r, k) =>
+				Instruction::enc_with_reg_k(w, 0xc8, &r, k),
+			&Instruction::Mulw(ref a1, ref a2) =>
+				Instruction::enc_with_areg_areg(w, 0xf8, 0x40, &a1, &a2),
+			&Instruction::And(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xf9, 0x00, &r1, &r2),
+			&Instruction::Or(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xf9, 0x80, &r1, &r2),
+			&Instruction::Xor(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xfa, 0x00, &r1, &r2),
+			&Instruction::Lsl(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xfc, 0x00, &r1, &r2),
+			&Instruction::Lsr(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xfc, 0x80, &r1, &r2),
+			&Instruction::Asr(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0xfd, 0x80, &r1, &r2),
+			&Instruction::Not(ref r) =>
+				Instruction::enc_with_reg(w, 0xd0, &r),
+			&Instruction::Comp(ref r) =>
+				Instruction::enc_with_reg(w, 0xd8, &r),
+			&Instruction::Inc(ref r) =>
+				Instruction::enc_with_reg(w, 0xe0, &r),
+			&Instruction::Incw(ref a) =>
+				Instruction::enc_with_areg(w, 0xf0, &a), 
+			&Instruction::Dec(ref r) =>
+				Instruction::enc_with_reg(w, 0xe8, &r),
+			&Instruction::Decw(ref a) =>
+				Instruction::enc_with_areg(w, 0xf4, &a), 
+			&Instruction::Mov(ref r1, ref r2) =>
+				Instruction::enc_with_reg_reg(w, 0x78, 0x00, &r1, &r2),
+			&Instruction::Ld(ref r, ref a) =>
+				Instruction::enc_with_reg_areg(w, 0x79, &r, &a),
+			&Instruction::St(ref a, ref r) =>
+				Instruction::enc_with_areg_reg(w, 0x7a, &a, &r),
+			&Instruction::Ldd(ref r, a) =>
+				Instruction::enc_with_reg_word(w, 0x40, &r, a),
+			&Instruction::Std(a, ref r) =>
+				Instruction::enc_with_reg_word(w, 0x48, &r, a),
+			&Instruction::Ldi(ref r, k) =>
+				Instruction::enc_with_reg_k(w, 0x50, &r, k),
+			&Instruction::Ldsp(ref r) =>
+				Instruction::enc_with_areg(w, 0x58, &r),
+			&Instruction::Push(ref r) =>
+				Instruction::enc_with_reg(w, 0x60, &r),
+			&Instruction::Pop(ref r) =>
+				Instruction::enc_with_reg(w, 0x70, &r),
+			&Instruction::Je(o) =>
+				Instruction::enc_with_offset(w, 0x80, o),
+			&Instruction::Jne(o) =>
+				Instruction::enc_with_offset(w, 0x84, o),
+			&Instruction::Jl(o) =>
+				Instruction::enc_with_offset(w, 0x88, o),
+			&Instruction::Jge(o) =>
+				Instruction::enc_with_offset(w, 0x8c, o),
+			&Instruction::Jcc(o) =>
+				Instruction::enc_with_offset(w, 0x90, o),
+			&Instruction::Jcs(o) =>
+				Instruction::enc_with_offset(w, 0x94, o),
+			&Instruction::Jvc(o) =>
+				Instruction::enc_with_offset(w, 0x98, o),
+			&Instruction::Jvs(o) =>
+				Instruction::enc_with_offset(w, 0x9c, o),
+			&Instruction::Jmp(a) =>
+				Instruction::enc_with_word(w, 0xa0, a),
+			&Instruction::Rjmp(o) =>
+				Instruction::enc_with_offset(w, 0xa4, o),
+			&Instruction::Ijmp(ref a) =>
+				Instruction::enc_with_areg(w, 0xa8, &a),
+			&Instruction::Call(a) =>
+				Instruction::enc_with_word(w, 0xac, a),
+			&Instruction::Rcall(o) =>
+				Instruction::enc_with_offset(w, 0xb0, o),
+			&Instruction::Icall(ref a) =>
+				Instruction::enc_with_areg(w, 0xb4, &a),
+			&Instruction::Ret =>
+				Instruction::enc(w, 0xb8),
+			&Instruction::Reti =>
+				Instruction::enc(w, 0xbc),
+			&Instruction::Nop =>
+				Instruction::enc(w, 0x00),
+			&Instruction::Halt =>
+				Instruction::enc(w, 0x15),
+		}
 	}
 }
 
@@ -266,7 +320,7 @@ mod tests {
 
 	fn assert_encode(inst: Instruction, bytes: &[u8]) {
 		let mut w = MemWriter::new();
-		encode(inst, &mut w);
+		inst.encode(&mut w);
 		assert_eq!(w.into_inner(), bytes);
 	}	
 
