@@ -10,7 +10,7 @@ use std::old_io as io;
 use std::num::{Int};
 
 /// An immediate value that comes after an opcode. 
-pub type Immediate = i8;
+pub type Immediate = u8;
 
 /// An address in SP-80 of 16-bits
 pub type Addr = u16;
@@ -143,8 +143,8 @@ impl Instruction {
 		}
 	}
 
-	fn enc_with_reg_k<W: Writer>(w: &mut W, byte: u8, reg: &Reg, k: i8) -> EncResult {
-		match w.write_all(&[byte | reg.encode(), k as u8]) {
+	fn enc_with_reg_k<W: Writer>(w: &mut W, byte: u8, reg: &Reg, k: u8) -> EncResult {
+		match w.write_all(&[byte | reg.encode(), k]) {
 			Ok(_) =>  None,
 			Err(e) => Some(EncError::IoError(e)),
 		}
