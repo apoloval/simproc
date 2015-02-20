@@ -55,7 +55,7 @@ impl AddrReg {
 }
 
 /// A SP-80 instruction
-pub enum Instruction {
+pub enum Sp80Inst {
 
 	// Arithmetic-logic instructions
 	Add(Reg, Reg),
@@ -148,57 +148,57 @@ macro_rules! pack {
 
 }
 
-impl Instruction {
+impl Sp80Inst {
 
 	/// Encode a instruction using the given writer
 	pub fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()> {	
 		match self {
-			&Instruction::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
-			&Instruction::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
-			&Instruction::Addi(ref r, k) => pack!(w, reg r in 0xc0, byte k),
-			&Instruction::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
-			&Instruction::Subw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0xc0),
-			&Instruction::Subi(ref r, k) => pack!(w, reg r in 0xc8, byte k),
-			&Instruction::Mulw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
-			&Instruction::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
-			&Instruction::Or(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x80),
-			&Instruction::Xor(ref r1, ref r2) => pack!(w, 0xfa, regs r1, r2 in 0x00),
-			&Instruction::Lsl(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x00),
-			&Instruction::Lsr(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x80),
-			&Instruction::Asr(ref r1, ref r2) => pack!(w, 0xfd, regs r1, r2 in 0x80),
-			&Instruction::Not(ref r) => pack!(w, reg r in 0xd0),
-			&Instruction::Comp(ref r) => pack!(w, reg r in 0xd8),
-			&Instruction::Inc(ref r) => pack!(w, reg r in 0xe0),
-			&Instruction::Incw(ref a) => pack!(w, reg a in 0xf0),
-			&Instruction::Dec(ref r) => pack!(w, reg r in 0xe8),
-			&Instruction::Decw(ref a) => pack!(w, reg a in 0xf4),
-			&Instruction::Mov(ref r1, ref r2) => pack!(w, 0x78, regs r1, r2 in 0x00),
-			&Instruction::Ld(ref r, ref a) => pack!(w, 0x79, regs r, a in 0x00),
-			&Instruction::St(ref a, ref r) => pack!(w, 0x7a, regs a, r in 0x00),
-			&Instruction::Ldd(ref r, a) => pack!(w, reg r in 0x40, word a),
-			&Instruction::Std(a, ref r) => pack!(w, reg r in 0x48, word a),
-			&Instruction::Ldi(ref r, k) => pack!(w, reg r in 0x50, byte k),
-			&Instruction::Ldsp(ref r) => pack!(w, reg r in 0x58),
-			&Instruction::Push(ref r) => pack!(w, reg r in 0x60),
-			&Instruction::Pop(ref r) => pack!(w, reg r in 0x70),
-			&Instruction::Je(o) => pack!(w, offset o in 0x80),
-			&Instruction::Jne(o) => pack!(w, offset o in 0x84),
-			&Instruction::Jl(o) => pack!(w, offset o in 0x88),
-			&Instruction::Jge(o) => pack!(w, offset o in 0x8c),
-			&Instruction::Jcc(o) => pack!(w, offset o in 0x90),
-			&Instruction::Jcs(o) => pack!(w, offset o in 0x94),
-			&Instruction::Jvc(o) => pack!(w, offset o in 0x98),
-			&Instruction::Jvs(o) => pack!(w, offset o in 0x9c),
-			&Instruction::Jmp(a) => pack!(w, word a in 0xa0),
-			&Instruction::Rjmp(o) => pack!(w, offset o in 0xa4),
-			&Instruction::Ijmp(ref a) => pack!(w, reg a in 0xa8),
-			&Instruction::Call(a) => pack!(w, word a in 0xac),
-			&Instruction::Rcall(o) => pack!(w, offset o in 0xb0),
-			&Instruction::Icall(ref a) => pack!(w, reg a in 0xb4),
-			&Instruction::Ret => pack!(w, 0xb8),
-			&Instruction::Reti => pack!(w, 0xbc),
-			&Instruction::Nop => pack!(w, 0x00),
-			&Instruction::Halt => pack!(w, 0x15),
+			&Sp80Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
+			&Sp80Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
+			&Sp80Inst::Addi(ref r, k) => pack!(w, reg r in 0xc0, byte k),
+			&Sp80Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
+			&Sp80Inst::Subw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0xc0),
+			&Sp80Inst::Subi(ref r, k) => pack!(w, reg r in 0xc8, byte k),
+			&Sp80Inst::Mulw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
+			&Sp80Inst::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
+			&Sp80Inst::Or(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x80),
+			&Sp80Inst::Xor(ref r1, ref r2) => pack!(w, 0xfa, regs r1, r2 in 0x00),
+			&Sp80Inst::Lsl(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x00),
+			&Sp80Inst::Lsr(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x80),
+			&Sp80Inst::Asr(ref r1, ref r2) => pack!(w, 0xfd, regs r1, r2 in 0x80),
+			&Sp80Inst::Not(ref r) => pack!(w, reg r in 0xd0),
+			&Sp80Inst::Comp(ref r) => pack!(w, reg r in 0xd8),
+			&Sp80Inst::Inc(ref r) => pack!(w, reg r in 0xe0),
+			&Sp80Inst::Incw(ref a) => pack!(w, reg a in 0xf0),
+			&Sp80Inst::Dec(ref r) => pack!(w, reg r in 0xe8),
+			&Sp80Inst::Decw(ref a) => pack!(w, reg a in 0xf4),
+			&Sp80Inst::Mov(ref r1, ref r2) => pack!(w, 0x78, regs r1, r2 in 0x00),
+			&Sp80Inst::Ld(ref r, ref a) => pack!(w, 0x79, regs r, a in 0x00),
+			&Sp80Inst::St(ref a, ref r) => pack!(w, 0x7a, regs a, r in 0x00),
+			&Sp80Inst::Ldd(ref r, a) => pack!(w, reg r in 0x40, word a),
+			&Sp80Inst::Std(a, ref r) => pack!(w, reg r in 0x48, word a),
+			&Sp80Inst::Ldi(ref r, k) => pack!(w, reg r in 0x50, byte k),
+			&Sp80Inst::Ldsp(ref r) => pack!(w, reg r in 0x58),
+			&Sp80Inst::Push(ref r) => pack!(w, reg r in 0x60),
+			&Sp80Inst::Pop(ref r) => pack!(w, reg r in 0x70),
+			&Sp80Inst::Je(o) => pack!(w, offset o in 0x80),
+			&Sp80Inst::Jne(o) => pack!(w, offset o in 0x84),
+			&Sp80Inst::Jl(o) => pack!(w, offset o in 0x88),
+			&Sp80Inst::Jge(o) => pack!(w, offset o in 0x8c),
+			&Sp80Inst::Jcc(o) => pack!(w, offset o in 0x90),
+			&Sp80Inst::Jcs(o) => pack!(w, offset o in 0x94),
+			&Sp80Inst::Jvc(o) => pack!(w, offset o in 0x98),
+			&Sp80Inst::Jvs(o) => pack!(w, offset o in 0x9c),
+			&Sp80Inst::Jmp(a) => pack!(w, word a in 0xa0),
+			&Sp80Inst::Rjmp(o) => pack!(w, offset o in 0xa4),
+			&Sp80Inst::Ijmp(ref a) => pack!(w, reg a in 0xa8),
+			&Sp80Inst::Call(a) => pack!(w, word a in 0xac),
+			&Sp80Inst::Rcall(o) => pack!(w, offset o in 0xb0),
+			&Sp80Inst::Icall(ref a) => pack!(w, reg a in 0xb4),
+			&Sp80Inst::Ret => pack!(w, 0xb8),
+			&Sp80Inst::Reti => pack!(w, 0xbc),
+			&Sp80Inst::Nop => pack!(w, 0x00),
+			&Sp80Inst::Halt => pack!(w, 0x15),
 		}
 	}
 }
@@ -210,147 +210,147 @@ mod tests {
 
 	use super::*;
 
-	fn assert_encode(inst: Instruction, bytes: &[u8]) {
+	fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
 		let mut w = MemWriter::new();
 		inst.encode(&mut w);
 		assert_eq!(w.into_inner(), bytes);
 	}	
 
 	#[test]
-	fn encode_add() { assert_encode(Instruction::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
+	fn encode_add() { assert_encode(Sp80Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
 
 	#[test]
-	fn encode_addw() { assert_encode(Instruction::Addw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
+	fn encode_addw() { assert_encode(Sp80Inst::Addw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
 
 	#[test]
-	fn encode_addi() { assert_encode(Instruction::Addi(Reg::R3, 100), &[0xc3, 0x64]); }
+	fn encode_addi() { assert_encode(Sp80Inst::Addi(Reg::R3, 100), &[0xc3, 0x64]); }
 
 	#[test]
-	fn encode_sub() { assert_encode(Instruction::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
+	fn encode_sub() { assert_encode(Sp80Inst::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
 
 	#[test]
-	fn encode_subw() { assert_encode(Instruction::Subw(AddrReg::A3, AddrReg::A2), &[0xf8, 0xda]); }
+	fn encode_subw() { assert_encode(Sp80Inst::Subw(AddrReg::A3, AddrReg::A2), &[0xf8, 0xda]); }
 
 	#[test]
-	fn encode_subi() { assert_encode(Instruction::Subi(Reg::R3, 100), &[0xcb, 0x64]); }
+	fn encode_subi() { assert_encode(Sp80Inst::Subi(Reg::R3, 100), &[0xcb, 0x64]); }
 
 	#[test]
-	fn encode_mulw() { assert_encode(Instruction::Mulw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
+	fn encode_mulw() { assert_encode(Sp80Inst::Mulw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
 
 	#[test]
-	fn encode_and() { assert_encode(Instruction::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }
+	fn encode_and() { assert_encode(Sp80Inst::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }
 
 	#[test]
-	fn encode_or() { assert_encode(Instruction::Or(Reg::R3, Reg::R5), &[0xf9, 0x9d]); }
+	fn encode_or() { assert_encode(Sp80Inst::Or(Reg::R3, Reg::R5), &[0xf9, 0x9d]); }
 
 	#[test]
-	fn encode_xor() { assert_encode(Instruction::Xor(Reg::R1, Reg::R7), &[0xfa, 0x0f]); }
+	fn encode_xor() { assert_encode(Sp80Inst::Xor(Reg::R1, Reg::R7), &[0xfa, 0x0f]); }
 
 	#[test]
-	fn encode_lsl() { assert_encode(Instruction::Lsl(Reg::R3, Reg::R4), &[0xfc, 0x1c]); }
+	fn encode_lsl() { assert_encode(Sp80Inst::Lsl(Reg::R3, Reg::R4), &[0xfc, 0x1c]); }
 
 	#[test]
-	fn encode_lsr() { assert_encode(Instruction::Lsr(Reg::R6, Reg::R1), &[0xfc, 0xb1]); }
+	fn encode_lsr() { assert_encode(Sp80Inst::Lsr(Reg::R6, Reg::R1), &[0xfc, 0xb1]); }
 
 	#[test]
-	fn encode_asr() { assert_encode(Instruction::Asr(Reg::R1, Reg::R2), &[0xfd, 0x8a]); }
+	fn encode_asr() { assert_encode(Sp80Inst::Asr(Reg::R1, Reg::R2), &[0xfd, 0x8a]); }
 
 	#[test]
-	fn encode_not() { assert_encode(Instruction::Not(Reg::R5), &[0xd5]); }
+	fn encode_not() { assert_encode(Sp80Inst::Not(Reg::R5), &[0xd5]); }
 
 	#[test]
-	fn encode_comp() { assert_encode(Instruction::Comp(Reg::R1), &[0xd9]); }
+	fn encode_comp() { assert_encode(Sp80Inst::Comp(Reg::R1), &[0xd9]); }
 
 	#[test]
-	fn encode_inc() { assert_encode(Instruction::Inc(Reg::R6), &[0xe6]); }
+	fn encode_inc() { assert_encode(Sp80Inst::Inc(Reg::R6), &[0xe6]); }
 
 	#[test]
-	fn encode_incw() { assert_encode(Instruction::Incw(AddrReg::A2), &[0xf2]); }
+	fn encode_incw() { assert_encode(Sp80Inst::Incw(AddrReg::A2), &[0xf2]); }
 
 	#[test]
-	fn encode_dec() { assert_encode(Instruction::Dec(Reg::R7), &[0xef]); }
+	fn encode_dec() { assert_encode(Sp80Inst::Dec(Reg::R7), &[0xef]); }
 
 	#[test]
-	fn encode_decw() { assert_encode(Instruction::Decw(AddrReg::A1), &[0xf5]); }
+	fn encode_decw() { assert_encode(Sp80Inst::Decw(AddrReg::A1), &[0xf5]); }
 
 	#[test]
-	fn encode_mov() { assert_encode(Instruction::Mov(Reg::R6, Reg::R2), &[0x78, 0x32]); }
+	fn encode_mov() { assert_encode(Sp80Inst::Mov(Reg::R6, Reg::R2), &[0x78, 0x32]); }
 
 	#[test]
-	fn encode_ld() { assert_encode(Instruction::Ld(Reg::R4, AddrReg::A1), &[0x79, 0x21]); }
+	fn encode_ld() { assert_encode(Sp80Inst::Ld(Reg::R4, AddrReg::A1), &[0x79, 0x21]); }
 
 	#[test]
-	fn encode_st() { assert_encode(Instruction::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
+	fn encode_st() { assert_encode(Sp80Inst::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
 
 	#[test]
-	fn encode_ldd() { assert_encode(Instruction::Ldd(Reg::R1, 0x2010), &[0x41, 0x10, 0x20]); }
+	fn encode_ldd() { assert_encode(Sp80Inst::Ldd(Reg::R1, 0x2010), &[0x41, 0x10, 0x20]); }
 
 	#[test]
-	fn encode_std() { assert_encode(Instruction::Std(0x1020, Reg::R6), &[0x4e, 0x20, 0x10]); }
+	fn encode_std() { assert_encode(Sp80Inst::Std(0x1020, Reg::R6), &[0x4e, 0x20, 0x10]); }
 
 	#[test]
-	fn encode_ldi() { assert_encode(Instruction::Ldi(Reg::R2, -13), &[0x52, 0xf3]); }
+	fn encode_ldi() { assert_encode(Sp80Inst::Ldi(Reg::R2, -13), &[0x52, 0xf3]); }
 
 	#[test]
-	fn encode_ldsp() { assert_encode(Instruction::Ldsp(AddrReg::A1), &[0x59]); }
+	fn encode_ldsp() { assert_encode(Sp80Inst::Ldsp(AddrReg::A1), &[0x59]); }
 
 	#[test]
-	fn encode_push() { assert_encode(Instruction::Push(Reg::R3), &[0x63]); }
+	fn encode_push() { assert_encode(Sp80Inst::Push(Reg::R3), &[0x63]); }
 
 	#[test]
-	fn encode_pop() { assert_encode(Instruction::Pop(Reg::R5), &[0x75]); }
+	fn encode_pop() { assert_encode(Sp80Inst::Pop(Reg::R5), &[0x75]); }
 
 	#[test]
-	fn encode_je() { assert_encode(Instruction::Je(1), &[0x80, 0x01]); }
+	fn encode_je() { assert_encode(Sp80Inst::Je(1), &[0x80, 0x01]); }
 
 	#[test]
-	fn encode_jne() { assert_encode(Instruction::Jne(-1), &[0x87, 0xff]); }
+	fn encode_jne() { assert_encode(Sp80Inst::Jne(-1), &[0x87, 0xff]); }
 
 	#[test]
-	fn encode_jl() { assert_encode(Instruction::Jl(2), &[0x88, 0x02]); }
+	fn encode_jl() { assert_encode(Sp80Inst::Jl(2), &[0x88, 0x02]); }
 
 	#[test]
-	fn encode_jge() { assert_encode(Instruction::Jge(-2), &[0x8f, 0xfe]); }
+	fn encode_jge() { assert_encode(Sp80Inst::Jge(-2), &[0x8f, 0xfe]); }
 
 	#[test]
-	fn encode_jcc() { assert_encode(Instruction::Jcc(3), &[0x90, 0x03]); }
+	fn encode_jcc() { assert_encode(Sp80Inst::Jcc(3), &[0x90, 0x03]); }
 
 	#[test]
-	fn encode_jcs() { assert_encode(Instruction::Jcs(-3), &[0x97, 0xfd]); }
+	fn encode_jcs() { assert_encode(Sp80Inst::Jcs(-3), &[0x97, 0xfd]); }
 
 	#[test]
-	fn encode_jvc() { assert_encode(Instruction::Jvc(4), &[0x98, 0x04]); }
+	fn encode_jvc() { assert_encode(Sp80Inst::Jvc(4), &[0x98, 0x04]); }
 
 	#[test]
-	fn encode_jvs() { assert_encode(Instruction::Jvs(-4), &[0x9f, 0xfc]); }
+	fn encode_jvs() { assert_encode(Sp80Inst::Jvs(-4), &[0x9f, 0xfc]); }
 
 	#[test]
-	fn encode_jmp() { assert_encode(Instruction::Jmp(0x4321), &[0xa0, 0x21, 0x43]); }
+	fn encode_jmp() { assert_encode(Sp80Inst::Jmp(0x4321), &[0xa0, 0x21, 0x43]); }
 
 	#[test]
-	fn encode_rjmp() { assert_encode(Instruction::Rjmp(100), &[0xa4, 0x64]); }
+	fn encode_rjmp() { assert_encode(Sp80Inst::Rjmp(100), &[0xa4, 0x64]); }
 
 	#[test]
-	fn encode_ijmp() { assert_encode(Instruction::Ijmp(AddrReg::A3), &[0xab]); }
+	fn encode_ijmp() { assert_encode(Sp80Inst::Ijmp(AddrReg::A3), &[0xab]); }
 
 	#[test]
-	fn encode_call() { assert_encode(Instruction::Call(0x1234), &[0xac, 0x34, 0x12]); }
+	fn encode_call() { assert_encode(Sp80Inst::Call(0x1234), &[0xac, 0x34, 0x12]); }
 
 	#[test]
-	fn encode_rcall() { assert_encode(Instruction::Rcall(-100), &[0xb3, 0x9c]); }
+	fn encode_rcall() { assert_encode(Sp80Inst::Rcall(-100), &[0xb3, 0x9c]); }
 
 	#[test]
-	fn encode_icall() { assert_encode(Instruction::Icall(AddrReg::A2), &[0xb6]); }
+	fn encode_icall() { assert_encode(Sp80Inst::Icall(AddrReg::A2), &[0xb6]); }
 
 	#[test]
-	fn encode_ret() { assert_encode(Instruction::Ret, &[0xb8]); }
+	fn encode_ret() { assert_encode(Sp80Inst::Ret, &[0xb8]); }
 
 	#[test]
-	fn encode_reti() { assert_encode(Instruction::Reti, &[0xbc]); }
+	fn encode_reti() { assert_encode(Sp80Inst::Reti, &[0xbc]); }
 
 	#[test]
-	fn encode_nop() { assert_encode(Instruction::Nop, &[0x00]); }
+	fn encode_nop() { assert_encode(Sp80Inst::Nop, &[0x00]); }
 
 	#[test]
-	fn encode_halt() { assert_encode(Instruction::Halt, &[0x15]); }
+	fn encode_halt() { assert_encode(Sp80Inst::Halt, &[0x15]); }
 }
