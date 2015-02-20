@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::old_io as io;
+use std::old_io::IoResult;
 use std::num::{Int};
 
 /// An immediate value that comes after an opcode. 
@@ -112,67 +112,38 @@ pub enum Instruction {
 	Halt,
 }
 
-/// A encoding error
-enum EncError {
-	IoError(io::IoError),
-}
-
-/// The result of an encoding operation
-pub type EncResult = Option<EncError>;
-
 /// A macro to pack bits using the opcode coding of SP-80. 
 macro_rules! pack {
 	($w:ident, $($b:expr),+) => (
-		match $w.write_all(&[$($b)+]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$($b)+])
 	);
 
 	($w:ident, reg $($r:ident),+ in $b:expr) => (
-		match $w.write_all(&[$($b | $r.encode())+]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$($b | $r.encode())+])
 	);
 
 	($w:ident, offset $o:ident in $b:expr) => ({
 		let bin = ($o & 0x03ff).to_le();
 		let l = (bin >> 8) as u8;
 		let r = bin as u8;
-		match $w.write_all(&[$b | l, r]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$b | l, r])
 	});
 	($w:ident, word $wrd:ident in $b:expr) => ({
 		let l = ($wrd.to_be() >> 8) as u8;
 		let r = $wrd.to_be() as u8;
-		match $w.write_all(&[$b, l, r]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$b, l, r])
 	});
 	($w:ident, $b1:expr, regs $r1:ident, $r2:ident in $b2:expr) => ({
 		let regs = $b2 | $r2.encode() | ($r1.encode() << 3);
-		match $w.write_all(&[$b1, regs]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$b1, regs])
 	});
 	($w:ident, reg $r:ident in $b:expr, word $wrd:expr) => ({
 		let l = ($wrd.to_be() >> 8) as u8;
 		let r = $wrd.to_be() as u8;
-		match $w.write_all(&[$b | $r.encode(), l, r]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$b | $r.encode(), l, r])
 	});
 	($w:ident, reg $r:ident in $b1:expr, byte $b2:expr) => ({
-		match $w.write_all(&[$b1 | $r.encode(), $b2]) {
-			Ok(_) =>  None,
-			Err(e) => Some(EncError::IoError(e)),
-		}
+		$w.write_all(&[$b1 | $r.encode(), $b2])
 	});
 
 }
@@ -180,7 +151,7 @@ macro_rules! pack {
 impl Instruction {
 
 	/// Encode a instruction using the given writer
-	pub fn encode<W: Writer>(&self, w: &mut W) -> EncResult {	
+	pub fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()> {	
 		match self {
 			&Instruction::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
 			&Instruction::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
