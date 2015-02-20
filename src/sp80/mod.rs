@@ -9,6 +9,8 @@
 use std::old_io::IoResult;
 use std::num::{Int};
 
+use super::Inst;
+
 /// An immediate value that comes after an opcode. 
 pub type Immediate = u8;
 
@@ -148,10 +150,10 @@ macro_rules! pack {
 
 }
 
-impl Sp80Inst {
+impl Inst for Sp80Inst {
 
 	/// Encode a instruction using the given writer
-	pub fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()> {	
+	fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()> {
 		match self {
 			&Sp80Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
 			&Sp80Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
@@ -208,11 +210,12 @@ mod tests {
 
 	use std::old_io::MemWriter;
 
+	use super::super::Inst;
 	use super::*;
 
 	fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
 		let mut w = MemWriter::new();
-		inst.encode(&mut w);
+		assert!(inst.encode(&mut w).is_ok());
 		assert_eq!(w.into_inner(), bytes);
 	}	
 

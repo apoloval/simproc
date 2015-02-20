@@ -8,4 +8,11 @@
 
 #![feature(io)]
 
+use std::old_io::IoResult;
+
 pub mod sp80;
+
+/// A SimProc instruction
+trait Inst {
+	fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()>;
+}
