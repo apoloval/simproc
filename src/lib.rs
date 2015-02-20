@@ -16,3 +16,6 @@ pub mod sp80;
 trait Inst {
 	fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()>;
 }
+
+#[cfg(test)]
+mod sp80_test;
