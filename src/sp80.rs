@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::old_io::IoResult;
+use std::io;
 use std::num::{Int};
 
 use super::Inst;
@@ -153,7 +153,7 @@ macro_rules! pack {
 impl Inst for Sp80Inst {
 
 	/// Encode a instruction using the given writer
-	fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()> {
+	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
 		match self {
 			&Sp80Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
 			&Sp80Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),

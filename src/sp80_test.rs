@@ -6,15 +6,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::old_io::MemWriter;
-
 use super::Inst;
 use sp80::*;
 
 fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
-	let mut w = MemWriter::new();
+	let mut w: Vec<u8> = Vec::with_capacity(16);
 	assert!(inst.encode(&mut w).is_ok());
-	assert_eq!(w.into_inner(), bytes);
+	assert_eq!(w.as_slice(), bytes);
 }	
 
 #[test]

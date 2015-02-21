@@ -6,15 +6,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#![feature(core)]
 #![feature(io)]
 
-use std::old_io::IoResult;
+use std::io;
 
 pub mod sp80;
 
 /// A SimProc instruction
-trait Inst {
-	fn encode<W: Writer>(&self, w: &mut W) -> IoResult<()>;
+pub trait Inst {
+	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<()>;
 }
 
 #[cfg(test)]
