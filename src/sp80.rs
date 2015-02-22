@@ -6,22 +6,72 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+extern crate serialize;
+
 use std::io;
 use std::num::{Int};
+use std::str::FromStr;
+
+use self::serialize::hex::FromHex;
 
 use super::Inst;
 
 /// An immediate value that comes after an opcode. 
-pub type Immediate = u8;
+#[derive(Debug, PartialEq)]
+pub struct Immediate(pub u8);
+
+impl Immediate {
+	fn from_dec_str(s: &str) -> Result<Immediate, String> {
+		match FromStr::from_str(s) {
+			Ok(k) => Ok(Immediate(k)),
+			Err(e) => Err(format!("invalid immediate value in `{}`: {}", s, e)),
+		}
+	}
+
+	fn from_hex_str(s: &str) -> Result<Immediate, String> {
+		match s[2..].from_hex() {
+			Ok(v) => {
+				if v.len() == 1 { Ok(Immediate(v[0])) }
+				else { Err(format!("invalid hexadecimal value in `{}`: number out of range", s)) }
+			},
+			Err(e) => Err(format!("invalid hexadecimal value in `{}`: {}", s, e)),
+		}
+	}
+}
+
+impl FromStr for Immediate {
+	type Err = String;
+	fn from_str(s: &str) -> Result<Immediate, String> {
+		if s.starts_with("0x") { Immediate::from_hex_str(s) }
+		else { Immediate::from_dec_str(s) }
+	}
+}
 
 /// An address in SP-80 of 16-bits
-pub type Addr = u16;
+pub struct Addr(pub u16);
 
 /// A relative address, i.e. a delta respect the current PC. 
-pub type RelAddr = i16;
+pub struct RelAddr(pub i16);
 
 /// General purpose 8-bit Regs. 
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
+
+impl FromStr for Reg {
+	type Err = String;
+	fn from_str(s: &str) -> Result<Reg, String> {
+		match s {
+			"r0" | "R0" => Ok(Reg::R0),
+			"r1" | "R1" => Ok(Reg::R1),
+			"r2" | "R2" => Ok(Reg::R2),
+			"r3" | "R3" => Ok(Reg::R3),
+			"r4" | "R4" => Ok(Reg::R4),
+			"r5" | "R5" => Ok(Reg::R5),
+			"r6" | "R6" => Ok(Reg::R6),
+			"r7" | "R7" => Ok(Reg::R7),
+			_ => Err(format!("invalid register name `{}`", s))
+		}
+	}
+}
 
 impl Reg {
 
@@ -43,8 +93,21 @@ impl Reg {
 /// 16-bits address Regs. 
 pub enum AddrReg { A0, A1, A2, A3 }
 
+impl FromStr for AddrReg {
+	type Err = String;
+	fn from_str(s: &str) -> Result<AddrReg, String> {
+		match s {
+			"a0" | "A0" => Ok(AddrReg::A0),
+			"a1" | "A1" => Ok(AddrReg::A1),
+			"a2" | "A2" => Ok(AddrReg::A2),
+			"a3" | "A3" => Ok(AddrReg::A3),
+			_ => Err(format!("invalid address register name `{}`", s))
+		}
+	}
+}
+
 impl AddrReg {
-	
+
 	/// Encode a general purpose register into its binary representation
 	pub fn encode(&self) -> u8 {
 		match self {
@@ -157,10 +220,10 @@ impl Inst for Sp80Inst {
 		match self {
 			&Sp80Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
 			&Sp80Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
-			&Sp80Inst::Addi(ref r, k) => pack!(w, reg r in 0xc0, byte k),
+			&Sp80Inst::Addi(ref r, Immediate(k)) => pack!(w, reg r in 0xc0, byte k),
 			&Sp80Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
 			&Sp80Inst::Subw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0xc0),
-			&Sp80Inst::Subi(ref r, k) => pack!(w, reg r in 0xc8, byte k),
+			&Sp80Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0xc8, byte k),
 			&Sp80Inst::Mulw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
 			&Sp80Inst::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
 			&Sp80Inst::Or(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x80),
@@ -177,25 +240,25 @@ impl Inst for Sp80Inst {
 			&Sp80Inst::Mov(ref r1, ref r2) => pack!(w, 0x78, regs r1, r2 in 0x00),
 			&Sp80Inst::Ld(ref r, ref a) => pack!(w, 0x79, regs r, a in 0x00),
 			&Sp80Inst::St(ref a, ref r) => pack!(w, 0x7a, regs a, r in 0x00),
-			&Sp80Inst::Ldd(ref r, a) => pack!(w, reg r in 0x40, word a),
-			&Sp80Inst::Std(a, ref r) => pack!(w, reg r in 0x48, word a),
-			&Sp80Inst::Ldi(ref r, k) => pack!(w, reg r in 0x50, byte k),
+			&Sp80Inst::Ldd(ref r, Addr(a)) => pack!(w, reg r in 0x40, word a),
+			&Sp80Inst::Std(Addr(a), ref r) => pack!(w, reg r in 0x48, word a),
+			&Sp80Inst::Ldi(ref r, Immediate(k)) => pack!(w, reg r in 0x50, byte k),
 			&Sp80Inst::Ldsp(ref r) => pack!(w, reg r in 0x58),
 			&Sp80Inst::Push(ref r) => pack!(w, reg r in 0x60),
 			&Sp80Inst::Pop(ref r) => pack!(w, reg r in 0x70),
-			&Sp80Inst::Je(o) => pack!(w, offset o in 0x80),
-			&Sp80Inst::Jne(o) => pack!(w, offset o in 0x84),
-			&Sp80Inst::Jl(o) => pack!(w, offset o in 0x88),
-			&Sp80Inst::Jge(o) => pack!(w, offset o in 0x8c),
-			&Sp80Inst::Jcc(o) => pack!(w, offset o in 0x90),
-			&Sp80Inst::Jcs(o) => pack!(w, offset o in 0x94),
-			&Sp80Inst::Jvc(o) => pack!(w, offset o in 0x98),
-			&Sp80Inst::Jvs(o) => pack!(w, offset o in 0x9c),
-			&Sp80Inst::Jmp(a) => pack!(w, word a in 0xa0),
-			&Sp80Inst::Rjmp(o) => pack!(w, offset o in 0xa4),
+			&Sp80Inst::Je(RelAddr(o)) => pack!(w, offset o in 0x80),
+			&Sp80Inst::Jne(RelAddr(o)) => pack!(w, offset o in 0x84),
+			&Sp80Inst::Jl(RelAddr(o)) => pack!(w, offset o in 0x88),
+			&Sp80Inst::Jge(RelAddr(o)) => pack!(w, offset o in 0x8c),
+			&Sp80Inst::Jcc(RelAddr(o)) => pack!(w, offset o in 0x90),
+			&Sp80Inst::Jcs(RelAddr(o)) => pack!(w, offset o in 0x94),
+			&Sp80Inst::Jvc(RelAddr(o)) => pack!(w, offset o in 0x98),
+			&Sp80Inst::Jvs(RelAddr(o)) => pack!(w, offset o in 0x9c),
+			&Sp80Inst::Jmp(Addr(a)) => pack!(w, word a in 0xa0),
+			&Sp80Inst::Rjmp(RelAddr(o)) => pack!(w, offset o in 0xa4),
 			&Sp80Inst::Ijmp(ref a) => pack!(w, reg a in 0xa8),
-			&Sp80Inst::Call(a) => pack!(w, word a in 0xac),
-			&Sp80Inst::Rcall(o) => pack!(w, offset o in 0xb0),
+			&Sp80Inst::Call(Addr(a)) => pack!(w, word a in 0xac),
+			&Sp80Inst::Rcall(RelAddr(o)) => pack!(w, offset o in 0xb0),
 			&Sp80Inst::Icall(ref a) => pack!(w, reg a in 0xb4),
 			&Sp80Inst::Ret => pack!(w, 0xb8),
 			&Sp80Inst::Reti => pack!(w, 0xbc),
