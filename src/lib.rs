@@ -15,7 +15,7 @@ pub mod sp80;
 
 /// A SimProc instruction
 pub trait Inst {
-	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<()>;
+	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
 }
 
 #[cfg(test)]

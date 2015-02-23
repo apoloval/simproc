@@ -107,7 +107,9 @@ fn should_reladdr_from_negative_hex_str() {
 
 fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
 	let mut w: Vec<u8> = Vec::with_capacity(16);
-	assert!(inst.encode(&mut w).is_ok());
+	let result = inst.encode(&mut w);
+	assert!(result.is_ok());
+	assert_eq!(bytes.len(), result.ok().unwrap());
 	assert_eq!(&w[..], bytes);
 }	
 

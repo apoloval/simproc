@@ -228,35 +228,35 @@ pub enum Sp80Inst {
 /// A macro to pack bits using the opcode coding of SP-80. 
 macro_rules! pack {
 	($w:ident, $($b:expr),+) => (
-		$w.write_all(&[$($b)+])
+		$w.write(&[$($b)+])
 	);
 
 	($w:ident, reg $($r:ident),+ in $b:expr) => (
-		$w.write_all(&[$($b | $r.encode())+])
+		$w.write(&[$($b | $r.encode())+])
 	);
 
 	($w:ident, offset $o:ident in $b:expr) => ({
 		let bin = ($o & 0x03ff).to_le();
 		let l = (bin >> 8) as u8;
 		let r = bin as u8;
-		$w.write_all(&[$b | l, r])
+		$w.write(&[$b | l, r])
 	});
 	($w:ident, word $wrd:ident in $b:expr) => ({
 		let l = ($wrd.to_be() >> 8) as u8;
 		let r = $wrd.to_be() as u8;
-		$w.write_all(&[$b, l, r])
+		$w.write(&[$b, l, r])
 	});
 	($w:ident, $b1:expr, regs $r1:ident, $r2:ident in $b2:expr) => ({
 		let regs = $b2 | $r2.encode() | ($r1.encode() << 3);
-		$w.write_all(&[$b1, regs])
+		$w.write(&[$b1, regs])
 	});
 	($w:ident, reg $r:ident in $b:expr, word $wrd:expr) => ({
 		let l = ($wrd.to_be() >> 8) as u8;
 		let r = $wrd.to_be() as u8;
-		$w.write_all(&[$b | $r.encode(), l, r])
+		$w.write(&[$b | $r.encode(), l, r])
 	});
 	($w:ident, reg $r:ident in $b1:expr, byte $b2:expr) => ({
-		$w.write_all(&[$b1 | $r.encode(), $b2])
+		$w.write(&[$b1 | $r.encode(), $b2])
 	});
 
 }
@@ -264,7 +264,7 @@ macro_rules! pack {
 impl Inst for Sp80Inst {
 
 	/// Encode a instruction using the given writer
-	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
 		match self {
 			&Sp80Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
 			&Sp80Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
