@@ -9,6 +9,7 @@
 extern crate serialize;
 
 use std::io;
+use std::mem;
 use std::num::{Int};
 use std::str::FromStr;
 
@@ -20,38 +21,85 @@ use super::Inst;
 #[derive(Debug, PartialEq)]
 pub struct Immediate(pub u8);
 
-impl Immediate {
-	fn from_dec_str(s: &str) -> Result<Immediate, String> {
-		match FromStr::from_str(s) {
-			Ok(k) => Ok(Immediate(k)),
-			Err(e) => Err(format!("invalid immediate value in `{}`: {}", s, e)),
-		}
-	}
-
-	fn from_hex_str(s: &str) -> Result<Immediate, String> {
-		match s[2..].from_hex() {
+macro_rules! int_from_str(
+	($s:expr => $t:ty) => (
+		if $s.starts_with("0x") || $s.starts_with("-0x") { int_from_str!($s => $t as hex) } 
+		else { int_from_str!($s => $t as dec) }
+	);
+	($s:expr => $t:ty as pos) => (
+		if $s.starts_with("0x") || $s.starts_with("-0x") { int_from_str!($s => $t as pos hex) } 
+		else { int_from_str!($s => $t as pos dec) }
+	);
+	($s:expr => $t:ty as pos dec) => ({
+		if $s.starts_with("-") { Err(format!("invalid negative value in `{}`", $s)) }
+		else { int_from_str!($s => $t as dec) }
+	});
+	($s:expr => $t:ty as dec) => ({
+		let (range, sign) = if $s.starts_with("-") { (1.., -1) } else { (0.., 1) };
+		let k: $t = match FromStr::from_str(&$s[range]) {
+			Ok(k) => k,
+			Err(e) => return Err(format!("invalid decimal value in `{}`: {}", $s, e)),
+		};
+		Ok((k * sign) as $t)
+	});
+	($s:expr => $t:ty as pos hex) => ({
+		if $s.starts_with("-") { Err(format!("invalid negative value in `{}`", $s)) }
+		else { int_from_str!($s => $t as hex) }
+	});
+	($s:expr => $t:ty as hex) => ({
+		let (range, sign) = if $s.starts_with("0x") { (2.., 1) }
+			else if $s.starts_with("-0x") { (3.., -1) }
+			else if $s.starts_with("-") { (0.., -1) }
+			else { (0.., 1) };
+		match $s[range].from_hex() {
 			Ok(v) => {
-				if v.len() == 1 { Ok(Immediate(v[0])) }
-				else { Err(format!("invalid hexadecimal value in `{}`: number out of range", s)) }
+				let type_len = mem::size_of::<$t>();
+				let bytes_len = v.len();
+				if bytes_len <= type_len {
+					let mut k = 0 as $t;
+					let mut i = 8*(type_len - bytes_len);
+					for b in v.iter() {
+						k |= ((*b as $t) << i) as $t;
+						i += 8;
+					}
+					Ok((Int::from_be(k) * sign) as $t) 
+
+				}
+				else { Err(format!("invalid hexadecimal value in `{}`: number out of range", $s)) }
 			},
-			Err(e) => Err(format!("invalid hexadecimal value in `{}`: {}", s, e)),
+			Err(e) => Err(format!("invalid hexadecimal value in `{}`: {}", $s, e)),
 		}
-	}
-}
+	});
+);
 
 impl FromStr for Immediate {
 	type Err = String;
 	fn from_str(s: &str) -> Result<Immediate, String> {
-		if s.starts_with("0x") { Immediate::from_hex_str(s) }
-		else { Immediate::from_dec_str(s) }
+		int_from_str!(s => u8).map(|k| Immediate(k)) 
 	}
 }
 
 /// An address in SP-80 of 16-bits
+#[derive(Debug, PartialEq)]
 pub struct Addr(pub u16);
 
+impl FromStr for Addr {
+	type Err = String;
+	fn from_str(s: &str) -> Result<Addr, String> {
+		int_from_str!(s => u16 as pos).map(|k| Addr(k)) 
+	}
+}
+
 /// A relative address, i.e. a delta respect the current PC. 
+#[derive(Debug, PartialEq)]
 pub struct RelAddr(pub i16);
+
+impl FromStr for RelAddr {
+	type Err = String;
+	fn from_str(s: &str) -> Result<RelAddr, String> {
+		int_from_str!(s => i16).map(|k| RelAddr(k)) 
+	}
+}
 
 /// General purpose 8-bit Regs. 
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
