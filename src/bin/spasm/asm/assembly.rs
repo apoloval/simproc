@@ -98,4 +98,6 @@ impl<I: Inst> Assembly<I> {
 	pub fn push_code(&mut self, code: CodeBlock<I>) { self.code.push(code) }
 
 	pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
+
+	pub fn assembled(&self) -> &[Assembled<I>] { &self.assembled[..] }
 }

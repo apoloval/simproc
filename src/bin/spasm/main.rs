@@ -26,7 +26,7 @@ use std::fs::File;
 
 use simproc::Inst;
 
-use asm::{Assembler, AssemblyError};
+use asm::{Assembler, Assembled, AssemblyError};
 use asm::sp80;
 
 fn main() {
@@ -47,16 +47,17 @@ fn main() {
 		},
 	};
 
-	for blk in asm.blocks().iter() {
-		println!("Code for block at origin 0x{:x}", blk.begin());
-		let code = blk.code();
-		for i in code.iter() {
-			let mut buff: Vec<u8> = Vec::new();
-			i.encode(&mut buff).unwrap();
-			for b in buff.iter() {			
-				print!("{:02x} ", b);
-			}
-			println!("");
+	for line in asm.assembled().iter() {
+		match line {
+			&Assembled::Inst(ref line, ref inst) => {
+				let mut buff: Vec<u8> = Vec::new();
+				inst.encode(&mut buff).unwrap();
+				for b in buff.iter() {			
+					print!("{:02x} ", b);
+				}
+				println!("{}", line);
+			},
+			&Assembled::Ignored(ref line) => println!("{}", line),
 		}
 	}
 }
