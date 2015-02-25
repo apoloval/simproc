@@ -37,6 +37,20 @@ pub struct ProgramError {
 	pub reason: String,
 }
 
+impl ProgramError {
+	pub fn new(line: usize, content: &str, reason: &str) -> ProgramError {
+		ProgramError {
+			line: line, 
+			content: content.to_string(), 
+			reason: reason.to_string()
+		}
+	}
+
+	pub fn new_lexical_error(line: usize, content: &str) -> ProgramError {
+		ProgramError::new(line, content, "invalid lexical expression")
+	}	
+}
+
 impl Display for ProgramError {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		write!(fmt, "in line {}, `{}`: {}", self.line, self.content, self.reason)
