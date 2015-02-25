@@ -17,7 +17,7 @@ pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
 		let mut line = String::new();
 		try!(i.read_line(&mut line));
 		if line.is_empty() { return Ok(result); }
-		else { result.push(line.trim().to_string()) }
+		else { result.push(line.trim_right().to_string()) }
 	}
 }
 
