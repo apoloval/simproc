@@ -38,7 +38,7 @@ fn main() {
 		Ok(asm) => asm,
 		Err(AssemblyError::BadProgram(errors)) => {
 			println!("Assembled with {} errors:", errors.len());
-			for e in errors.iter() { println!("{}", e); }
+			for e in errors.iter() { println!("\t{}", e); }
 			return;
 		},
 		Err(AssemblyError::Io(e)) =>  {
@@ -51,13 +51,14 @@ fn main() {
 		match line {
 			&Assembled::Inst(ref line, ref inst) => {
 				let mut buff: Vec<u8> = Vec::new();
-				inst.encode(&mut buff).unwrap();
+				let nbytes = inst.encode(&mut buff).unwrap();
 				for b in buff.iter() {			
 					print!("{:02x} ", b);
 				}
+				for _ in 0..(10 - 3*nbytes) { print!(" "); }
 				println!("{}", line);
 			},
-			&Assembled::Ignored(ref line) => println!("{}", line),
+			&Assembled::Ignored(ref line) => println!("          {}", line),
 		}
 	}
 }
