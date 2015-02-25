@@ -137,13 +137,25 @@ impl Assembler<Sp80Inst> for Asm80 {
 		let mut errors: Vec<ProgramError> = Vec::new();
 
 		let tokens = parser::tokenize(&lines);
-		
+
+		// First loop, lexical error & symbol lookup
 		for i in 0..tokens.len() {
-			let line = &lines[i];
 			let tk = &tokens[i];
 			match tk {
 				&Token::LexicalError => 
 					errors.push(ProgramError::new_lexical_error(i, &lines[i][..])),
+				&Token::Label(ref label) => { 
+					asm.decl_symbol(&label[..], placement); 
+				},
+				_ => (),
+			};
+		}
+		
+		// Second loop, assemble elements
+		for i in 0..tokens.len() {
+			let line = &lines[i];
+			let tk = &tokens[i];
+			match tk {
 				&Token::Mnemonic(ref mnemo, ref args) => {
 					let assembled = Asm80::assemble_mnemonic(
 						mnemo.as_slice(), &args[..], asm.symbols(), placement);
@@ -156,8 +168,7 @@ impl Assembler<Sp80Inst> for Asm80 {
 							errors.push(ProgramError::new(i, &line[..], &e[..])),
 					}
 				},
-				&Token::Label(ref label) => {
-					asm.decl_symbol(&label[..], placement);
+				&Token::Label(_) => {
 					asm.push(Assembled::Ignored(line.clone()));
 				},
 				_ => asm.push(Assembled::Ignored(line.clone())),
