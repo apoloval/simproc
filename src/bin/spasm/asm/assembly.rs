@@ -57,9 +57,16 @@ impl Display for ProgramError {
 	}
 }
 
+pub enum Assembled<I: Inst> {
+	Inst(String, I),
+	Ignored(String),
+}
+
+
 pub struct Assembly<I: Inst> {
-	code: Vec<CodeBlock<I>>,
 	symbols: SymbolTable,
+	code: Vec<CodeBlock<I>>,
+	assembled: Vec<Assembled<I>>,
 }
 
 #[derive(Debug)]
@@ -80,6 +87,7 @@ impl<I: Inst> Assembly<I> {
 		Assembly {
 			code: Vec::new(),
 			symbols: HashMap::new(),
+			assembled: Vec::new(),
 		}
 	}
 
@@ -88,4 +96,6 @@ impl<I: Inst> Assembly<I> {
 	pub fn symbols(&self) -> &SymbolTable { &self.symbols }
 
 	pub fn push_code(&mut self, code: CodeBlock<I>) { self.code.push(code) }
+
+	pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
 }
