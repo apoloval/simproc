@@ -161,8 +161,9 @@ impl Assembler<Sp80Inst> for Asm80 {
 						mnemo.as_slice(), &args[..], asm.symbols(), placement);
 					match assembled {
 						Ok(inst) => {
-							placement += inst.len();
-							asm.push(Assembled::Inst(line.clone(), inst));
+							let next_place = placement + inst.len();
+							asm.push(Assembled::Inst(line.clone(), placement, inst));
+							placement = next_place;
 						},
 						Err(e) => 
 							errors.push(ProgramError::new(i, &line[..], &e[..])),

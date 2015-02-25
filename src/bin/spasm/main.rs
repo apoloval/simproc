@@ -49,16 +49,17 @@ fn main() {
 
 	for line in asm.assembled().iter() {
 		match line {
-			&Assembled::Inst(ref line, ref inst) => {
+			&Assembled::Inst(ref line, place, ref inst) => {
 				let mut buff: Vec<u8> = Vec::new();
 				let nbytes = inst.encode(&mut buff).unwrap();
+				print!("0x{:04x} : ", place as u16);
 				for b in buff.iter() {			
 					print!("{:02x} ", b);
 				}
 				for _ in 0..(10 - 3*nbytes) { print!(" "); }
 				println!("{}", line);
 			},
-			&Assembled::Ignored(ref line) => println!("          {}", line),
+			&Assembled::Ignored(ref line) => println!("                   {}", line),
 		}
 	}
 }

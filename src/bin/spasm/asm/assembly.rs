@@ -44,8 +44,8 @@ impl Display for ProgramError {
 
 
 pub enum Assembled<I: Inst> {
-	Inst(String, I),
-	Ignored(String),
+	Inst(String, usize, I), // (line: String, placement: usize, inst: I)
+	Ignored(String), // (line: String)
 }
 
 
