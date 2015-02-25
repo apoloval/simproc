@@ -87,7 +87,43 @@ impl Asm80 {
 				assemble_mnemo!(Sp80Inst::Push => unary from args, symbols, placement),
 			"pop" | "POP" => 
 				assemble_mnemo!(Sp80Inst::Pop => unary from args, symbols, placement),
-			_ => Err(format!("unknown mnemonic: {}", mnemonic))
+			"je" | "JE" => 
+				assemble_mnemo!(Sp80Inst::Je => unary from args, symbols, placement),
+			"jne" | "JNE" => 
+				assemble_mnemo!(Sp80Inst::Jne => unary from args, symbols, placement),
+			"jl" | "JL" => 
+				assemble_mnemo!(Sp80Inst::Jl => unary from args, symbols, placement),
+			"jge" | "JGE" => 
+				assemble_mnemo!(Sp80Inst::Jge => unary from args, symbols, placement),
+			"jcc" | "JCC" => 
+				assemble_mnemo!(Sp80Inst::Jcc => unary from args, symbols, placement),
+			"jcs" | "JCS" => 
+				assemble_mnemo!(Sp80Inst::Jcs => unary from args, symbols, placement),
+			"jvc" | "JVC" => 
+				assemble_mnemo!(Sp80Inst::Jvc => unary from args, symbols, placement),
+			"jvs" | "JVS" => 
+				assemble_mnemo!(Sp80Inst::Jvs => unary from args, symbols, placement),
+			"jmp" | "JMP" => 
+				assemble_mnemo!(Sp80Inst::Jmp => unary from args, symbols, placement),
+			"rjmp" | "RJMP" => 
+				assemble_mnemo!(Sp80Inst::Rjmp => unary from args, symbols, placement),
+			"ijmp" | "IJMP" => 
+				assemble_mnemo!(Sp80Inst::Ijmp => unary from args, symbols, placement),
+			"call" | "CALL" => 
+				assemble_mnemo!(Sp80Inst::Call => unary from args, symbols, placement),
+			"rcall" | "RCALL" => 
+				assemble_mnemo!(Sp80Inst::Rcall => unary from args, symbols, placement),
+			"icall" | "ICALL" => 
+				assemble_mnemo!(Sp80Inst::Icall => unary from args, symbols, placement),
+			"ret" | "RET" => 
+				assemble_mnemo!(Sp80Inst::Ret => nullary from args),
+			"reti" | "RETI" => 
+				assemble_mnemo!(Sp80Inst::Reti => nullary from args),
+			"nop" | "NOP" => 
+				assemble_mnemo!(Sp80Inst::Nop => nullary from args),
+			"halt" | "HALT" => 
+				assemble_mnemo!(Sp80Inst::Halt => nullary from args),
+			_ => Err(format!("unknown mnemonic: `{}`", mnemonic))
 		}
 	}	
 }

@@ -21,6 +21,10 @@ pub trait FromMnemoArg {
 
 #[macro_export]
 macro_rules! assemble_mnemo(
+	($i:path => nullary from $a:expr) => ({
+		if $a.len() != 0 { return Err(format!("expected 0 arguments, {} given", $a.len())) }
+		Ok($i)
+	});
 	($i:path => unary from $a:expr, $s:expr, $p:expr) => ({
 		if $a.len() != 1 { return Err(format!("expected 1 arguments, {} given", $a.len())) }
 		let arg = MnemoArg { expr: &$a[0][..], symbols: $s, placement: $p };
