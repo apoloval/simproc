@@ -97,13 +97,13 @@ impl Assembler<Sp80Inst> for Asm80 {
 	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<Sp80Inst>, AssemblyError> {
 		let lines = try!(parser::read_lines(input));
 		let mut asm = Assembly::new();
-		let mut code = CodeBlock::new();
 		let mut placement = 0 as usize;
 		let mut errors: Vec<ProgramError> = Vec::new();
 
 		let tokens = parser::tokenize(&lines);
 		
 		for i in 0..tokens.len() {
+			let line = &lines[i];
 			let tk = &tokens[i];
 			match tk {
 				&Token::LexicalError => 
@@ -114,16 +114,15 @@ impl Assembler<Sp80Inst> for Asm80 {
 					match assembled {
 						Ok(inst) => {
 							placement += inst.len();
-							code.push(inst);
+							asm.push(Assembled::Inst(line.clone(), inst));
 						},
 						Err(e) => 
-							errors.push(ProgramError::new(i, &lines[i][..], &e[..])),
+							errors.push(ProgramError::new(i, &line[..], &e[..])),
 					}
 				},
-				_ => (),
+				_ => asm.push(Assembled::Ignored(line.clone())),
 			};
 		}
-		asm.push_code(code);
 
 		if errors.is_empty() { Ok(asm) }
 		else { Err(AssemblyError::BadProgram(errors)) }
