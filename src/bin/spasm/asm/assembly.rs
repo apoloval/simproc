@@ -7,6 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::collections::HashMap;
+use std::error::FromError;
+use std::io;
 use std::fmt::{Display, Formatter, Error};
 
 use simproc::Inst;
@@ -28,12 +30,7 @@ impl<I: Inst> CodeBlock<I> {
 	pub fn push(&mut self, inst: I) { self.code.push(inst) }
 }
 
-/*
-impl io::Write for CodeBlock {	
-	fn write(&mut self, buf: &[u8]) -> io::Result<usize> { io::Write::write(&mut self.code, buf) }
-    fn flush(&mut self) -> io::Result<()> { io::Write::flush(&mut self.code) }
-}*/
-
+#[derive(Debug)]
 pub struct ProgramError {
 	pub line: usize,
 	pub content: String,
@@ -50,6 +47,18 @@ pub struct Assembly<I: Inst> {
 	code: Vec<CodeBlock<I>>,
 	errors: Vec<ProgramError>,
 	symbols: SymbolTable,
+}
+
+#[derive(Debug)]
+pub enum AssemblyError {
+	Io(io::Error),
+	BadProgram(Vec<ProgramError>)
+}
+
+impl FromError<io::Error> for AssemblyError {
+	fn from_error(err: io::Error) -> AssemblyError {
+		AssemblyError::Io(err)
+	}
 }
 
 impl<I: Inst> Assembly<I> {

@@ -23,7 +23,7 @@ pub use self::assembly::*;
 
 pub trait Assembler<I: Inst> {
 
-	fn assemble<R : io::Read>(&self, input: R) -> io::Result<Assembly<I>>;
+	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
 }
 
 #[cfg(test)]

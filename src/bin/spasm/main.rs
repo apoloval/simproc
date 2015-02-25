@@ -26,23 +26,28 @@ use std::fs::File;
 
 use simproc::Inst;
 
-use asm::Assembler;
+use asm::{Assembler, AssemblyError};
 use asm::sp80;
 
 fn main() {
 	let args = args::parse_args().unwrap();
 	let ifile = File::open(&args.input[..]).unwrap();
 
-	let asm = sp80::Asm80::new();
-	let assem = asm.assemble(ifile).unwrap();
+	let asmblr = sp80::Asm80::new();
+	let asm = match asmblr.assemble(ifile) {
+		Ok(asm) => asm,
+		Err(AssemblyError::BadProgram(errors)) => {
+			println!("Assembled with {} errors:", errors.len());
+			for e in errors.iter() { println!("{}", e); }
+			return;
+		},
+		Err(AssemblyError::Io(e)) =>  {
+			println!("IO error while reading file {}: {}", args.input, e);
+			return;
+		},
+	};
 
-	if assem.is_failure() {
-		println!("Assembled with errors:");
-		for e in assem.errors().iter() { println!("{}", e); }
-		return;
-	}
-
-	for blk in assem.blocks().iter() {
+	for blk in asm.blocks().iter() {
 		println!("Code for block at origin 0x{:x}", blk.begin());
 		let code = blk.code();
 		for i in code.iter() {

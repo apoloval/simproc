@@ -94,7 +94,7 @@ impl Asm80 {
 
 impl Assembler<Sp80Inst> for Asm80 {
 
-	fn assemble<R : io::Read>(&self, input: R) -> io::Result<Assembly<Sp80Inst>> {
+	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<Sp80Inst>, AssemblyError> {
 		let lines = try!(parser::read_lines(input));
 		let mut asm = Assembly::new();
 		let mut code = CodeBlock::new();
