@@ -15,21 +15,6 @@ use simproc::Inst;
 
 pub type SymbolTable = HashMap<String, usize>;
 
-pub struct CodeBlock<I: Inst> {
-	begin: usize,
-	code: Vec<I>,
-}
-
-impl<I: Inst> CodeBlock<I> {
-	pub fn new() -> CodeBlock<I> {
-		CodeBlock { begin: 0, code: Vec::new(), }
-	}
-
-	pub fn begin(&self) -> usize { self.begin }
-	pub fn code(&self) -> &[I] { &self.code[..] }
-	pub fn push(&mut self, inst: I) { self.code.push(inst) }
-}
-
 #[derive(Debug)]
 pub struct ProgramError {
 	pub line: usize,
@@ -57,6 +42,7 @@ impl Display for ProgramError {
 	}
 }
 
+
 pub enum Assembled<I: Inst> {
 	Inst(String, I),
 	Ignored(String),
@@ -65,7 +51,6 @@ pub enum Assembled<I: Inst> {
 
 pub struct Assembly<I: Inst> {
 	symbols: SymbolTable,
-	code: Vec<CodeBlock<I>>,
 	assembled: Vec<Assembled<I>>,
 }
 
@@ -85,17 +70,12 @@ impl<I: Inst> Assembly<I> {
 
 	pub fn new() -> Assembly<I> {
 		Assembly {
-			code: Vec::new(),
 			symbols: HashMap::new(),
 			assembled: Vec::new(),
 		}
 	}
 
-	pub fn blocks(&self) -> &[CodeBlock<I>] { &self.code[..] }
-
 	pub fn symbols(&self) -> &SymbolTable { &self.symbols }
-
-	pub fn push_code(&mut self, code: CodeBlock<I>) { self.code.push(code) }
 
 	pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
 
