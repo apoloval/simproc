@@ -35,19 +35,19 @@ pub fn parse(line: &str) -> Option<Token> {
 		($c:ident, $n:expr) => ($c.at($n).unwrap().to_string())
 	);
 
-	match regex!(r"^\s*([:alpha:][:alnum:]*)\s*:\s*(?:;.*)?$").captures(line) {
+	match regex!(r"^\s*([:alpha:][:word:]*)\s*:\s*(?:;.*)?$").captures(line) {
 		Some(caps) => return Some(Token::Label(cap!(caps, 1))),
 		None => (),
 	}
-	match regex!(r"^\s*([:alpha:][:alnum:]*)\s*(?:;.*)?$").captures(line) {
+	match regex!(r"^\s*([:alpha:]+)\s*(?:;.*)?$").captures(line) {
 		Some(caps) => return Some(Token::Mnemonic(cap!(caps, 1), vec!())),
 		None => (),
 	}
-	match regex!(r"^\s*([:alpha:]+)\s*([:alnum:]+)\s*(?:;.*)?$").captures(line) {
+	match regex!(r"^\s*([:alpha:]+)\s*([:word:]+)\s*(?:;.*)?$").captures(line) {
 		Some(caps) => return Some(Token::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2)))),
 		None => (),
 	}
-	match regex!(r"^\s*([:alpha:]+)\s*([:alnum:]+)\s*,\s*([:alnum:]+)\s*(?:;.*)?$").captures(line) {
+	match regex!(r"^\s*([:alpha:]+)\s*([:word:]+)\s*,\s*([:word:]+)\s*(?:;.*)?$").captures(line) {
 		Some(caps) => 
 			return Some(Token::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)))),
 		None => (),
