@@ -59,7 +59,6 @@ impl Display for ProgramError {
 
 pub struct Assembly<I: Inst> {
 	code: Vec<CodeBlock<I>>,
-	errors: Vec<ProgramError>,
 	symbols: SymbolTable,
 }
 
@@ -80,32 +79,13 @@ impl<I: Inst> Assembly<I> {
 	pub fn new() -> Assembly<I> {
 		Assembly {
 			code: Vec::new(),
-			errors: Vec::new(),
 			symbols: HashMap::new(),
 		}
 	}
 
-	pub fn is_success(&self) -> bool { self.errors.is_empty() }
-
-	pub fn is_failure(&self) -> bool { !self.is_success() }
-
 	pub fn blocks(&self) -> &[CodeBlock<I>] { &self.code[..] }
-
-	pub fn errors(&self) -> &[ProgramError] { &self.errors[..] }
 
 	pub fn symbols(&self) -> &SymbolTable { &self.symbols }
 
 	pub fn push_code(&mut self, code: CodeBlock<I>) { self.code.push(code) }
-
-	pub fn new_error(&mut self, line: usize, content: &str, reason: &str) {
-		self.errors.push(ProgramError {
-			line: line, 
-			content: content.to_string(), 
-			reason: reason.to_string()
-		});
-	}
-
-	pub fn new_lexical_error(&mut self, line: usize, content: &str) {
-		self.new_error(line, content, "invalid lexical expression")
-	}
 }
