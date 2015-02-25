@@ -99,13 +99,15 @@ impl Assembler<Sp80Inst> for Asm80 {
 		let mut asm = Assembly::new();
 		let mut code = CodeBlock::new();
 		let mut placement = 0 as usize;
+		let mut errors: Vec<ProgramError> = Vec::new();
 
 		let tokens = parser::tokenize(&lines);
 		
 		for i in 0..tokens.len() {
 			let tk = &tokens[i];
 			match tk {
-				&Token::LexicalError => asm.new_lexical_error(i, &lines[i][..]),
+				&Token::LexicalError => 
+					errors.push(ProgramError::new_lexical_error(i, &lines[i][..])),
 				&Token::Mnemonic(ref mnemo, ref args) => {
 					let assembled = Asm80::assemble_mnemonic(
 						mnemo.as_slice(), &args[..], asm.symbols(), placement);
@@ -114,14 +116,16 @@ impl Assembler<Sp80Inst> for Asm80 {
 							placement += inst.len();
 							code.push(inst);
 						},
-						Err(e) => asm.new_error(i, &lines[i][..], &e[..]),
+						Err(e) => 
+							errors.push(ProgramError::new(i, &lines[i][..], &e[..])),
 					}
 				},
 				_ => (),
 			};
 		}
-
 		asm.push_code(code);
-		Ok(asm)
+
+		if errors.is_empty() { Ok(asm) }
+		else { Err(AssemblyError::BadProgram(errors)) }
 	}
 }
