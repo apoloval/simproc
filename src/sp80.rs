@@ -263,6 +263,57 @@ macro_rules! pack {
 
 impl Inst for Sp80Inst {
 
+	fn len(&self) -> usize {
+		match self {
+			&Sp80Inst::Add(_, _) => 2,
+			&Sp80Inst::Addw(_, _) => 2,
+			&Sp80Inst::Addi(_, _) => 2,
+			&Sp80Inst::Sub(_, _) => 2,
+			&Sp80Inst::Subw(_, _) => 2,
+			&Sp80Inst::Subi(_, _) => 2,
+			&Sp80Inst::Mulw(_, _) => 2,
+			&Sp80Inst::And(_, _) => 2,
+			&Sp80Inst::Or(_, _) => 2,
+			&Sp80Inst::Xor(_, _) => 2,
+			&Sp80Inst::Lsl(_, _) => 2,
+			&Sp80Inst::Lsr(_, _) => 2,
+			&Sp80Inst::Asr(_, _) => 2,
+			&Sp80Inst::Not(_) => 1,
+			&Sp80Inst::Comp(_) => 1,
+			&Sp80Inst::Inc(_) => 1,
+			&Sp80Inst::Incw(_) => 1,
+			&Sp80Inst::Dec(_) => 1,
+			&Sp80Inst::Decw(_) => 1,
+			&Sp80Inst::Mov(_, _) => 2,
+			&Sp80Inst::Ld(_, _) => 2,
+			&Sp80Inst::St(_, _) => 2,
+			&Sp80Inst::Ldd(_, _) => 3,
+			&Sp80Inst::Std(_, _) => 3,
+			&Sp80Inst::Ldi(_, _) => 2,
+			&Sp80Inst::Ldsp(_) => 1,
+			&Sp80Inst::Push(_) => 1,
+			&Sp80Inst::Pop(_) => 1,
+			&Sp80Inst::Je(_) => 2,
+			&Sp80Inst::Jne(_) => 2,
+			&Sp80Inst::Jl(_) => 2,
+			&Sp80Inst::Jge(_) => 2,
+			&Sp80Inst::Jcc(_) => 2,
+			&Sp80Inst::Jcs(_) => 2,
+			&Sp80Inst::Jvc(_) => 2,
+			&Sp80Inst::Jvs(_) => 2,
+			&Sp80Inst::Jmp(_) => 3,
+			&Sp80Inst::Rjmp(_) => 2,
+			&Sp80Inst::Ijmp(_) => 1,
+			&Sp80Inst::Call(_) => 3,
+			&Sp80Inst::Rcall(_) => 2,
+			&Sp80Inst::Icall(_) => 1,
+			&Sp80Inst::Ret => 1,
+			&Sp80Inst::Reti => 1,
+			&Sp80Inst::Nop => 1,
+			&Sp80Inst::Halt => 1,
+		}
+	}
+
 	/// Encode a instruction using the given writer
 	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
 		match self {
