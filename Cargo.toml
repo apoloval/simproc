@@ -1,5 +1,16 @@
 [package]
 
 name = "simproc"
-version = "0.1.1"
+version = "0.1.0"
 authors = ["Alvaro Polo <apoloval@gmail.com>"]
+
+[dependencies]
+regex = "0.1.8"
+regex_macros = "0.1.8"
+
+[lib]
+name = "simproc"
+
+[[bin]]
+name = "spasm"
+path = "src/bin/spasm/main.rs"
