@@ -77,6 +77,10 @@ impl<I: Inst> Assembly<I> {
 
 	pub fn symbols(&self) -> &SymbolTable { &self.symbols }
 
+	pub fn decl_symbol(&mut self, name: &str, value: usize) -> Option<usize> {
+		self.symbols.insert(name.to_string(), value)
+	}
+
 	pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
 
 	pub fn assembled(&self) -> &[Assembled<I>] { &self.assembled[..] }

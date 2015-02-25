@@ -156,6 +156,10 @@ impl Assembler<Sp80Inst> for Asm80 {
 							errors.push(ProgramError::new(i, &line[..], &e[..])),
 					}
 				},
+				&Token::Label(ref label) => {
+					asm.decl_symbol(&label[..], placement);
+					asm.push(Assembled::Ignored(line.clone()));
+				},
 				_ => asm.push(Assembled::Ignored(line.clone())),
 			};
 		}
