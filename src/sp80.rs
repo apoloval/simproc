@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use self::serialize::hex::FromHex;
 
-use super::Inst;
+use Encode;
 
 /// An immediate value that comes after an opcode. 
 #[derive(Debug, PartialEq)]
@@ -168,6 +168,7 @@ impl AddrReg {
 }
 
 /// A SP-80 instruction
+// pub enum Sp80Inst<I, A, RA, R, DR, AR> {
 pub enum Sp80Inst {
 
 	// Arithmetic-logic instructions
@@ -261,7 +262,7 @@ macro_rules! pack {
 
 }
 
-impl Inst for Sp80Inst {
+impl Encode for Sp80Inst {
 
 	fn len(&self) -> usize {
 		match self {

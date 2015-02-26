@@ -11,7 +11,7 @@ mod mnemo;
 use std::io;
 use std::slice::SliceExt;
 
-use simproc::Inst;
+use simproc::Encode;
 use simproc::sp80::*;
 
 use asm::*;

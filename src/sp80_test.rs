@@ -8,7 +8,7 @@
 
 use std::str::FromStr;
 
-use super::Inst;
+use ::Encode;
 use sp80::*;
 
 #[test]

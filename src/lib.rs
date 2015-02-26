@@ -14,7 +14,7 @@ use std::io;
 pub mod sp80;
 
 /// A SimProc instruction
-pub trait Inst {
+pub trait Encode {
 	fn len(&self) -> usize;
 	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
 }

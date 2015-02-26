@@ -17,11 +17,11 @@ pub mod sp80;
 
 use std::io;
 
-use simproc::Inst;
+use simproc::Encode;
 
 pub use self::assembly::*;
 
-pub trait Assembler<I: Inst> {
+pub trait Assembler<I: Encode> {
 
 	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
 }

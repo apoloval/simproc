@@ -11,7 +11,7 @@ use std::error::FromError;
 use std::io;
 use std::fmt::{Display, Formatter, Error};
 
-use simproc::Inst;
+use simproc::Encode;
 
 pub type SymbolTable = HashMap<String, usize>;
 
@@ -43,13 +43,13 @@ impl Display for ProgramError {
 }
 
 
-pub enum Assembled<I: Inst> {
+pub enum Assembled<I: Encode> {
 	Inst(String, usize, I), // (line: String, placement: usize, inst: I)
 	Ignored(String), // (line: String)
 }
 
 
-pub struct Assembly<I: Inst> {
+pub struct Assembly<I: Encode> {
 	symbols: SymbolTable,
 	assembled: Vec<Assembled<I>>,
 }
@@ -66,7 +66,7 @@ impl FromError<io::Error> for AssemblyError {
 	}
 }
 
-impl<I: Inst> Assembly<I> {
+impl<I: Encode> Assembly<I> {
 
 	pub fn new() -> Assembly<I> {
 		Assembly {
