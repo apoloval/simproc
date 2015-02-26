@@ -105,7 +105,7 @@ fn should_reladdr_from_negative_hex_str() {
 	assert_eq!(RelAddr(-0x1234), FromStr::from_str("-0x1234").ok().unwrap());
 }
 
-fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
+fn assert_encode(inst: Inst, bytes: &[u8]) {
 	let mut w: Vec<u8> = Vec::with_capacity(16);
 	let result = inst.encode(&mut w);
 	assert!(result.is_ok());
@@ -114,139 +114,139 @@ fn assert_encode(inst: Sp80Inst, bytes: &[u8]) {
 }	
 
 #[test]
-fn encode_add() { assert_encode(Sp80Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
+fn encode_add() { assert_encode(Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
 
 #[test]
-fn encode_addw() { assert_encode(Sp80Inst::Addw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
+fn encode_addw() { assert_encode(Inst::Addw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
 
 #[test]
-fn encode_addi() { assert_encode(Sp80Inst::Addi(Reg::R3, Immediate(100)), &[0xc3, 0x64]); }
+fn encode_addi() { assert_encode(Inst::Addi(Reg::R3, Immediate(100)), &[0xc3, 0x64]); }
 
 #[test]
-fn encode_sub() { assert_encode(Sp80Inst::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
+fn encode_sub() { assert_encode(Inst::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
 
 #[test]
-fn encode_subw() { assert_encode(Sp80Inst::Subw(AddrReg::A3, AddrReg::A2), &[0xf8, 0xda]); }
+fn encode_subw() { assert_encode(Inst::Subw(AddrReg::A3, AddrReg::A2), &[0xf8, 0xda]); }
 
 #[test]
-fn encode_subi() { assert_encode(Sp80Inst::Subi(Reg::R3, Immediate(100)), &[0xcb, 0x64]); }
+fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0xcb, 0x64]); }
 
 #[test]
-fn encode_mulw() { assert_encode(Sp80Inst::Mulw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
+fn encode_mulw() { assert_encode(Inst::Mulw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
 
 #[test]
-fn encode_and() { assert_encode(Sp80Inst::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }
+fn encode_and() { assert_encode(Inst::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }
 
 #[test]
-fn encode_or() { assert_encode(Sp80Inst::Or(Reg::R3, Reg::R5), &[0xf9, 0x9d]); }
+fn encode_or() { assert_encode(Inst::Or(Reg::R3, Reg::R5), &[0xf9, 0x9d]); }
 
 #[test]
-fn encode_xor() { assert_encode(Sp80Inst::Xor(Reg::R1, Reg::R7), &[0xfa, 0x0f]); }
+fn encode_xor() { assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0xfa, 0x0f]); }
 
 #[test]
-fn encode_lsl() { assert_encode(Sp80Inst::Lsl(Reg::R3, Reg::R4), &[0xfc, 0x1c]); }
+fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3, Reg::R4), &[0xfc, 0x1c]); }
 
 #[test]
-fn encode_lsr() { assert_encode(Sp80Inst::Lsr(Reg::R6, Reg::R1), &[0xfc, 0xb1]); }
+fn encode_lsr() { assert_encode(Inst::Lsr(Reg::R6, Reg::R1), &[0xfc, 0xb1]); }
 
 #[test]
-fn encode_asr() { assert_encode(Sp80Inst::Asr(Reg::R1, Reg::R2), &[0xfd, 0x8a]); }
+fn encode_asr() { assert_encode(Inst::Asr(Reg::R1, Reg::R2), &[0xfd, 0x8a]); }
 
 #[test]
-fn encode_not() { assert_encode(Sp80Inst::Not(Reg::R5), &[0xd5]); }
+fn encode_not() { assert_encode(Inst::Not(Reg::R5), &[0xd5]); }
 
 #[test]
-fn encode_comp() { assert_encode(Sp80Inst::Comp(Reg::R1), &[0xd9]); }
+fn encode_comp() { assert_encode(Inst::Comp(Reg::R1), &[0xd9]); }
 
 #[test]
-fn encode_inc() { assert_encode(Sp80Inst::Inc(Reg::R6), &[0xe6]); }
+fn encode_inc() { assert_encode(Inst::Inc(Reg::R6), &[0xe6]); }
 
 #[test]
-fn encode_incw() { assert_encode(Sp80Inst::Incw(AddrReg::A2), &[0xf2]); }
+fn encode_incw() { assert_encode(Inst::Incw(AddrReg::A2), &[0xf2]); }
 
 #[test]
-fn encode_dec() { assert_encode(Sp80Inst::Dec(Reg::R7), &[0xef]); }
+fn encode_dec() { assert_encode(Inst::Dec(Reg::R7), &[0xef]); }
 
 #[test]
-fn encode_decw() { assert_encode(Sp80Inst::Decw(AddrReg::A1), &[0xf5]); }
+fn encode_decw() { assert_encode(Inst::Decw(AddrReg::A1), &[0xf5]); }
 
 #[test]
-fn encode_mov() { assert_encode(Sp80Inst::Mov(Reg::R6, Reg::R2), &[0x78, 0x32]); }
+fn encode_mov() { assert_encode(Inst::Mov(Reg::R6, Reg::R2), &[0x78, 0x32]); }
 
 #[test]
-fn encode_ld() { assert_encode(Sp80Inst::Ld(Reg::R4, AddrReg::A1), &[0x79, 0x21]); }
+fn encode_ld() { assert_encode(Inst::Ld(Reg::R4, AddrReg::A1), &[0x79, 0x21]); }
 
 #[test]
-fn encode_st() { assert_encode(Sp80Inst::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
+fn encode_st() { assert_encode(Inst::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
 
 #[test]
-fn encode_ldd() { assert_encode(Sp80Inst::Ldd(Reg::R1, Addr(0x2010)), &[0x41, 0x10, 0x20]); }
+fn encode_ldd() { assert_encode(Inst::Ldd(Reg::R1, Addr(0x2010)), &[0x41, 0x10, 0x20]); }
 
 #[test]
-fn encode_std() { assert_encode(Sp80Inst::Std(Addr(0x1020), Reg::R6), &[0x4e, 0x20, 0x10]); }
+fn encode_std() { assert_encode(Inst::Std(Addr(0x1020), Reg::R6), &[0x4e, 0x20, 0x10]); }
 
 #[test]
-fn encode_ldi() { assert_encode(Sp80Inst::Ldi(Reg::R2, Immediate(-13)), &[0x52, 0xf3]); }
+fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13)), &[0x52, 0xf3]); }
 
 #[test]
-fn encode_ldsp() { assert_encode(Sp80Inst::Ldsp(AddrReg::A1), &[0x59]); }
+fn encode_ldsp() { assert_encode(Inst::Ldsp(AddrReg::A1), &[0x59]); }
 
 #[test]
-fn encode_push() { assert_encode(Sp80Inst::Push(Reg::R3), &[0x63]); }
+fn encode_push() { assert_encode(Inst::Push(Reg::R3), &[0x63]); }
 
 #[test]
-fn encode_pop() { assert_encode(Sp80Inst::Pop(Reg::R5), &[0x75]); }
+fn encode_pop() { assert_encode(Inst::Pop(Reg::R5), &[0x75]); }
 
 #[test]
-fn encode_je() { assert_encode(Sp80Inst::Je(RelAddr(1)), &[0x80, 0x01]); }
+fn encode_je() { assert_encode(Inst::Je(RelAddr(1)), &[0x80, 0x01]); }
 
 #[test]
-fn encode_jne() { assert_encode(Sp80Inst::Jne(RelAddr(-1)), &[0x87, 0xff]); }
+fn encode_jne() { assert_encode(Inst::Jne(RelAddr(-1)), &[0x87, 0xff]); }
 
 #[test]
-fn encode_jl() { assert_encode(Sp80Inst::Jl(RelAddr(2)), &[0x88, 0x02]); }
+fn encode_jl() { assert_encode(Inst::Jl(RelAddr(2)), &[0x88, 0x02]); }
 
 #[test]
-fn encode_jge() { assert_encode(Sp80Inst::Jge(RelAddr(-2)), &[0x8f, 0xfe]); }
+fn encode_jge() { assert_encode(Inst::Jge(RelAddr(-2)), &[0x8f, 0xfe]); }
 
 #[test]
-fn encode_jcc() { assert_encode(Sp80Inst::Jcc(RelAddr(3)), &[0x90, 0x03]); }
+fn encode_jcc() { assert_encode(Inst::Jcc(RelAddr(3)), &[0x90, 0x03]); }
 
 #[test]
-fn encode_jcs() { assert_encode(Sp80Inst::Jcs(RelAddr(-3)), &[0x97, 0xfd]); }
+fn encode_jcs() { assert_encode(Inst::Jcs(RelAddr(-3)), &[0x97, 0xfd]); }
 
 #[test]
-fn encode_jvc() { assert_encode(Sp80Inst::Jvc(RelAddr(4)), &[0x98, 0x04]); }
+fn encode_jvc() { assert_encode(Inst::Jvc(RelAddr(4)), &[0x98, 0x04]); }
 
 #[test]
-fn encode_jvs() { assert_encode(Sp80Inst::Jvs(RelAddr(-4)), &[0x9f, 0xfc]); }
+fn encode_jvs() { assert_encode(Inst::Jvs(RelAddr(-4)), &[0x9f, 0xfc]); }
 
 #[test]
-fn encode_jmp() { assert_encode(Sp80Inst::Jmp(Addr(0x4321)), &[0xa0, 0x21, 0x43]); }
+fn encode_jmp() { assert_encode(Inst::Jmp(Addr(0x4321)), &[0xa0, 0x21, 0x43]); }
 
 #[test]
-fn encode_rjmp() { assert_encode(Sp80Inst::Rjmp(RelAddr(100)), &[0xa4, 0x64]); }
+fn encode_rjmp() { assert_encode(Inst::Rjmp(RelAddr(100)), &[0xa4, 0x64]); }
 
 #[test]
-fn encode_ijmp() { assert_encode(Sp80Inst::Ijmp(AddrReg::A3), &[0xab]); }
+fn encode_ijmp() { assert_encode(Inst::Ijmp(AddrReg::A3), &[0xab]); }
 
 #[test]
-fn encode_call() { assert_encode(Sp80Inst::Call(Addr(0x1234)), &[0xac, 0x34, 0x12]); }
+fn encode_call() { assert_encode(Inst::Call(Addr(0x1234)), &[0xac, 0x34, 0x12]); }
 
 #[test]
-fn encode_rcall() { assert_encode(Sp80Inst::Rcall(RelAddr(-100)), &[0xb3, 0x9c]); }
+fn encode_rcall() { assert_encode(Inst::Rcall(RelAddr(-100)), &[0xb3, 0x9c]); }
 
 #[test]
-fn encode_icall() { assert_encode(Sp80Inst::Icall(AddrReg::A2), &[0xb6]); }
+fn encode_icall() { assert_encode(Inst::Icall(AddrReg::A2), &[0xb6]); }
 
 #[test]
-fn encode_ret() { assert_encode(Sp80Inst::Ret, &[0xb8]); }
+fn encode_ret() { assert_encode(Inst::Ret, &[0xb8]); }
 
 #[test]
-fn encode_reti() { assert_encode(Sp80Inst::Reti, &[0xbc]); }
+fn encode_reti() { assert_encode(Inst::Reti, &[0xbc]); }
 
 #[test]
-fn encode_nop() { assert_encode(Sp80Inst::Nop, &[0x00]); }
+fn encode_nop() { assert_encode(Inst::Nop, &[0x00]); }
 
 #[test]
-fn encode_halt() { assert_encode(Sp80Inst::Halt, &[0x15]); }
+fn encode_halt() { assert_encode(Inst::Halt, &[0x15]); }
