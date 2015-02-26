@@ -112,7 +112,7 @@ macro_rules! pack {
 
 }
 
-impl Encode for Inst<RuntimeArgs> {
+impl<A: Args> ::Inst for Inst<A> {
 
 	fn len(&self) -> usize {
 		match self {
@@ -165,6 +165,10 @@ impl Encode for Inst<RuntimeArgs> {
 		}
 	}
 
+}
+
+impl Encode for Inst<RuntimeArgs> {
+	
 	/// Encode a instruction using the given writer
 	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
 		match self {

@@ -13,10 +13,14 @@ use std::io;
 
 pub mod sp80;
 
-/// A SimProc instruction
+/// Something that can be encoded into bytes
 pub trait Encode {
-	fn len(&self) -> usize;
 	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
+}
+
+/// A SimProc instruction
+pub trait Inst {
+	fn len(&self) -> usize;	
 }
 
 #[cfg(test)]
