@@ -9,6 +9,7 @@
 extern crate serialize;
 
 use std::io;
+use std::marker::MarkerTrait;
 use std::mem;
 use std::num::{Int};
 use std::str::FromStr;
@@ -164,3 +165,32 @@ impl AddrReg {
 		}
 	}
 }
+
+pub trait Args : MarkerTrait {
+	type Immediate;
+	type Addr;
+	type RelAddr;
+	type Reg;
+	type AddrReg;
+}
+
+pub struct RuntimeArgs;
+
+impl Args for RuntimeArgs {
+	type Immediate = Immediate;
+	type Addr = Addr;
+	type RelAddr = RelAddr;
+	type Reg = Reg;
+	type AddrReg = AddrReg;
+}
+
+pub struct AssemblyArgs;
+
+impl Args for AssemblyArgs {
+	type Immediate = String;
+	type Addr = String;
+	type RelAddr = String;
+	type Reg = String;
+	type AddrReg = String;
+}
+

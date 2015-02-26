@@ -105,7 +105,7 @@ fn should_reladdr_from_negative_hex_str() {
 	assert_eq!(RelAddr(-0x1234), FromStr::from_str("-0x1234").ok().unwrap());
 }
 
-fn assert_encode(inst: Inst, bytes: &[u8]) {
+fn assert_encode(inst: Inst<RuntimeArgs>, bytes: &[u8]) {
 	let mut w: Vec<u8> = Vec::with_capacity(16);
 	let result = inst.encode(&mut w);
 	assert!(result.is_ok());

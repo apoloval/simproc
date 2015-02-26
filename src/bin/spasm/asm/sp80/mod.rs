@@ -29,7 +29,7 @@ impl Asm80 {
 	fn assemble_mnemonic(mnemonic: &str, 
 						 args: &[String], 
 						 symbols: &SymbolTable,
-						 placement: usize) -> Result<Inst, String> {
+						 placement: usize) -> Result<Inst<RuntimeArgs>, String> {
 		match mnemonic {
 			"add" | "ADD" => 
 				assemble_mnemo!(Inst::Add => binary from args, symbols, placement),
@@ -128,9 +128,9 @@ impl Asm80 {
 	}	
 }
 
-impl Assembler<Inst> for Asm80 {
+impl Assembler<Inst<RuntimeArgs>> for Asm80 {
 
-	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<Inst>, AssemblyError> {
+	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<Inst<RuntimeArgs>>, AssemblyError> {
 		let lines = try!(parser::read_lines(input));
 		let mut asm = Assembly::new();
 		let mut placement = 0 as usize;

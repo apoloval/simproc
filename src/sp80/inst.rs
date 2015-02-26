@@ -19,55 +19,55 @@ use Encode;
 use sp80::args::*;
 
 /// A SP-80 instruction
-pub enum Inst {
+pub enum Inst<A: Args> {
 
 	// Arithmetic-logic instructions
-	Add(Reg, Reg),
-	Addw(AddrReg, AddrReg),
-	Addi(Reg, Immediate),
-	Sub(Reg, Reg),
-	Subw(AddrReg, AddrReg),
-	Subi(Reg, Immediate),
-	Mulw(AddrReg, AddrReg),
-	And(Reg, Reg),
-	Or(Reg, Reg),
-	Xor(Reg, Reg),
-	Lsl(Reg, Reg),
-	Lsr(Reg, Reg),
-	Asr(Reg, Reg),
-	Not(Reg),
-	Comp(Reg),
-	Inc(Reg),
-	Incw(AddrReg),
-	Dec(Reg),
-	Decw(AddrReg),
+	Add(A::Reg, A::Reg),
+	Addw(A::AddrReg, A::AddrReg),
+	Addi(A::Reg, A::Immediate),
+	Sub(A::Reg, A::Reg),
+	Subw(A::AddrReg, A::AddrReg),
+	Subi(A::Reg, A::Immediate),
+	Mulw(A::AddrReg, A::AddrReg),
+	And(A::Reg, A::Reg),
+	Or(A::Reg, A::Reg),
+	Xor(A::Reg, A::Reg),
+	Lsl(A::Reg, A::Reg),
+	Lsr(A::Reg, A::Reg),
+	Asr(A::Reg, A::Reg),
+	Not(A::Reg),
+	Comp(A::Reg),
+	Inc(A::Reg),
+	Incw(A::AddrReg),
+	Dec(A::Reg),
+	Decw(A::AddrReg),
 
 	// Load/store instructions
-	Mov(Reg, Reg),
-	Ld(Reg, AddrReg),
-	St(AddrReg, Reg),
-	Ldd(Reg, Addr),
-	Std(Addr, Reg),
-	Ldi(Reg, Immediate),
-	Ldsp(AddrReg),
-	Push(Reg),
-	Pop(Reg),
+	Mov(A::Reg, A::Reg),
+	Ld(A::Reg, A::AddrReg),
+	St(A::AddrReg, A::Reg),
+	Ldd(A::Reg, A::Addr),
+	Std(A::Addr, A::Reg),
+	Ldi(A::Reg, A::Immediate),
+	Ldsp(A::AddrReg),
+	Push(A::Reg),
+	Pop(A::Reg),
 
 	// Branching instructions
-	Je(RelAddr),
-	Jne(RelAddr),
-	Jl(RelAddr),
-	Jge(RelAddr),
-	Jcc(RelAddr),
-	Jcs(RelAddr),
-	Jvc(RelAddr),
-	Jvs(RelAddr),
-	Jmp(Addr),
-	Rjmp(RelAddr),
-	Ijmp(AddrReg),
-	Call(Addr),
-	Rcall(RelAddr),
-	Icall(AddrReg),
+	Je(A::RelAddr),
+	Jne(A::RelAddr),
+	Jl(A::RelAddr),
+	Jge(A::RelAddr),
+	Jcc(A::RelAddr),
+	Jcs(A::RelAddr),
+	Jvc(A::RelAddr),
+	Jvs(A::RelAddr),
+	Jmp(A::Addr),
+	Rjmp(A::RelAddr),
+	Ijmp(A::AddrReg),
+	Call(A::Addr),
+	Rcall(A::RelAddr),
+	Icall(A::AddrReg),
 	Ret,
 	Reti,
 
@@ -112,7 +112,7 @@ macro_rules! pack {
 
 }
 
-impl Encode for Inst {
+impl Encode for Inst<RuntimeArgs> {
 
 	fn len(&self) -> usize {
 		match self {
