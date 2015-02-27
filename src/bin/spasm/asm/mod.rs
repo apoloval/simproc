@@ -8,8 +8,6 @@
 
 extern crate simproc;
 
-#[macro_use]
-mod mnemo;
 mod parser;
 
 pub mod assembly;

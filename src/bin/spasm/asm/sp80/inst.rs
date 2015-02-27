@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use simproc::sp80::{AssemblyArgs, RuntimeArgs, Inst};
+use simproc::sp80::{AssemblyArgs, Inst};
 
 /// Convert the given mnemonic into a SP80 instruction
 pub fn assemble_inst(mnemonic: &str, 

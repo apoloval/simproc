@@ -37,9 +37,9 @@ impl fmt::Display for ArgAssemblyError {
 impl Error for ArgAssemblyError {
 	fn description(&self) -> &str {
 		match self {
-			&ArgAssemblyError::ParseInt(ref expr, ref cause) => "invalid numeric expression",
-			&ArgAssemblyError::BadReg(ref expr) => "invalid register",
-			&ArgAssemblyError::BadAddrReg(ref expr) => "invalid address register",
+			&ArgAssemblyError::ParseInt(_, _) => "invalid numeric expression",
+			&ArgAssemblyError::BadReg(_) => "invalid register",
+			&ArgAssemblyError::BadAddrReg(_) => "invalid address register",
 		}
 	}
 }
@@ -55,10 +55,7 @@ impl<'a> ArgAssembler<'a> {
 		ArgAssembler { symbols: symbols, location: 0 }
 	}
 
-	pub fn with_location(&mut self, loc: usize) -> &ArgAssembler {
-		self.location = loc;
-		self
-	}
+	pub fn set_location(&mut self, loc: usize) { self.location = loc; }
 }
 
 impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a> {

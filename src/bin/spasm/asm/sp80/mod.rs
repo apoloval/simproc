@@ -8,18 +8,15 @@
 
 mod args;
 mod inst;
-mod mnemo;
 
-use std::error::Error;
 use std::io;
 use std::slice::SliceExt;
 
-use simproc::{Encode, Inst};
+use simproc::Inst;
 use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 
 use asm::{Assembler, Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
-use asm::mnemo::*;
 use asm::parser;
 use asm::parser::Token;
 
