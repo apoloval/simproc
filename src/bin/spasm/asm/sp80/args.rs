@@ -6,8 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::error::Error;
+use std::fmt;
 use std::num::ParseIntError;
-use std::error::FromError;
 use std::str::FromStr;
 
 use simproc::sp80::*;
@@ -15,49 +16,71 @@ use simproc::sp80::*;
 use asm::assembly::SymbolTable;
 
 pub enum ArgAssemblyError {
-	ParseInt(ParseIntError),
+	ParseInt(String, ParseIntError),
 	BadReg(String),
 	BadAddrReg(String),
-	Unknown
 }
 
-pub struct ArgAssemble<'a> {
+impl fmt::Display for ArgAssemblyError {
+	fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+		match self {
+			&ArgAssemblyError::ParseInt(ref expr, ref cause) => 
+				write!(fmt, "invalid numeric expression in `{}`: {}", expr, cause),
+			&ArgAssemblyError::BadReg(ref expr) => 
+				write!(fmt, "invalid register `{}`", expr),
+			&ArgAssemblyError::BadAddrReg(ref expr) => 
+				write!(fmt, "invalid address register `{}`", expr),			
+		}
+	}
+}
+
+impl Error for ArgAssemblyError {
+	fn description(&self) -> &str {
+		match self {
+			&ArgAssemblyError::ParseInt(ref expr, ref cause) => "invalid numeric expression",
+			&ArgAssemblyError::BadReg(ref expr) => "invalid register",
+			&ArgAssemblyError::BadAddrReg(ref expr) => "invalid address register",
+		}
+	}
+}
+
+pub struct ArgAssembler<'a> {
 	symbols: &'a SymbolTable,
 	location: usize,
 }
 
-impl<'a> ArgAssemble<'a> {
+impl<'a> ArgAssembler<'a> {
 
-	pub fn with_symbols(symbols: &'a SymbolTable) -> ArgAssemble<'a> {
-		ArgAssemble { symbols: symbols, location: 0 }
+	pub fn with_symbols(symbols: &'a SymbolTable) -> ArgAssembler<'a> {
+		ArgAssembler { symbols: symbols, location: 0 }
 	}
 
-	pub fn with_location(&mut self, loc: usize) -> &ArgAssemble {
+	pub fn with_location(&mut self, loc: usize) -> &ArgAssembler {
 		self.location = loc;
 		self
 	}
 }
 
-impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssemble<'a> {
+impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a> {
 
 	fn map_immediate(&self, src: &String) -> Result<Immediate, ArgAssemblyError> {
 		match FromStr::from_str(&src[..]) {
 			Ok(k) => Ok(Immediate(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(e))
+			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
 		}
 	}
 
 	fn map_addr(&self, src: &String) -> Result<Addr, ArgAssemblyError> {
 		match FromStr::from_str(&src[..]) {
 			Ok(k) => Ok(Addr(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(e))
+			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
 		}
 	}
 
 	fn map_rel_addr(&self, src: &String) -> Result<RelAddr, ArgAssemblyError> {
 		match FromStr::from_str(&src[..]) {
 			Ok(k) => Ok(RelAddr(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(e))
+			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
 		}
 	}
 

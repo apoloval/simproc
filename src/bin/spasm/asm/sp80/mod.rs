@@ -10,6 +10,7 @@ mod args;
 mod inst;
 mod mnemo;
 
+use std::error::Error;
 use std::io;
 use std::slice::SliceExt;
 
@@ -17,7 +18,7 @@ use simproc::{Encode, Inst};
 use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 
-use asm::{Assembler, Assembly, AssemblyError, Assembled, ProgramError};
+use asm::{Assembler, Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
 use asm::mnemo::*;
 use asm::parser;
 use asm::parser::Token;
@@ -33,54 +34,67 @@ impl Assembler<sp80::Inst<sp80::RuntimeArgs>> for Asm80 {
 
 	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<sp80::Inst<RuntimeArgs>>, AssemblyError> {
 		let lines = try!(parser::read_lines(input));
-		let mut asm = Assembly::new();
+		let mut symbols: SymbolTable = SymbolTable::new();
 		let mut placement = 0 as usize;
 		let mut errors: Vec<ProgramError> = Vec::new();
+		let mut assembled: Vec<Assembled<sp80::Inst<AssemblyArgs>>> = Vec::new();
 
 		let tokens = parser::tokenize(&lines);
 
-		// First loop, lexical error & symbol lookup
+		// First loop, gather assembled elements and errors
 		for i in 0..tokens.len() {
 			let tk = &tokens[i];
 			let line = &lines[i];
 			match tk {
-				&Token::Mnemonic(ref mnemo, ref args) => {
-					match inst::assemble_inst(mnemo, args) {
-						Ok(inst) => { 
-							placement += inst.len(); 
-						},
-						Err(err) => { errors.push(ProgramError::new(i, &line[..], &err[..])) },
-					}
-				},
-				&Token::LexicalError => 
-					errors.push(ProgramError::new_lexical_error(i, &line[..])),
 				&Token::Label(ref label) => { 
-					asm.decl_symbol(&label[..], placement); 
+					symbols.insert(label.clone(), placement);
+					assembled.push(Assembled::Ignored(line.clone()));
 				},
-				_ => (),
-			};
-		}
-		
-		// Second loop, assemble elements
-		placement = 0;
-		for i in 0..tokens.len() {
-			let line = &lines[i];
-			let tk = &tokens[i];
-			match tk {
 				&Token::Mnemonic(ref mnemo, ref args) => {
 					match inst::assemble_inst(mnemo, args) {
 						Ok(inst) => { 
-							placement += inst.len(); 
-
+							let next_placement = placement + inst.len(); 
+							assembled.push(Assembled::Inst(line.clone(), placement, inst));
+							placement = next_placement;
 						},
-						Err(err) => { errors.push(ProgramError::new(i, &line[..], &err[..])) },
+						Err(err) => { 
+							errors.push(ProgramError::new(i, &line[..], &err[..]));
+							assembled.push(Assembled::Ignored(line.clone()));
+						},
 					}
 				},
-				_ => asm.push(Assembled::Ignored(line.clone())),
+				&Token::Blank => {
+					assembled.push(Assembled::Ignored(line.clone()));
+				},
+				&Token::LexicalError => {
+					errors.push(ProgramError::new_lexical_error(i, &line[..]));
+					assembled.push(Assembled::Ignored(line.clone()));
+				},
 			};
 		}
 
-		if errors.is_empty() { Ok(asm) }
+		// Second loop, encode assembled instructions
+		let arg_asmblr = args::ArgAssembler::with_symbols(&symbols);
+		let mut assembly = Assembly::with_symbols(&symbols);
+		for i in 0..assembled.len() {
+			let a = &assembled[i];
+			match a {
+				&Assembled::Inst(ref l, p, ref inst) => {
+					match inst.assemble(&arg_asmblr) {
+						Ok(asm_inst) => 
+							assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
+						Err(e) => errors.push(
+							ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
+					}
+				},
+				&Assembled::Ignored(ref ign) => {
+					assembly.push(Assembled::Ignored(ign.clone()));
+				},
+			}
+		}
+
+
+		if errors.is_empty() { Ok(assembly) }
 		else { Err(AssemblyError::BadProgram(errors)) }
 	}
 }
