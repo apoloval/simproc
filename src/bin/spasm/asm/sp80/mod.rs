@@ -71,18 +71,21 @@ impl Assembler<sp80::Inst<sp80::RuntimeArgs>> for Asm80 {
 		}
 
 		// Second loop, encode assembled instructions
-		let arg_asmblr = args::ArgAssembler::with_symbols(&symbols);
+		let mut arg_asmblr = args::ArgAssembler::with_symbols(&symbols);
 		let mut assembly = Assembly::with_symbols(&symbols);
+		placement = 0;
 		for i in 0..assembled.len() {
 			let a = &assembled[i];
 			match a {
 				&Assembled::Inst(ref l, p, ref inst) => {
+					arg_asmblr.set_location(placement);
 					match inst.assemble(&arg_asmblr) {
 						Ok(asm_inst) => 
 							assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
 						Err(e) => errors.push(
 							ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
-					}
+					};
+					placement += inst.len();
 				},
 				&Assembled::Ignored(ref ign) => {
 					assembly.push(Assembled::Ignored(ign.clone()));
