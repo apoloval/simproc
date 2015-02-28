@@ -6,8 +6,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+extern crate serialize;
+
 use std::io;
 use std::io::BufRead;
+use std::num::Int;
+use std::str::FromStr;
+
+use self::serialize::hex::FromHex;
 
 pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
 	let mut i = io::BufReader::new(input);
@@ -68,4 +74,25 @@ pub fn tokenize(lines: &Vec<String>) -> Vec<Token> {
 		}
 	}
 	tokens
+}
+
+pub fn parse_dec_num(s: &str) -> Option<i64> { FromStr::from_str(s).ok()}
+
+pub fn parse_hex_num(s: &str) -> Option<i64> {
+	if s.trim().starts_with("-0x") { parse_hex_num(&s[1..]).map(|n| -n) }
+	else if s.trim().starts_with("0x") {
+		let hex = format!("{:0>16}", &s[2..]);
+		match hex.from_hex() {
+			Ok(buff) => {
+				let mut accum = 0 as i64;
+				for i in 0..buff.len() { accum |= (buff[i] as i64) << 8*i; }
+				Some(Int::from_be(accum))
+			},
+			Err(_) => None,
+		}
+	} else { None }
+}
+
+pub fn parse_num(s: &str) -> Option<i64> {
+	parse_hex_num(s).or(parse_dec_num(s))
 }

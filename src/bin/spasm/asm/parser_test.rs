@@ -134,3 +134,23 @@ fn should_detect_syntax_errors() {
 	assert_eq!(Token::LexicalError, tokens[2]);
 	assert_eq!(Token::LexicalError, tokens[3]);
 }
+
+#[test]
+fn should_parse_dec_num() {
+	assert_eq!(Some(100), parse_num("100"));
+}
+
+#[test]
+fn should_parse_neg_dec_num() {
+	assert_eq!(Some(-100), parse_num("-100"));
+}
+
+#[test]
+fn should_parse_hex_num() {
+	assert_eq!(Some(0x100), parse_num("0x100"));
+}
+
+#[test]
+fn should_parse_neg_hex_num() {
+	assert_eq!(Some(-0x100), parse_num("-0x100"));
+}
