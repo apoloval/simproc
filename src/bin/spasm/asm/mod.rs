@@ -23,6 +23,3 @@ pub trait Assembler<I: Encode> {
 
 	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
 }
-
-#[cfg(test)]
-mod parser_test;
