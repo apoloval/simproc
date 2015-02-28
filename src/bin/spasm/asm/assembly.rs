@@ -13,7 +13,7 @@ use std::fmt::{Display, Formatter, Error};
 
 use simproc::Inst;
 
-pub type SymbolTable = HashMap<String, usize>;
+pub type SymbolTable = HashMap<String, i64>;
 
 #[derive(Debug)]
 pub struct ProgramError {

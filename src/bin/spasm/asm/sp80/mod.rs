@@ -44,7 +44,7 @@ impl Assembler<sp80::Inst<sp80::RuntimeArgs>> for Asm80 {
 			let line = &lines[i];
 			match tk {
 				&Token::Label(ref label) => { 
-					symbols.insert(label.clone(), placement);
+					symbols.insert(label.clone(), placement as i64);
 					assembled.push(Assembled::Ignored(line.clone()));
 				},
 				&Token::Mnemonic(ref mnemo, ref args) => {
