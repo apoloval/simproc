@@ -6,14 +6,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate simproc;
+use std::io;
 
-mod parser;
+use simproc::inst::Encode;
 
-pub mod assembly;
-pub use self::assembly::*;
+use asm::assembly::*;
 
-pub mod assembler;
-pub use self::assembler::*;
+pub trait Assembler<I: Encode> {
 
-pub mod sp80;
+	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
+}
