@@ -22,6 +22,3 @@ pub trait Encode {
 pub trait Inst {
 	fn len(&self) -> usize;	
 }
-
-#[cfg(test)]
-mod sp80_test;

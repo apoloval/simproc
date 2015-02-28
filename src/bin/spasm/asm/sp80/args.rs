@@ -6,7 +6,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::error::Error;
 use std::fmt;
 use std::num::ToPrimitive;
 
@@ -37,18 +36,6 @@ impl fmt::Display for ArgAssemblyError {
 				write!(fmt, "invalid register `{}`", expr),
 			&ArgAssemblyError::BadAddrReg(ref expr) => 
 				write!(fmt, "invalid address register `{}`", expr),			
-		}
-	}
-}
-
-impl Error for ArgAssemblyError {
-	fn description(&self) -> &str {
-		match self {
-			&ArgAssemblyError::BadNumber(_) => "invalid numeric expression",
-			&ArgAssemblyError::OutOfRange(_) => "number out of range",
-			&ArgAssemblyError::NoSuchSymbol(_) => "undeclared symbol",
-			&ArgAssemblyError::BadReg(_) => "invalid register",
-			&ArgAssemblyError::BadAddrReg(_) => "invalid address register",
 		}
 	}
 }

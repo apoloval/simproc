@@ -202,3 +202,104 @@ pub trait ArgMap<S: Args, D: Args, E> {
 	fn map_reg(&self, src: &S::Reg) -> Result<D::Reg, E>;
 	fn map_addr_reg(&self, src: &S::AddrReg) -> Result<D::AddrReg, E>;
 }
+
+#[cfg(test)]
+mod test {
+
+	use std::str::FromStr;
+	use super::*;
+
+	#[test]
+	fn should_immediate_from_str() {
+		assert_eq!(Immediate(80), FromStr::from_str("80").ok().unwrap());
+	}
+
+	#[test]
+	fn should_immediate_from_hex_str() {
+		assert_eq!(Immediate(0x10), FromStr::from_str("0x10").ok().unwrap());
+	}
+
+	#[test]
+	fn should_immediate_from_neg_str() {
+		assert_eq!(Immediate(-80), FromStr::from_str("-80").ok().unwrap());
+	}
+
+	#[test]
+	fn should_immediate_from_neg_hex_str() {
+		assert_eq!(Immediate(-0x10), FromStr::from_str("-0x10").ok().unwrap());
+	}
+
+	#[test]
+	fn should_fail_immediate_from_too_large_str() {
+		let r: Result<Immediate, String> = FromStr::from_str("8000");
+		assert!(r.err().unwrap().starts_with("invalid decimal value in `8000`:"));
+	}
+
+	#[test]
+	fn should_fail_immediate_from_too_large_hex_str() {
+		let r: Result<Immediate, String> = FromStr::from_str("0x100");
+		assert!(r.err().unwrap().starts_with("invalid hexadecimal value in `0x100`:"));
+	}
+
+	#[test]
+	fn should_addr_from_str() {
+		assert_eq!(Addr(0x1234), FromStr::from_str("4660").ok().unwrap());
+	}
+
+	#[test]
+	fn should_addr_from_byte_str() {
+		assert_eq!(Addr(0x12), FromStr::from_str("18").ok().unwrap());
+	}
+
+	#[test]
+	fn should_fail_addr_from_negative_str() {
+		let r: Result<Addr, String> = FromStr::from_str("-18");
+		assert!(r.err().unwrap().starts_with("invalid negative value in `-18`"));
+	}
+
+	#[test]
+	fn should_addr_from_hex_str() {
+		assert_eq!(Addr(0x1234), FromStr::from_str("0x1234").ok().unwrap());
+	}
+
+	#[test]
+	fn should_addr_from_hex_byte_str() {
+		assert_eq!(Addr(0x12), FromStr::from_str("0x12").ok().unwrap());
+	}
+
+	#[test]
+	fn should_fail_addr_from_negative_hex_str() {
+		let r: Result<Addr, String> = FromStr::from_str("-0x12");
+		assert!(r.err().unwrap().starts_with("invalid negative value in `-0x12`"));
+	}
+
+	#[test]
+	fn should_reladdr_from_str() {
+		assert_eq!(RelAddr(0x1234), FromStr::from_str("4660").ok().unwrap());
+	}
+
+	#[test]
+	fn should_reladdr_from_byte_str() {
+		assert_eq!(RelAddr(0x12), FromStr::from_str("18").ok().unwrap());
+	}
+
+	#[test]
+	fn should_reladdr_from_negative_str() {
+		assert_eq!(RelAddr(-0x12), FromStr::from_str("-18").ok().unwrap());
+	}
+
+	#[test]
+	fn should_reladdr_from_hex_str() {
+		assert_eq!(RelAddr(0x1234), FromStr::from_str("0x1234").ok().unwrap());
+	}
+
+	#[test]
+	fn should_reladdr_from_hex_byte_str() {
+		assert_eq!(RelAddr(0x12), FromStr::from_str("0x12").ok().unwrap());
+	}
+
+	#[test]
+	fn should_reladdr_from_negative_hex_str() {
+		assert_eq!(RelAddr(-0x1234), FromStr::from_str("-0x1234").ok().unwrap());
+	}	
+}
