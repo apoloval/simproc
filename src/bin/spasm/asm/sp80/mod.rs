@@ -12,7 +12,7 @@ mod inst;
 use std::io;
 use std::slice::SliceExt;
 
-use simproc::Inst;
+use simproc::inst::Inst;
 use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 

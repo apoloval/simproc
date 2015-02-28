@@ -25,7 +25,7 @@ mod asm;
 
 use std::fs::File;
 
-use simproc::Encode;
+use simproc::inst::Encode;
 
 use asm::{Assembler, Assembled, AssemblyError};
 use asm::sp80;

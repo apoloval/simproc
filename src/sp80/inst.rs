@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use self::serialize::hex::FromHex;
 
-use Encode;
+use inst;
 use sp80::args::*;
 
 /// A SP-80 instruction
@@ -213,7 +213,7 @@ macro_rules! pack {
 
 }
 
-impl<A: Args> ::Inst for Inst<A> {
+impl<A: Args> inst::Inst for Inst<A> {
 
 	fn len(&self) -> usize {
 		match self {
@@ -268,7 +268,7 @@ impl<A: Args> ::Inst for Inst<A> {
 
 }
 
-impl Encode for Inst<RuntimeArgs> {
+impl inst::Encode for Inst<RuntimeArgs> {
 	
 	/// Encode a instruction using the given writer
 	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
@@ -326,9 +326,10 @@ impl Encode for Inst<RuntimeArgs> {
 #[cfg(test)]
 mod test {
 
-	use ::Encode;
-	use super::*;
+	use inst::Encode;
 	use sp80::args::*;
+
+	use super::*;
 
 	fn assert_encode(inst: Inst<RuntimeArgs>, bytes: &[u8]) {
 		let mut w: Vec<u8> = Vec::with_capacity(16);

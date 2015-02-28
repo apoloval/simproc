@@ -11,7 +11,7 @@ use std::error::FromError;
 use std::io;
 use std::fmt::{Display, Formatter, Error};
 
-use simproc::Inst;
+use simproc::inst::Inst;
 
 pub type SymbolTable = HashMap<String, i64>;
 

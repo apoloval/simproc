@@ -15,7 +15,7 @@ pub mod sp80;
 
 use std::io;
 
-use simproc::Encode;
+use simproc::inst::Encode;
 
 pub use self::assembly::*;
 
