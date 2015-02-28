@@ -11,10 +11,12 @@
 #![feature(io)]
 #![feature(os)]
 #![feature(plugin)]
+#![feature(rustc_private)]
 
 #![plugin(regex_macros)]
 
 extern crate regex;
+extern crate serialize;
 
 extern crate simproc;
 

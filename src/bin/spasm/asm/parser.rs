@@ -6,14 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate serialize;
-
 use std::io;
 use std::io::BufRead;
 use std::num::Int;
 use std::str::FromStr;
 
-use self::serialize::hex::FromHex;
+use serialize::hex::FromHex;
 
 pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
 	let mut i = io::BufReader::new(input);

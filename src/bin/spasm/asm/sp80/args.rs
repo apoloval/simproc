@@ -8,15 +8,16 @@
 
 use std::error::Error;
 use std::fmt;
-use std::num::ParseIntError;
-use std::str::FromStr;
+use std::num::ToPrimitive;
 
 use simproc::sp80::*;
 
 use asm::assembly::SymbolTable;
+use asm::parser;
 
 pub enum ArgAssemblyError {
-	ParseInt(String, ParseIntError),
+	BadNumber(String),
+	OutOfRange(String),
 	BadReg(String),
 	BadAddrReg(String),
 }
@@ -24,8 +25,10 @@ pub enum ArgAssemblyError {
 impl fmt::Display for ArgAssemblyError {
 	fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
 		match self {
-			&ArgAssemblyError::ParseInt(ref expr, ref cause) => 
-				write!(fmt, "invalid numeric expression in `{}`: {}", expr, cause),
+			&ArgAssemblyError::BadNumber(ref expr) => 
+				write!(fmt, "invalid numeric expression in `{}`", expr),
+			&ArgAssemblyError::OutOfRange(ref expr) => 
+				write!(fmt, "number `{}` is out of range", expr),
 			&ArgAssemblyError::BadReg(ref expr) => 
 				write!(fmt, "invalid register `{}`", expr),
 			&ArgAssemblyError::BadAddrReg(ref expr) => 
@@ -37,7 +40,8 @@ impl fmt::Display for ArgAssemblyError {
 impl Error for ArgAssemblyError {
 	fn description(&self) -> &str {
 		match self {
-			&ArgAssemblyError::ParseInt(_, _) => "invalid numeric expression",
+			&ArgAssemblyError::BadNumber(_) => "invalid numeric expression",
+			&ArgAssemblyError::OutOfRange(_) => "number out of range",
 			&ArgAssemblyError::BadReg(_) => "invalid register",
 			&ArgAssemblyError::BadAddrReg(_) => "invalid address register",
 		}
@@ -58,27 +62,31 @@ impl<'a> ArgAssembler<'a> {
 	pub fn set_location(&mut self, loc: usize) { self.location = loc; }
 }
 
+macro_rules! parse_num(
+	($s:expr, $c:ident) => ({
+		let num = match parser::parse_num(&$s[..]) {
+			Some(n) => n,
+			None => return Err(ArgAssemblyError::BadNumber($s.clone())),
+		};
+		match num.$c() {
+			Some(k) => Ok(k),
+			None => Err(ArgAssemblyError::OutOfRange($s.clone())),
+		}
+	});
+);
+
 impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a> {
 
 	fn map_immediate(&self, src: &String) -> Result<Immediate, ArgAssemblyError> {
-		match FromStr::from_str(&src[..]) {
-			Ok(k) => Ok(Immediate(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
-		}
+		parse_num!(src, to_u8).map(|n| Immediate(n))
 	}
 
 	fn map_addr(&self, src: &String) -> Result<Addr, ArgAssemblyError> {
-		match FromStr::from_str(&src[..]) {
-			Ok(k) => Ok(Addr(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
-		}
+		parse_num!(src, to_u16).map(|n| Addr(n))
 	}
 
 	fn map_rel_addr(&self, src: &String) -> Result<RelAddr, ArgAssemblyError> {
-		match FromStr::from_str(&src[..]) {
-			Ok(k) => Ok(RelAddr(k)),
-			Err(e) => Err(ArgAssemblyError::ParseInt(src.clone(), e))
-		}
+		parse_num!(src, to_i16).map(|n| RelAddr(n))
 	}
 
 	fn map_reg(&self, src: &String) -> Result<Reg, ArgAssemblyError> {
