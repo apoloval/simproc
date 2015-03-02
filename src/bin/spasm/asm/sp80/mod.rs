@@ -22,6 +22,8 @@ use asm::parser::Token;
 
 pub struct Asm80;
 
+pub type RuntimeAssembly = Assembly<sp80::Inst<RuntimeArgs>>;
+
 impl Asm80 {
 
 	pub fn new() -> Asm80 { Asm80 }
@@ -29,7 +31,7 @@ impl Asm80 {
 
 impl Assembler<sp80::Inst<sp80::RuntimeArgs>> for Asm80 {
 
-	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<sp80::Inst<RuntimeArgs>>, AssemblyError> {
+	fn assemble<R : io::Read>(&self, input: R) -> Result<RuntimeAssembly, AssemblyError> {
 		let lines = try!(parser::read_lines(input));
 		let mut symbols: SymbolTable = SymbolTable::new();
 		let mut placement = 0 as usize;

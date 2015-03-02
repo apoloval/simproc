@@ -9,13 +9,14 @@
 #![feature(core)]
 #![feature(fs)]
 #![feature(io)]
-#![feature(os)]
 #![feature(plugin)]
 #![feature(rustc_private)]
 
 #![plugin(regex_macros)]
 
+extern crate docopt;
 extern crate regex;
+extern crate "rustc-serialize" as rustc_serialize;
 extern crate serialize;
 
 extern crate simproc;
@@ -31,8 +32,24 @@ use asm::{Assembler, Assembled, AssemblyError};
 use asm::sp80;
 
 fn main() {
-	let args = args::parse_args().unwrap();
-	let ifile = File::open(&args.input[..]).unwrap();
+	let args = args::parse_args();
+	if args.flag_version {
+		println!("SimProc Assembler version 0.1.0");
+		println!("Copyright (C) 2015 Alvaro Polo");
+		println!("");
+	} else {
+		assemble(&args.arg_input)
+	}
+}
+
+fn assemble(input: &String) {
+	let ifile = match File::open(&input[..]) {
+		Ok(f) => f,
+		Err(e) => {
+			println!("cannot open input file `{}`: {}", input, e);
+			return;
+		},
+	};
 
 	let asmblr = sp80::Asm80::new();
 	let asm = match asmblr.assemble(ifile) {
@@ -43,11 +60,15 @@ fn main() {
 			return;
 		},
 		Err(AssemblyError::Io(e)) =>  {
-			println!("IO error while reading file {}: {}", args.input, e);
+			println!("IO error while reading file {}: {}", &input[..], e);
 			return;
 		},
 	};
 
+	assemble_txt(&asm);
+}
+
+fn assemble_txt(asm: &sp80::RuntimeAssembly) {
 	for line in asm.assembled().iter() {
 		match line {
 			&Assembled::Inst(ref line, place, ref inst) => {
