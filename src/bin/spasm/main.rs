@@ -84,4 +84,13 @@ fn assemble_txt(asm: &sp80::RuntimeAssembly) {
 			&Assembled::Ignored(ref line) => println!("                   {}", line),
 		}
 	}
+
+	let symbols = asm.symbols();
+	println!("\nSymbol table:");
+	if symbols.is_empty() { println!("  Empty"); }
+	else {
+		for (sym, val) in symbols.iter() {
+			println!("  {} : 0x{:04x}", sym, val);
+		}
+	}
 }
