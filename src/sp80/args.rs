@@ -6,119 +6,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate serialize;
-
-use std::io;
 use std::marker::MarkerTrait;
-use std::mem;
-use std::num::{Int};
-use std::str::FromStr;
-
-use self::serialize::hex::FromHex;
 
 /// An immediate value that comes after an opcode. 
 #[derive(Debug, PartialEq)]
 pub struct Immediate(pub u8);
 
-macro_rules! int_from_str(
-	($s:expr => $t:ty) => (
-		if $s.starts_with("0x") || $s.starts_with("-0x") { int_from_str!($s => $t as hex) } 
-		else { int_from_str!($s => $t as dec) }
-	);
-	($s:expr => $t:ty as pos) => (
-		if $s.starts_with("0x") || $s.starts_with("-0x") { int_from_str!($s => $t as pos hex) } 
-		else { int_from_str!($s => $t as pos dec) }
-	);
-	($s:expr => $t:ty as pos dec) => ({
-		if $s.starts_with("-") { Err(format!("invalid negative value in `{}`", $s)) }
-		else { int_from_str!($s => $t as dec) }
-	});
-	($s:expr => $t:ty as dec) => ({
-		let (range, sign) = if $s.starts_with("-") { (1.., -1) } else { (0.., 1) };
-		let k: $t = match FromStr::from_str(&$s[range]) {
-			Ok(k) => k,
-			Err(e) => return Err(format!("invalid decimal value in `{}`: {}", $s, e)),
-		};
-		Ok((k * sign) as $t)
-	});
-	($s:expr => $t:ty as pos hex) => ({
-		if $s.starts_with("-") { Err(format!("invalid negative value in `{}`", $s)) }
-		else { int_from_str!($s => $t as hex) }
-	});
-	($s:expr => $t:ty as hex) => ({
-		let (range, sign) = if $s.starts_with("0x") { (2.., 1) }
-			else if $s.starts_with("-0x") { (3.., -1) }
-			else if $s.starts_with("-") { (0.., -1) }
-			else { (0.., 1) };
-		match $s[range].from_hex() {
-			Ok(v) => {
-				let type_len = mem::size_of::<$t>();
-				let bytes_len = v.len();
-				if bytes_len <= type_len {
-					let mut k = 0 as $t;
-					let mut i = 8*(type_len - bytes_len);
-					for b in v.iter() {
-						k |= ((*b as $t) << i) as $t;
-						i += 8;
-					}
-					Ok((Int::from_be(k) * sign) as $t) 
-
-				}
-				else { Err(format!("invalid hexadecimal value in `{}`: number out of range", $s)) }
-			},
-			Err(e) => Err(format!("invalid hexadecimal value in `{}`: {}", $s, e)),
-		}
-	});
-);
-
-impl FromStr for Immediate {
-	type Err = String;
-	fn from_str(s: &str) -> Result<Immediate, String> {
-		int_from_str!(s => u8).map(|k| Immediate(k)) 
-	}
-}
-
 /// An address in SP-80 of 16-bits
 #[derive(Debug, PartialEq)]
 pub struct Addr(pub u16);
-
-impl FromStr for Addr {
-	type Err = String;
-	fn from_str(s: &str) -> Result<Addr, String> {
-		int_from_str!(s => u16 as pos).map(|k| Addr(k)) 
-	}
-}
 
 /// A relative address, i.e. a delta respect the current PC. 
 #[derive(Debug, PartialEq)]
 pub struct RelAddr(pub i16);
 
-impl FromStr for RelAddr {
-	type Err = String;
-	fn from_str(s: &str) -> Result<RelAddr, String> {
-		int_from_str!(s => i16).map(|k| RelAddr(k)) 
-	}
-}
-
 /// General purpose 8-bit Regs. 
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
-
-impl FromStr for Reg {
-	type Err = String;
-	fn from_str(s: &str) -> Result<Reg, String> {
-		match s {
-			"r0" | "R0" => Ok(Reg::R0),
-			"r1" | "R1" => Ok(Reg::R1),
-			"r2" | "R2" => Ok(Reg::R2),
-			"r3" | "R3" => Ok(Reg::R3),
-			"r4" | "R4" => Ok(Reg::R4),
-			"r5" | "R5" => Ok(Reg::R5),
-			"r6" | "R6" => Ok(Reg::R6),
-			"r7" | "R7" => Ok(Reg::R7),
-			_ => Err(format!("invalid register name `{}`", s))
-		}
-	}
-}
 
 impl Reg {
 
@@ -139,19 +42,6 @@ impl Reg {
 
 /// 16-bits address Regs. 
 pub enum AddrReg { A0, A1, A2, A3 }
-
-impl FromStr for AddrReg {
-	type Err = String;
-	fn from_str(s: &str) -> Result<AddrReg, String> {
-		match s {
-			"a0" | "A0" => Ok(AddrReg::A0),
-			"a1" | "A1" => Ok(AddrReg::A1),
-			"a2" | "A2" => Ok(AddrReg::A2),
-			"a3" | "A3" => Ok(AddrReg::A3),
-			_ => Err(format!("invalid address register name `{}`", s))
-		}
-	}
-}
 
 impl AddrReg {
 
@@ -201,105 +91,4 @@ pub trait ArgMap<S: Args, D: Args, E> {
 	fn map_rel_addr(&self, src: &S::RelAddr) -> Result<D::RelAddr, E>;
 	fn map_reg(&self, src: &S::Reg) -> Result<D::Reg, E>;
 	fn map_addr_reg(&self, src: &S::AddrReg) -> Result<D::AddrReg, E>;
-}
-
-#[cfg(test)]
-mod test {
-
-	use std::str::FromStr;
-	use super::*;
-
-	#[test]
-	fn should_immediate_from_str() {
-		assert_eq!(Immediate(80), FromStr::from_str("80").ok().unwrap());
-	}
-
-	#[test]
-	fn should_immediate_from_hex_str() {
-		assert_eq!(Immediate(0x10), FromStr::from_str("0x10").ok().unwrap());
-	}
-
-	#[test]
-	fn should_immediate_from_neg_str() {
-		assert_eq!(Immediate(-80), FromStr::from_str("-80").ok().unwrap());
-	}
-
-	#[test]
-	fn should_immediate_from_neg_hex_str() {
-		assert_eq!(Immediate(-0x10), FromStr::from_str("-0x10").ok().unwrap());
-	}
-
-	#[test]
-	fn should_fail_immediate_from_too_large_str() {
-		let r: Result<Immediate, String> = FromStr::from_str("8000");
-		assert!(r.err().unwrap().starts_with("invalid decimal value in `8000`:"));
-	}
-
-	#[test]
-	fn should_fail_immediate_from_too_large_hex_str() {
-		let r: Result<Immediate, String> = FromStr::from_str("0x100");
-		assert!(r.err().unwrap().starts_with("invalid hexadecimal value in `0x100`:"));
-	}
-
-	#[test]
-	fn should_addr_from_str() {
-		assert_eq!(Addr(0x1234), FromStr::from_str("4660").ok().unwrap());
-	}
-
-	#[test]
-	fn should_addr_from_byte_str() {
-		assert_eq!(Addr(0x12), FromStr::from_str("18").ok().unwrap());
-	}
-
-	#[test]
-	fn should_fail_addr_from_negative_str() {
-		let r: Result<Addr, String> = FromStr::from_str("-18");
-		assert!(r.err().unwrap().starts_with("invalid negative value in `-18`"));
-	}
-
-	#[test]
-	fn should_addr_from_hex_str() {
-		assert_eq!(Addr(0x1234), FromStr::from_str("0x1234").ok().unwrap());
-	}
-
-	#[test]
-	fn should_addr_from_hex_byte_str() {
-		assert_eq!(Addr(0x12), FromStr::from_str("0x12").ok().unwrap());
-	}
-
-	#[test]
-	fn should_fail_addr_from_negative_hex_str() {
-		let r: Result<Addr, String> = FromStr::from_str("-0x12");
-		assert!(r.err().unwrap().starts_with("invalid negative value in `-0x12`"));
-	}
-
-	#[test]
-	fn should_reladdr_from_str() {
-		assert_eq!(RelAddr(0x1234), FromStr::from_str("4660").ok().unwrap());
-	}
-
-	#[test]
-	fn should_reladdr_from_byte_str() {
-		assert_eq!(RelAddr(0x12), FromStr::from_str("18").ok().unwrap());
-	}
-
-	#[test]
-	fn should_reladdr_from_negative_str() {
-		assert_eq!(RelAddr(-0x12), FromStr::from_str("-18").ok().unwrap());
-	}
-
-	#[test]
-	fn should_reladdr_from_hex_str() {
-		assert_eq!(RelAddr(0x1234), FromStr::from_str("0x1234").ok().unwrap());
-	}
-
-	#[test]
-	fn should_reladdr_from_hex_byte_str() {
-		assert_eq!(RelAddr(0x12), FromStr::from_str("0x12").ok().unwrap());
-	}
-
-	#[test]
-	fn should_reladdr_from_negative_hex_str() {
-		assert_eq!(RelAddr(-0x1234), FromStr::from_str("-0x1234").ok().unwrap());
-	}	
 }
