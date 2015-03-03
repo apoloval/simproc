@@ -10,4 +10,4 @@ pub mod args;
 pub mod inst;
 
 pub mod assembler;
-pub use self::assembler::{Asm80, RuntimeAssembly};
+pub use self::assembler::{Assembler, RuntimeAssembly};

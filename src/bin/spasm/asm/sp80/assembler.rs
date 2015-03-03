@@ -19,13 +19,13 @@ use asm::parser::Token;
 use asm::sp80::args;
 use asm::sp80::inst;
 
-pub struct Asm80;
+pub struct Assembler;
 
 pub type RuntimeAssembly = Assembly<sp80::Inst<RuntimeArgs>>;
 
-impl Asm80 {
+impl Assembler {
 
-    pub fn new() -> Asm80 { Asm80 }
+    pub fn new() -> Assembler { Assembler }
 
     pub fn assemble<R : io::Read>(&self, input: R) -> Result<RuntimeAssembly, AssemblyError> {
         let lines = try!(parser::read_lines(input));

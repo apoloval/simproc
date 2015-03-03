@@ -51,7 +51,7 @@ fn assemble(input: &String) {
         },
     };
 
-    let asmblr = sp80::Asm80::new();
+    let asmblr = sp80::Assembler::new();
     let asm = match asmblr.assemble(ifile) {
         Ok(asm) => asm,
         Err(AssemblyError::BadProgram(errors)) => {
