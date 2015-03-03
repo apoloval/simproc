@@ -10,10 +10,10 @@ use std::io;
 
 /// Something that can be encoded into bytes
 pub trait Encode {
-	fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
+    fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
 }
 
 /// A SimProc instruction
 pub trait Inst {
-	fn len(&self) -> usize;	
+    fn len(&self) -> usize;    
 }

@@ -21,30 +21,30 @@ Options:
 
 #[derive(RustcDecodable)]
 pub struct Args {
-	pub arg_input: String,
-	pub flag_help: bool,
+    pub arg_input: String,
+    pub flag_help: bool,
     pub flag_version: bool,
 }
 
 pub fn parse_args() -> Args {
-	Docopt::new(USAGE)
-		.and_then(|d| d.decode())
-		.unwrap_or_else(|e| e.exit())
+    Docopt::new(USAGE)
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit())
 }
 
 #[cfg(test)]
 mod test {
 
-	use super::*;
+    use super::*;
 
-	use docopt::Docopt;
+    use docopt::Docopt;
 
-	#[test]
-	fn should_parse_help() {
-		let argv = |&:| vec!["spasm", "--version"];
-		let args: Args = Docopt::new(super::USAGE)
+    #[test]
+    fn should_parse_help() {
+        let argv = |&:| vec!["spasm", "--version"];
+        let args: Args = Docopt::new(super::USAGE)
                         .and_then(|d| d.argv(argv().into_iter()).decode())
                         .unwrap_or_else(|e| e.exit());
-		assert!(args.flag_version);
-	}
+        assert!(args.flag_version);
+    }
 }

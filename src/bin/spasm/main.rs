@@ -32,65 +32,66 @@ use asm::{Assembler, Assembled, AssemblyError};
 use asm::sp80;
 
 fn main() {
-	let args = args::parse_args();
-	if args.flag_version {
-		println!("SimProc Assembler version 0.1.0");
-		println!("Copyright (C) 2015 Alvaro Polo");
-		println!("");
-	} else {
-		assemble(&args.arg_input)
-	}
+    let args = args::parse_args();
+    if args.flag_version {
+        println!("SimProc Assembler version 0.1.0");
+        println!("Copyright (C) 2015 Alvaro Polo");
+        println!("");
+    } else {
+        assemble(&args.arg_input)
+    }
 }
 
 fn assemble(input: &String) {
-	let ifile = match File::open(&input[..]) {
-		Ok(f) => f,
-		Err(e) => {
-			println!("cannot open input file `{}`: {}", input, e);
-			return;
-		},
-	};
+    let ifile = match File::open(&input[..]) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("cannot open input file `{}`: {}", input, e);
+            return;
+        },
+    };
 
-	let asmblr = sp80::Asm80::new();
-	let asm = match asmblr.assemble(ifile) {
-		Ok(asm) => asm,
-		Err(AssemblyError::BadProgram(errors)) => {
-			println!("Assembled with {} errors:", errors.len());
-			for e in errors.iter() { println!("\t{}", e); }
-			return;
-		},
-		Err(AssemblyError::Io(e)) =>  {
-			println!("IO error while reading file {}: {}", &input[..], e);
-			return;
-		},
-	};
+    let asmblr = sp80::Asm80::new();
+    let asm = match asmblr.assemble(ifile) {
+        Ok(asm) => asm,
+        Err(AssemblyError::BadProgram(errors)) => {
+            println!("Assembled with {} errors:", errors.len());
+            for e in errors.iter() { println!("\t{}", e); }
+            return;
+        },
+        Err(AssemblyError::Io(e)) =>  {
+            println!("IO error while reading file {}: {}", &input[..], e);
+            return;
+        },
+    };
 
-	assemble_txt(&asm);
+    assemble_txt(&asm);
 }
 
 fn assemble_txt(asm: &sp80::RuntimeAssembly) {
-	for line in asm.assembled().iter() {
-		match line {
-			&Assembled::Inst(ref line, place, ref inst) => {
-				let mut buff: Vec<u8> = Vec::new();
-				let nbytes = inst.encode(&mut buff).unwrap();
-				print!("0x{:04x} : ", place as u16);
-				for b in buff.iter() {			
-					print!("{:02x} ", b);
-				}
-				for _ in 0..(10 - 3*nbytes) { print!(" "); }
-				println!("{}", line);
-			},
-			&Assembled::Ignored(ref line) => println!("                   {}", line),
-		}
-	}
+    for line in asm.assembled().iter() {
+        match line {
+            &Assembled::Inst(ref line, place, ref inst) => {
+                let mut buff: Vec<u8> = Vec::new();
+                let nbytes = inst.encode(&mut buff).unwrap();
+                print!("0x{:04x} : ", place as u16);
+                for b in buff.iter() {            
+                    print!("{:02x} ", b);
+                }
+                for _ in 0..(10 - 3*nbytes) { print!(" "); }
+                println!("{}", line);
+            },
+            &Assembled::Ignored(ref line) => println!("                   {}", line),
+        }
+    }
 
-	let symbols = asm.symbols();
-	println!("\nSymbol table:");
-	if symbols.is_empty() { println!("  Empty"); }
-	else {
-		for (sym, val) in symbols.iter() {
-			println!("  {} : 0x{:04x}", sym, val);
-		}
-	}
+    let symbols = asm.symbols();
+    println!("\nSymbol table:");
+    if symbols.is_empty() { println!("  Empty"); }
+    else {
+        for (sym, val) in symbols.iter() {
+            println!("  {} : 0x
+                {:04x}", sym, val);
+        }
+    }
 }

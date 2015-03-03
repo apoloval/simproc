@@ -14,5 +14,5 @@ use asm::assembly::*;
 
 pub trait Assembler<I: Encode> {
 
-	fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
+    fn assemble<R : io::Read>(&self, input: R) -> Result<Assembly<I>, AssemblyError>;
 }
