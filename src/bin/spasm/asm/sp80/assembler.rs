@@ -13,7 +13,7 @@ use simproc::inst::Inst;
 use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 
-use asm::{Assembler, Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
+use asm::{Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
 use asm::parser;
 use asm::parser::Token;
 use asm::sp80::args;
@@ -26,11 +26,8 @@ pub type RuntimeAssembly = Assembly<sp80::Inst<RuntimeArgs>>;
 impl Asm80 {
 
     pub fn new() -> Asm80 { Asm80 }
-}
 
-impl Assembler<sp80::Inst<sp80::RuntimeArgs>> for Asm80 {
-
-    fn assemble<R : io::Read>(&self, input: R) -> Result<RuntimeAssembly, AssemblyError> {
+    pub fn assemble<R : io::Read>(&self, input: R) -> Result<RuntimeAssembly, AssemblyError> {
         let lines = try!(parser::read_lines(input));
         let mut symbols: SymbolTable = SymbolTable::new();
         let mut placement = 0 as usize;

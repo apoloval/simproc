@@ -28,7 +28,7 @@ use std::fs::File;
 
 use simproc::inst::Encode;
 
-use asm::{Assembler, Assembled, AssemblyError};
+use asm::{Assembled, AssemblyError};
 use asm::sp80;
 
 fn main() {

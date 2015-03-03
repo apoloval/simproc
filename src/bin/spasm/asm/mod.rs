@@ -13,7 +13,4 @@ mod parser;
 pub mod assembly;
 pub use self::assembly::*;
 
-pub mod assembler;
-pub use self::assembler::*;
-
 pub mod sp80;
