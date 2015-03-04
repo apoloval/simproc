@@ -6,12 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate simproc;
-
-mod inst;
-mod parser;
-
-pub mod assembly;
-pub use self::assembly::*;
-
-pub mod sp80;
+pub trait FromMnemo {
+    type Err;
+    fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Self, Self::Err>;
+}

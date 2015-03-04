@@ -14,6 +14,7 @@ use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 
 use asm::{Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
+use asm::inst::FromMnemo;
 use asm::parser;
 use asm::parser::Token;
 use asm::sp80::args;
@@ -46,7 +47,9 @@ impl Assembler {
                     assembled.push(Assembled::Ignored(line.clone()));
                 },
                 &Token::Mnemonic(ref mnemo, ref args) => {
-                    match inst::assemble_inst(mnemo, args) {
+                    let from_mnemo: Result<sp80::Inst<AssemblyArgs>, String> = 
+                        FromMnemo::from_mnemo(mnemo, args);
+                    match from_mnemo {
                         Ok(inst) => { 
                             let next_placement = placement + inst.len(); 
                             assembled.push(Assembled::Inst(line.clone(), placement, inst));
