@@ -12,9 +12,10 @@ use std::slice::SliceExt;
 
 use simproc::inst::{Inst, Encode};
 use simproc::sp80;
-use simproc::sp80::{AssemblyArgs, RuntimeArgs};
+use simproc::sp80::{AssemblyArgs, RuntimeArgs, ArgMap};
 
 use asm::{Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
+use asm::assembler;
 use asm::inst::FromMnemo;
 use asm::parser;
 use asm::parser::Token;
@@ -24,111 +25,116 @@ pub struct Assembler;
 
 pub type RuntimeAssembly = Assembly<sp80::RuntimeInst>;
 
+impl assembler::Assembler for Assembler {
+    type AssemblyInst = sp80::AssemblyInst;
+    type RuntimeInst = sp80::RuntimeInst;
+    type AssemblyErr = args::ArgAssemblyError;
+
+    fn assemble_inst(from: &sp80::AssemblyInst, 
+                     symbols: &SymbolTable, 
+                     placement: usize) -> Result<sp80::RuntimeInst, args::ArgAssemblyError> {
+        // TODO: do not user the mapper in such a way
+        let mut mapper = args::ArgAssembler::with_symbols(&symbols);
+        mapper.set_location(placement);
+        match from {
+            &sp80::Inst::Add(ref r1, ref r2) => 
+                Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Addw(ref a1, ref a2) => 
+                Ok(sp80::Inst::Addw(try!(mapper.map_addr_reg(a1)), try!(mapper.map_addr_reg(a2)))),
+            &sp80::Inst::Addi(ref r, ref k) =>
+                Ok(sp80::Inst::Addi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
+            &sp80::Inst::Sub(ref r1, ref r2) =>
+                Ok(sp80::Inst::Sub(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Subw(ref a1, ref a2) => 
+                Ok(sp80::Inst::Subw(try!(mapper.map_addr_reg(a1)), try!(mapper.map_addr_reg(a2)))),
+            &sp80::Inst::Subi(ref r, ref k) =>
+                Ok(sp80::Inst::Subi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
+            &sp80::Inst::Mulw(ref a1, ref a2) => 
+                Ok(sp80::Inst::Mulw(try!(mapper.map_addr_reg(a1)), try!(mapper.map_addr_reg(a2)))),
+            &sp80::Inst::And(ref r1, ref r2) => 
+                Ok(sp80::Inst::And(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Or(ref r1, ref r2) => 
+                Ok(sp80::Inst::Or(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Xor(ref r1, ref r2) => 
+                Ok(sp80::Inst::Xor(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Lsl(ref r1, ref r2) => 
+                Ok(sp80::Inst::Lsl(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Lsr(ref r1, ref r2) => 
+                Ok(sp80::Inst::Lsr(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Asr(ref r1, ref r2) => 
+                Ok(sp80::Inst::Asr(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Not(ref r) => 
+                Ok(sp80::Inst::Not(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Comp(ref r) => 
+                Ok(sp80::Inst::Comp(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Inc(ref r) =>
+                Ok(sp80::Inst::Inc(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Incw(ref a) => 
+                Ok(sp80::Inst::Incw(try!(mapper.map_addr_reg(a)))),
+            &sp80::Inst::Dec(ref r) => 
+                Ok(sp80::Inst::Dec(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Decw(ref a) => 
+                Ok(sp80::Inst::Decw(try!(mapper.map_addr_reg(a)))),
+
+            &sp80::Inst::Mov(ref r1, ref r2) =>
+                Ok(sp80::Inst::Mov(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
+            &sp80::Inst::Ld(ref r, ref a) => 
+                Ok(sp80::Inst::Ld(try!(mapper.map_reg(r)), try!(mapper.map_addr_reg(a)))),
+            &sp80::Inst::St(ref a, ref r) => 
+                Ok(sp80::Inst::St(try!(mapper.map_addr_reg(a)), try!(mapper.map_reg(r)))),
+            &sp80::Inst::Ldd(ref r, ref a) => 
+                Ok(sp80::Inst::Ldd(try!(mapper.map_reg(r)), try!(mapper.map_addr(a)))),
+            &sp80::Inst::Std(ref a, ref r) => 
+                Ok(sp80::Inst::Std(try!(mapper.map_addr(a)), try!(mapper.map_reg(r)))),
+            &sp80::Inst::Ldi(ref r, ref k) => 
+                Ok(sp80::Inst::Ldi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
+            &sp80::Inst::Ldsp(ref a) => 
+                Ok(sp80::Inst::Ldsp(try!(mapper.map_addr_reg(a)))),
+            &sp80::Inst::Push(ref r) => 
+                Ok(sp80::Inst::Push(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Pop(ref r) => 
+                Ok(sp80::Inst::Pop(try!(mapper.map_reg(r)))),
+            &sp80::Inst::Je(ref o) => 
+                Ok(sp80::Inst::Je(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jne(ref o) => 
+                Ok(sp80::Inst::Jne(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jl(ref o) => 
+                Ok(sp80::Inst::Jl(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jge(ref o) => 
+                Ok(sp80::Inst::Jge(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jcc(ref o) => 
+                Ok(sp80::Inst::Jcc(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jcs(ref o) =>
+                Ok(sp80::Inst::Jcs(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jvc(ref o) =>
+                Ok(sp80::Inst::Jvc(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jvs(ref o) =>
+                Ok(sp80::Inst::Jvs(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Jmp(ref a) => 
+                Ok(sp80::Inst::Jmp(try!(mapper.map_addr(a)))),
+            &sp80::Inst::Rjmp(ref o) => 
+                Ok(sp80::Inst::Rjmp(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Ijmp(ref a) => 
+                Ok(sp80::Inst::Ijmp(try!(mapper.map_addr_reg(a)))),
+            &sp80::Inst::Call(ref a) => 
+                Ok(sp80::Inst::Call(try!(mapper.map_addr(a)))),
+            &sp80::Inst::Rcall(ref o) => 
+                Ok(sp80::Inst::Rcall(try!(mapper.map_rel_addr(o)))),
+            &sp80::Inst::Icall(ref a) => 
+                Ok(sp80::Inst::Icall(try!(mapper.map_addr_reg(a)))),
+            &sp80::Inst::Ret => 
+                Ok(sp80::Inst::Ret),
+            &sp80::Inst::Reti =>
+                Ok(sp80::Inst::Reti),
+            &sp80::Inst::Nop =>
+                Ok(sp80::Inst::Nop),
+            &sp80::Inst::Halt =>
+                Ok(sp80::Inst::Halt),
+        }
+    }
+}
+
 impl Assembler {
 
     pub fn new() -> Assembler { Assembler }
-
-    pub fn assemble_as_text<W : io::Write>(&self, 
-                                           input_file: &str, 
-                                           output: &mut W) -> Result<(), AssemblyError> {
-        let asm = try!(self.assemble(input_file));
-        for line in asm.assembled().iter() {
-            match line {
-                &Assembled::Inst(ref line, place, ref inst) => {
-                    let mut buff: Vec<u8> = Vec::new();
-                    let nbytes = inst.encode(&mut buff).unwrap();
-                    try!(write!(output, "0x{:04x} : ", place as u16));
-                    for b in buff.iter() {            
-                        try!(write!(output, "{:02x} ", b));
-                    }
-                    for _ in 0..(10 - 3*nbytes) { try!(write!(output, " ")); }
-                    try!(writeln!(output, "{}", line));
-                },
-                &Assembled::Ignored(ref line) => 
-                    try!(writeln!(output, "                   {}", line)),
-            }
-        }
-
-        let symbols = asm.symbols();
-        try!(writeln!(output, "\nSymbol table:"));
-        if symbols.is_empty() { try!(writeln!(output, "  Empty")); }
-        else {
-            for (sym, val) in symbols.iter() {
-                try!(writeln!(output, "  {} : 0x{:04x}", sym, val));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn assemble(&self, input_file: &str) -> Result<RuntimeAssembly, AssemblyError> {
-        let input = try!(File::open(input_file));
-        let lines = try!(parser::read_lines(input));
-        let mut symbols: SymbolTable = SymbolTable::new();
-        let mut placement = 0 as usize;
-        let mut errors: Vec<ProgramError> = Vec::new();
-        let mut assembled: Vec<Assembled<sp80::Inst<AssemblyArgs>>> = Vec::new();
-
-        let tokens = parser::tokenize(&lines);
-
-        // First loop, gather assembled elements and errors
-        for i in 0..tokens.len() {
-            let tk = &tokens[i];
-            let line = &lines[i];
-            match tk {
-                &Token::Label(ref label) => { 
-                    symbols.insert(label.clone(), placement as i64);
-                    assembled.push(Assembled::Ignored(line.clone()));
-                },
-                &Token::Mnemonic(ref mnemo, ref args) => {
-                    let from_mnemo: Result<sp80::Inst<AssemblyArgs>, String> = 
-                        FromMnemo::from_mnemo(mnemo, args);
-                    match from_mnemo {
-                        Ok(inst) => { 
-                            let next_placement = placement + inst.len(); 
-                            assembled.push(Assembled::Inst(line.clone(), placement, inst));
-                            placement = next_placement;
-                        },
-                        Err(err) => { 
-                            errors.push(ProgramError::new(i, &line[..], &err[..]));
-                            assembled.push(Assembled::Ignored(line.clone()));
-                        },
-                    }
-                },
-                &Token::Blank => {
-                    assembled.push(Assembled::Ignored(line.clone()));
-                },
-                &Token::LexicalError => {
-                    errors.push(ProgramError::new_lexical_error(i, &line[..]));
-                    assembled.push(Assembled::Ignored(line.clone()));
-                },
-            };
-        }
-
-        // Second loop, encode assembled instructions
-        let mut arg_asmblr = args::ArgAssembler::with_symbols(&symbols);
-        let mut assembly = Assembly::with_symbols(&symbols);
-        placement = 0;
-        for i in 0..assembled.len() {
-            let a = &assembled[i];
-            match a {
-                &Assembled::Inst(ref l, p, ref inst) => {
-                    arg_asmblr.set_location(placement);
-                    match inst.assemble(&arg_asmblr) {
-                        Ok(asm_inst) => 
-                            assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
-                        Err(e) => errors.push(
-                            ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
-                    };
-                    placement += inst.len();
-                },
-                &Assembled::Ignored(ref ign) => {
-                    assembly.push(Assembled::Ignored(ign.clone()));
-                },
-            }
-        }
-
-
-        if errors.is_empty() { Ok(assembly) }
-        else { Err(AssemblyError::BadProgram(errors)) }
-    }
 }

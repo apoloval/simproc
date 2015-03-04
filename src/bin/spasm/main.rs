@@ -27,6 +27,7 @@ mod asm;
 use std::io::stdout;
 
 use asm::AssemblyError;
+use asm::assembler::Assembler;
 use asm::sp80;
 
 fn main() {
