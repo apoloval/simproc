@@ -34,8 +34,7 @@ impl assembler::Assembler for Assembler {
                      symbols: &SymbolTable, 
                      placement: usize) -> Result<sp80::RuntimeInst, args::ArgAssemblyError> {
         // TODO: do not user the mapper in such a way
-        let mut mapper = args::ArgAssembler::with_symbols(&symbols);
-        mapper.set_location(placement);
+        let mut mapper = args::ArgAssembler::with_symbols_and_location(&symbols, placement);
         match from {
             &sp80::Inst::Add(ref r1, ref r2) => 
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),

@@ -47,11 +47,9 @@ pub struct ArgAssembler<'a> {
 
 impl<'a> ArgAssembler<'a> {
 
-    pub fn with_symbols(symbols: &'a SymbolTable) -> ArgAssembler<'a> {
-        ArgAssembler { symbols: symbols, location: 0 }
+    pub fn with_symbols_and_location(symbols: &'a SymbolTable, location: usize) -> ArgAssembler<'a> {
+        ArgAssembler { symbols: symbols, location: location }
     }
-
-    pub fn set_location(&mut self, loc: usize) { self.location = loc; }
 }
 
 macro_rules! parse_num {
@@ -159,7 +157,7 @@ mod test {
     macro_rules! assert_map_eq {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
             let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = ArgAssembler::with_symbols(&symbols);
+            let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), resolve!(asmblr, $given => $f));
         });
     }    
@@ -167,7 +165,7 @@ mod test {
     macro_rules! assert_map_fail {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
             let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = ArgAssembler::with_symbols(&symbols);
+            let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), asmblr.$f(&$given.to_string()).err());
         });
     }    
@@ -259,8 +257,7 @@ mod test {
     #[test]
     fn should_map_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let mut asmblr = ArgAssembler::with_symbols(&symbols);
-        asmblr.set_location(0x100);
+        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"0x120".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -268,8 +265,7 @@ mod test {
     #[test]
     fn should_map_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x120]);
-        let mut asmblr = ArgAssembler::with_symbols(&symbols);
-        asmblr.set_location(0x100);
+        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"foo".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -277,8 +273,7 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let mut asmblr = ArgAssembler::with_symbols(&symbols);
-        asmblr.set_location(0x100);
+        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"0x500".to_string()).err();
         assert_eq!(Some(ArgAssemblyError::OutOfRange("0x500".to_string())), err);
     }
@@ -286,8 +281,7 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x500]);
-        let mut asmblr = ArgAssembler::with_symbols(&symbols);
-        asmblr.set_location(0x100);
+        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"foo".to_string()).err();
         assert_eq!(Some(ArgAssemblyError::OutOfRange("foo".to_string())), err);
     }
