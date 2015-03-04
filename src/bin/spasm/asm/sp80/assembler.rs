@@ -22,7 +22,7 @@ use asm::sp80::args;
 
 pub struct Assembler;
 
-pub type RuntimeAssembly = Assembly<sp80::Inst<RuntimeArgs>>;
+pub type RuntimeAssembly = Assembly<sp80::RuntimeInst>;
 
 impl Assembler {
 

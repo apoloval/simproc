@@ -70,9 +70,12 @@ pub enum Inst<A: Args> {
     Halt,
 }
 
-impl Inst<AssemblyArgs> {
+pub type AssemblyInst = Inst<AssemblyArgs>;
+pub type RuntimeInst = Inst<RuntimeArgs>;
+
+impl AssemblyInst {
     pub fn assemble<E>(
-            &self, mapper: &ArgMap<AssemblyArgs, RuntimeArgs, E>) -> Result<Inst<RuntimeArgs>, E> {
+            &self, mapper: &ArgMap<AssemblyArgs, RuntimeArgs, E>) -> Result<RuntimeInst, E> {
         match self {
             &Inst::Add(ref r1, ref r2) => 
                 Ok(Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
@@ -262,7 +265,7 @@ impl<A: Args> inst::Inst for Inst<A> {
 
 }
 
-impl inst::Encode for Inst<RuntimeArgs> {
+impl inst::Encode for RuntimeInst {
     
     /// Encode a instruction using the given writer
     fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
@@ -325,7 +328,7 @@ mod test {
 
     use super::*;
 
-    fn assert_encode(inst: Inst<RuntimeArgs>, bytes: &[u8]) {
+    fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
         let mut w: Vec<u8> = Vec::with_capacity(16);
         let result = inst.encode(&mut w);
         assert!(result.is_ok());
