@@ -8,12 +8,18 @@
 
 use std::io;
 
-/// Something that can be encoded into bytes
-pub trait Encode {
-    fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
-}
-
 /// A SimProc instruction
 pub trait Inst {
     fn len(&self) -> usize;    
+}
+
+/// Something that can be encoded into bytes
+pub trait Encode where Self : Inst {
+    fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize>;
+}
+
+pub trait Assemble<ArgMapper> where Self : Inst {
+	type ToInst;
+	type Err;
+	fn assemble(&self, mapper: &ArgMapper) -> Result<Self::ToInst, Self::Err>;
 }
