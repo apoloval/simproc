@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::io;
+use std::fs::File;
 use std::slice::SliceExt;
 
 use simproc::inst::Inst;
@@ -18,7 +18,6 @@ use asm::inst::FromMnemo;
 use asm::parser;
 use asm::parser::Token;
 use asm::sp80::args;
-use asm::sp80::inst;
 
 pub struct Assembler;
 
@@ -28,7 +27,8 @@ impl Assembler {
 
     pub fn new() -> Assembler { Assembler }
 
-    pub fn assemble<R : io::Read>(&self, input: R) -> Result<RuntimeAssembly, AssemblyError> {
+    pub fn assemble(&self, input_file: &str) -> Result<RuntimeAssembly, AssemblyError> {
+        let input = try!(File::open(input_file));
         let lines = try!(parser::read_lines(input));
         let mut symbols: SymbolTable = SymbolTable::new();
         let mut placement = 0 as usize;

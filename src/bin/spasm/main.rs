@@ -24,8 +24,6 @@ extern crate simproc;
 mod args;
 mod asm;
 
-use std::fs::File;
-
 use simproc::inst::Encode;
 
 use asm::{Assembled, AssemblyError};
@@ -43,16 +41,8 @@ fn main() {
 }
 
 fn assemble(input: &String) {
-    let ifile = match File::open(&input[..]) {
-        Ok(f) => f,
-        Err(e) => {
-            println!("cannot open input file `{}`: {}", input, e);
-            return;
-        },
-    };
-
     let asmblr = sp80::Assembler::new();
-    let asm = match asmblr.assemble(ifile) {
+    let asm = match asmblr.assemble(&input[..]) {
         Ok(asm) => asm,
         Err(AssemblyError::BadProgram(errors)) => {
             println!("Assembled with {} errors:", errors.len());
