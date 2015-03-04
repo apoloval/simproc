@@ -7,9 +7,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::fs::File;
+use std::io;
 use std::slice::SliceExt;
 
-use simproc::inst::Inst;
+use simproc::inst::{Inst, Encode};
 use simproc::sp80;
 use simproc::sp80::{AssemblyArgs, RuntimeArgs};
 
@@ -26,6 +27,38 @@ pub type RuntimeAssembly = Assembly<sp80::Inst<RuntimeArgs>>;
 impl Assembler {
 
     pub fn new() -> Assembler { Assembler }
+
+    pub fn assemble_as_text<W : io::Write>(&self, 
+                                           input_file: &str, 
+                                           output: &mut W) -> Result<(), AssemblyError> {
+        let asm = try!(self.assemble(input_file));
+        for line in asm.assembled().iter() {
+            match line {
+                &Assembled::Inst(ref line, place, ref inst) => {
+                    let mut buff: Vec<u8> = Vec::new();
+                    let nbytes = inst.encode(&mut buff).unwrap();
+                    try!(write!(output, "0x{:04x} : ", place as u16));
+                    for b in buff.iter() {            
+                        try!(write!(output, "{:02x} ", b));
+                    }
+                    for _ in 0..(10 - 3*nbytes) { try!(write!(output, " ")); }
+                    try!(writeln!(output, "{}", line));
+                },
+                &Assembled::Ignored(ref line) => 
+                    try!(writeln!(output, "                   {}", line)),
+            }
+        }
+
+        let symbols = asm.symbols();
+        try!(writeln!(output, "\nSymbol table:"));
+        if symbols.is_empty() { try!(writeln!(output, "  Empty")); }
+        else {
+            for (sym, val) in symbols.iter() {
+                try!(writeln!(output, "  {} : 0x{:04x}", sym, val));
+            }
+        }
+        Ok(())
+    }
 
     pub fn assemble(&self, input_file: &str) -> Result<RuntimeAssembly, AssemblyError> {
         let input = try!(File::open(input_file));

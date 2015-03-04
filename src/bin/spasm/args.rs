@@ -41,7 +41,7 @@ mod test {
 
     #[test]
     fn should_parse_help() {
-        let argv = |&:| vec!["spasm", "--version"];
+        let argv = || vec!["spasm", "--version"];
         let args: Args = Docopt::new(super::USAGE)
                         .and_then(|d| d.argv(argv().into_iter()).decode())
                         .unwrap_or_else(|e| e.exit());

@@ -24,9 +24,9 @@ extern crate simproc;
 mod args;
 mod asm;
 
-use simproc::inst::Encode;
+use std::io::stdout;
 
-use asm::{Assembled, AssemblyError};
+use asm::AssemblyError;
 use asm::sp80;
 
 fn main() {
@@ -42,46 +42,16 @@ fn main() {
 
 fn assemble(input: &String) {
     let asmblr = sp80::Assembler::new();
-    let asm = match asmblr.assemble(&input[..]) {
-        Ok(asm) => asm,
-        Err(AssemblyError::BadProgram(errors)) => {
-            println!("Assembled with {} errors:", errors.len());
-            for e in errors.iter() { println!("\t{}", e); }
-            return;
-        },
-        Err(AssemblyError::Io(e)) =>  {
-            println!("IO error while reading file {}: {}", &input[..], e);
-            return;
-        },
-    };
-
-    assemble_txt(&asm);
+    process_result(&asmblr.assemble_as_text(&input[..], &mut stdout()));
 }
 
-fn assemble_txt(asm: &sp80::RuntimeAssembly) {
-    for line in asm.assembled().iter() {
-        match line {
-            &Assembled::Inst(ref line, place, ref inst) => {
-                let mut buff: Vec<u8> = Vec::new();
-                let nbytes = inst.encode(&mut buff).unwrap();
-                print!("0x{:04x} : ", place as u16);
-                for b in buff.iter() {            
-                    print!("{:02x} ", b);
-                }
-                for _ in 0..(10 - 3*nbytes) { print!(" "); }
-                println!("{}", line);
-            },
-            &Assembled::Ignored(ref line) => println!("                   {}", line),
-        }
-    }
-
-    let symbols = asm.symbols();
-    println!("\nSymbol table:");
-    if symbols.is_empty() { println!("  Empty"); }
-    else {
-        for (sym, val) in symbols.iter() {
-            println!("  {} : 0x
-                {:04x}", sym, val);
-        }
-    }
+fn process_result(result: &Result<(), AssemblyError>) {
+    match result {
+        &Ok(_) => {},
+        &Err(AssemblyError::BadProgram(ref errors)) => {
+            println!("Assembled with {} errors:", errors.len());
+            for e in errors.iter() { println!("\t{}", e); }
+        },
+        &Err(AssemblyError::Io(ref e)) =>  { println!("{}", e); },
+    };
 }
