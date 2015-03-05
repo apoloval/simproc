@@ -22,7 +22,6 @@ pub trait Assembler {
     type RuntimeInst : Inst + Encode;
     type AssemblyErr : Display;
 
-
     fn assemble_inst(from: &Self::AssemblyInst, 
                      symbols: &SymbolTable, 
                      placement: usize) -> Result<Self::RuntimeInst, Self::AssemblyErr>;

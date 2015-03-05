@@ -83,12 +83,3 @@ impl Args for AssemblyArgs {
     type Reg = String;
     type AddrReg = String;
 }
-
-pub trait ArgMap<S: Args, D: Args, E> {
-
-    fn map_immediate(&self, src: &S::Immediate) -> Result<D::Immediate, E>;
-    fn map_addr(&self, src: &S::Addr) -> Result<D::Addr, E>;
-    fn map_rel_addr(&self, src: &S::RelAddr) -> Result<D::RelAddr, E>;
-    fn map_reg(&self, src: &S::Reg) -> Result<D::Reg, E>;
-    fn map_addr_reg(&self, src: &S::AddrReg) -> Result<D::AddrReg, E>;
-}

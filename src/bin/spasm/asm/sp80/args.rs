@@ -45,13 +45,6 @@ pub struct ArgAssembler<'a> {
     location: usize,
 }
 
-impl<'a> ArgAssembler<'a> {
-
-    pub fn with_symbols_and_location(symbols: &'a SymbolTable, location: usize) -> ArgAssembler<'a> {
-        ArgAssembler { symbols: symbols, location: location }
-    }
-}
-
 macro_rules! parse_num {
     ($s:expr) => {
         match parser::parse_num(&$s[..]) {
@@ -74,9 +67,13 @@ macro_rules! to_i10 {
     ($n:expr) => (if ($n > 0x1ff) || ($n < -0x200) { None } else { Some($n as i16) })
 }
 
-impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a> {
+impl<'a> ArgAssembler<'a> {
 
-    fn map_immediate(&self, src: &String) -> Result<Immediate, ArgAssemblyError> {
+    pub fn with_symbols_and_location(symbols: &'a SymbolTable, location: usize) -> ArgAssembler<'a> {
+        ArgAssembler { symbols: symbols, location: location }
+    }
+
+    pub fn map_immediate(&self, src: &String) -> Result<Immediate, ArgAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
@@ -89,7 +86,7 @@ impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a
         }
     }
 
-    fn map_addr(&self, src: &String) -> Result<Addr, ArgAssemblyError> {
+    pub fn map_addr(&self, src: &String) -> Result<Addr, ArgAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
@@ -99,7 +96,7 @@ impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a
         }
     }
 
-    fn map_rel_addr(&self, src: &String) -> Result<RelAddr, ArgAssemblyError> {
+    pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, ArgAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
@@ -109,7 +106,7 @@ impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a
         }
     }
 
-    fn map_reg(&self, src: &String) -> Result<Reg, ArgAssemblyError> {
+    pub fn map_reg(&self, src: &String) -> Result<Reg, ArgAssemblyError> {
         match &src[..] {
             "r0" | "R0" => Ok(Reg::R0),
             "r1" | "R1" => Ok(Reg::R1),
@@ -123,7 +120,7 @@ impl<'a> ArgMap<AssemblyArgs, RuntimeArgs, ArgAssemblyError> for ArgAssembler<'a
         }
     }
 
-    fn map_addr_reg(&self, src: &String) -> Result<AddrReg, ArgAssemblyError> {
+    pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, ArgAssemblyError> {
         match &src[..] {
             "a0" | "A0" => Ok(AddrReg::A0),
             "a1" | "A1" => Ok(AddrReg::A1),
@@ -257,7 +254,7 @@ mod test {
     #[test]
     fn should_map_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"0x120".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -265,7 +262,7 @@ mod test {
     #[test]
     fn should_map_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x120]);
-        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"foo".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -273,7 +270,7 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"0x500".to_string()).err();
         assert_eq!(Some(ArgAssemblyError::OutOfRange("0x500".to_string())), err);
     }
@@ -281,7 +278,7 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x500]);
-        let mut asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"foo".to_string()).err();
         assert_eq!(Some(ArgAssemblyError::OutOfRange("foo".to_string())), err);
     }

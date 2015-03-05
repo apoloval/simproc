@@ -6,19 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::fs::File;
-use std::io;
-use std::slice::SliceExt;
-
-use simproc::inst::{Inst, Encode};
 use simproc::sp80;
-use simproc::sp80::{AssemblyArgs, RuntimeArgs, ArgMap};
 
-use asm::{Assembly, AssemblyError, Assembled, ProgramError, SymbolTable};
+use asm::{Assembly, SymbolTable};
 use asm::assembler;
-use asm::inst::FromMnemo;
-use asm::parser;
-use asm::parser::Token;
 use asm::sp80::args;
 
 pub struct Assembler;
@@ -33,8 +24,7 @@ impl assembler::Assembler for Assembler {
     fn assemble_inst(from: &sp80::AssemblyInst, 
                      symbols: &SymbolTable, 
                      placement: usize) -> Result<sp80::RuntimeInst, args::ArgAssemblyError> {
-        // TODO: do not user the mapper in such a way
-        let mut mapper = args::ArgAssembler::with_symbols_and_location(&symbols, placement);
+        let mapper = args::ArgAssembler::with_symbols_and_location(&symbols, placement);
         match from {
             &sp80::Inst::Add(ref r1, ref r2) => 
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
