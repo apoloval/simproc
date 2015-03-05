@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io;
 
 use asm::assembly::*;
+use asm::err::{AssemblyError, ProgramError};
 use asm::inst::FromMnemo;
 use asm::parser;
 use asm::parser::Token;
