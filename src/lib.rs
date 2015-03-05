@@ -8,7 +8,6 @@
 
 #![feature(core)]
 #![feature(io)]
-#![feature(rustc_private)]
 
 pub mod inst;
 pub mod sp80;

@@ -8,7 +8,6 @@
 
 use std::fmt::Display;
 use std::fs::File;
-use std::io;
 
 use asm::assembly::*;
 use asm::err::{AssemblyError, ProgramError};
@@ -22,6 +21,8 @@ pub trait Assembler {
     type AssemblyInst : Inst + FromMnemo;
     type RuntimeInst : Inst + Encode;
     type AssemblyErr : Display;
+
+    fn new() -> Self;
 
     fn assemble_inst(from: &Self::AssemblyInst, 
                      symbols: &SymbolTable, 

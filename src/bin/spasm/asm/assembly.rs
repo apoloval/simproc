@@ -7,8 +7,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::collections::HashMap;
+use std::io;
 
-use simproc::inst::Inst;
+use simproc::inst::{Inst, Encode};
 
 pub type SymbolTable = HashMap<String, i64>;
 
@@ -31,14 +32,22 @@ impl<I: Inst> Assembly<I> {
         }
     }
 
-    pub fn symbols(&self) -> &SymbolTable { &self.symbols }
-
     pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
-
-    pub fn assembled(&self) -> &[Assembled<I>] { &self.assembled[..] }
 }
 
 impl<I: Inst + Encode> Assembly<I> {
+
+    pub fn write_as_bin<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
+        for item in self.assembled.iter() {
+            match item {
+                &Assembled::Inst(_, _, ref inst) => {                     
+                    try!(inst.encode(output)); 
+                },
+                &Assembled::Ignored(_) => (),
+            }
+        }
+        Ok(())
+    }
 
     pub fn write_as_text<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
         for item in self.assembled.iter() {

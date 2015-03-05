@@ -21,6 +21,8 @@ impl assembler::Assembler for Assembler {
     type RuntimeInst = sp80::RuntimeInst;
     type AssemblyErr = args::ArgAssemblyError;
 
+    fn new() -> Assembler { Assembler }
+
     fn assemble_inst(from: &sp80::AssemblyInst, 
                      symbols: &SymbolTable, 
                      placement: usize) -> Result<sp80::RuntimeInst, args::ArgAssemblyError> {
@@ -121,9 +123,4 @@ impl assembler::Assembler for Assembler {
                 Ok(sp80::Inst::Halt),
         }
     }
-}
-
-impl Assembler {
-
-    pub fn new() -> Assembler { Assembler }
 }
