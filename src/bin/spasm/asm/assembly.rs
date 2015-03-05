@@ -37,3 +37,34 @@ impl<I: Inst> Assembly<I> {
 
     pub fn assembled(&self) -> &[Assembled<I>] { &self.assembled[..] }
 }
+
+impl<I: Inst + Encode> Assembly<I> {
+
+    pub fn write_as_text<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
+        for item in self.assembled.iter() {
+            match item {
+                &Assembled::Inst(ref line, place, ref inst) => {
+                    let mut buff: Vec<u8> = Vec::new();
+                    let nbytes = inst.encode(&mut buff).unwrap();
+                    try!(write!(output, "0x{:04x} : ", place as u16));
+                    for b in buff.iter() {            
+                        try!(write!(output, "{:02x} ", b));
+                    }
+                    for _ in 0..(10 - 3*nbytes) { try!(write!(output, " ")); }
+                    try!(writeln!(output, "{}", line));
+                },
+                &Assembled::Ignored(ref line) => 
+                    try!(writeln!(output, "                   {}", line)),
+            }
+        }
+
+        try!(writeln!(output, "\nSymbol table:"));
+        if self.symbols.is_empty() { try!(writeln!(output, "  Empty")); }
+        else {
+            for (sym, val) in self.symbols.iter() {
+                try!(writeln!(output, "  {} : 0x{:04x}", sym, val));
+            }
+        }
+        Ok(())        
+    }    
+}

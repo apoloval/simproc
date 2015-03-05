@@ -43,16 +43,20 @@ fn main() {
 
 fn assemble(input: &String) {
     let asmblr = sp80::Assembler::new();
-    process_result(&asmblr.assemble_as_text(&input[..], &mut stdout()));
-}
-
-fn process_result(result: &Result<(), AssemblyError>) {
-    match result {
-        &Ok(_) => {},
-        &Err(AssemblyError::BadProgram(ref errors)) => {
+    let asm = match asmblr.assemble(&input[..]) {
+        Ok(asm) => asm,
+        Err(AssemblyError::BadProgram(ref errors)) => {
             println!("Assembled with {} errors:", errors.len());
             for e in errors.iter() { println!("\t{}", e); }
+            return;
         },
-        &Err(AssemblyError::Io(ref e)) =>  { println!("{}", e); },
+        Err(AssemblyError::Io(ref e)) =>  { 
+            println!("{}", e);
+            return;
+        },
     };
+    match asm.write_as_text(&mut stdout()) {
+        Ok(_) => {},
+        Err(e) => { println!("Unexpected error while writing output: {}", e); },
+    }
 }

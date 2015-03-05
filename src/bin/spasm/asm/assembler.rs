@@ -27,38 +27,6 @@ pub trait Assembler {
                      symbols: &SymbolTable, 
                      placement: usize) -> Result<Self::RuntimeInst, Self::AssemblyErr>;
 
-    fn assemble_as_text<W : io::Write>(&self, 
-                                       input_file: &str, 
-                                       output: &mut W) -> Result<(), AssemblyError> {
-        let asm = try!(self.assemble(input_file));
-        for line in asm.assembled().iter() {
-            match line {
-                &Assembled::Inst(ref line, place, ref inst) => {
-                    let mut buff: Vec<u8> = Vec::new();
-                    let nbytes = inst.encode(&mut buff).unwrap();
-                    try!(write!(output, "0x{:04x} : ", place as u16));
-                    for b in buff.iter() {            
-                        try!(write!(output, "{:02x} ", b));
-                    }
-                    for _ in 0..(10 - 3*nbytes) { try!(write!(output, " ")); }
-                    try!(writeln!(output, "{}", line));
-                },
-                &Assembled::Ignored(ref line) => 
-                    try!(writeln!(output, "                   {}", line)),
-            }
-        }
-
-        let symbols = asm.symbols();
-        try!(writeln!(output, "\nSymbol table:"));
-        if symbols.is_empty() { try!(writeln!(output, "  Empty")); }
-        else {
-            for (sym, val) in symbols.iter() {
-                try!(writeln!(output, "  {} : 0x{:04x}", sym, val));
-            }
-        }
-        Ok(())
-    }
-
     fn assemble(&self, input_file: &str) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let input = try!(File::open(input_file));
         let lines = try!(parser::read_lines(input));
