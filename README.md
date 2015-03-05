@@ -1,5 +1,7 @@
 # What's SimProc
 
+[![Build Status](https://travis-ci.org/apoloval/simproc.svg?branch=master)](https://travis-ci.org/apoloval/simproc)
+
 SimProc is awesome, mainly because it doesn't exist at all. 
 
 SimProc means _Simple Processor_ or _Simulated Processor_. As you wish. 
