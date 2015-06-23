@@ -7,7 +7,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::io;
-use std::num::{Int};
 
 use inst;
 use sp80::args::*;
@@ -308,7 +307,7 @@ mod test {
     fn encode_std() { assert_encode(Inst::Std(Addr(0x1020), Reg::R6), &[0x4e, 0x20, 0x10]); }
 
     #[test]
-    fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13)), &[0x52, 0xf3]); }
+    fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13i8 as u8)), &[0x52, 0xf3]); }
 
     #[test]
     fn encode_ldsp() { assert_encode(Inst::Ldsp(AddrReg::A1), &[0x59]); }

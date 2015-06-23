@@ -5,10 +5,10 @@ version = "0.1.0"
 authors = ["Alvaro Polo <apoloval@gmail.com>"]
 
 [dependencies]
-docopt = "0.6.44"
-regex = "0.1.16"
-regex_macros = "0.1.10"
-rustc-serialize = "0.3.0"
+byteorder = "*"
+docopt = "*"
+regex = "*"
+rustc-serialize = "*"
 
 [lib]
 name = "simproc"

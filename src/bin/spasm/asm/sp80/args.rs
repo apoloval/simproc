@@ -7,7 +7,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::fmt;
-use std::num::ToPrimitive;
 
 use simproc::sp80::*;
 
@@ -26,16 +25,16 @@ pub enum ArgAssemblyError {
 impl fmt::Display for ArgAssemblyError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &ArgAssemblyError::BadNumber(ref expr) => 
+            &ArgAssemblyError::BadNumber(ref expr) =>
                 write!(fmt, "invalid numeric expression in `{}`", expr),
-            &ArgAssemblyError::OutOfRange(ref expr) => 
+            &ArgAssemblyError::OutOfRange(ref expr) =>
                 write!(fmt, "number `{}` is out of range", expr),
-            &ArgAssemblyError::NoSuchSymbol(ref expr) => 
+            &ArgAssemblyError::NoSuchSymbol(ref expr) =>
                 write!(fmt, "undeclared symbol `{}`", expr),
-            &ArgAssemblyError::BadReg(ref expr) => 
+            &ArgAssemblyError::BadReg(ref expr) =>
                 write!(fmt, "invalid register `{}`", expr),
-            &ArgAssemblyError::BadAddrReg(ref expr) => 
-                write!(fmt, "invalid address register `{}`", expr),            
+            &ArgAssemblyError::BadAddrReg(ref expr) =>
+                write!(fmt, "invalid address register `{}`", expr),
         }
     }
 }
@@ -67,6 +66,18 @@ macro_rules! to_i10 {
     ($n:expr) => (if ($n > 0x1ff) || ($n < -0x200) { None } else { Some($n as i16) })
 }
 
+fn to_i8(i: i64) -> Option<i8> {
+    if i >= -128 && i < 127 { Some(i as i8) } else { None }
+}
+
+fn to_u8(i: i64) -> Option<u8> {
+    if i >= 0 && i < 256 { Some(i as u8) } else { None }
+}
+
+fn to_u16(i: i64) -> Option<u16> {
+    if i >= 0 && i < 65536 { Some(i as u16) } else { None }
+}
+
 impl<'a> ArgAssembler<'a> {
 
     pub fn with_symbols_and_location(symbols: &'a SymbolTable, location: usize) -> ArgAssembler<'a> {
@@ -77,9 +88,9 @@ impl<'a> ArgAssembler<'a> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
-        match k.to_i8() {
+        match to_i8(k) {
             Some(v) => Ok(Immediate(v as u8)),
-            None => match k.to_u8() {
+            None => match to_u8(k) {
                 Some(v) => Ok(Immediate(v)),
                 None => Err(ArgAssemblyError::OutOfRange(src.clone()))
             },
@@ -90,7 +101,7 @@ impl<'a> ArgAssembler<'a> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
-        match k.to_u16() {
+        match to_u16(k) {
             Some(v) => Ok(Addr(v)),
             None => Err(ArgAssemblyError::OutOfRange(src.clone())),
         }
@@ -141,7 +152,7 @@ mod test {
     macro_rules! with_symbols {
         () => (SymbolTable::new() );
         ($([$sym:expr, $val:expr]),+) => ({
-            let mut symbols = SymbolTable::new(); 
+            let mut symbols = SymbolTable::new();
             $(symbols.insert($sym.to_string(), $val);)*;
             symbols
         });
@@ -149,7 +160,7 @@ mod test {
 
     macro_rules! resolve {
         ($a:expr, $e:expr => $f:ident) => ($a.$f(&$e.to_string()).ok())
-    }    
+    }
 
     macro_rules! assert_map_eq {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
@@ -157,7 +168,7 @@ mod test {
             let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), resolve!(asmblr, $given => $f));
         });
-    }    
+    }
 
     macro_rules! assert_map_fail {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
@@ -165,89 +176,89 @@ mod test {
             let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), asmblr.$f(&$given.to_string()).err());
         });
-    }    
+    }
 
     #[test]
     fn should_map_literal_immediate() {
-        assert_map_eq!(=> 
-            Immediate(123), 
+        assert_map_eq!(=>
+            Immediate(123),
             "123" => map_immediate);
     }
 
     #[test]
     fn should_map_neg_literal_immediate() {
-        assert_map_eq!(=> 
-            Immediate(-123), 
+        assert_map_eq!(=>
+            Immediate(-123i8 as u8),
             "-123" => map_immediate);
     }
 
     #[test]
     fn should_map_symbolic_immediate() {
-        assert_map_eq!(["foo", 123] => 
-            Immediate(123), 
+        assert_map_eq!(["foo", 123] =>
+            Immediate(123),
             "foo" => map_immediate);
     }
 
     #[test]
     fn should_map_neg_symbolic_immediate() {
-        assert_map_eq!(["foo", -123] => 
-            Immediate(-123), 
+        assert_map_eq!(["foo", -123] =>
+            Immediate(-123i8 as u8),
             "foo" => map_immediate);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_immediate() {
-        assert_map_fail!(=> 
-            ArgAssemblyError::OutOfRange("1234".to_string()), 
+        assert_map_fail!(=>
+            ArgAssemblyError::OutOfRange("1234".to_string()),
             "1234" => map_immediate);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_immediate() {
-        assert_map_fail!(["foo", 1234] => 
-            ArgAssemblyError::OutOfRange("foo".to_string()), 
+        assert_map_fail!(["foo", 1234] =>
+            ArgAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_immediate);
     }
 
     #[test]
     fn should_map_literal_address() {
-        assert_map_eq!(=> 
-            Addr(0x1234), 
+        assert_map_eq!(=>
+            Addr(0x1234),
             "0x1234" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_neg_literal_address() {
-        assert_map_fail!(=> 
-            ArgAssemblyError::OutOfRange("-0x1234".to_string()), 
+        assert_map_fail!(=>
+            ArgAssemblyError::OutOfRange("-0x1234".to_string()),
             "-0x1234" => map_addr);
     }
 
     #[test]
     fn should_map_symbolic_address() {
-        assert_map_eq!(["foo", 0x1234] => 
-            Addr(0x1234), 
+        assert_map_eq!(["foo", 0x1234] =>
+            Addr(0x1234),
             "foo" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_neg_symbolic_address() {
-        assert_map_fail!(["foo", -1234] => 
-            ArgAssemblyError::OutOfRange("foo".to_string()), 
+        assert_map_fail!(["foo", -1234] =>
+            ArgAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_address() {
-        assert_map_fail!(=> 
-            ArgAssemblyError::OutOfRange("0x123456".to_string()), 
+        assert_map_fail!(=>
+            ArgAssemblyError::OutOfRange("0x123456".to_string()),
             "0x123456" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_address() {
-        assert_map_fail!(["foo", 0x123456] => 
-            ArgAssemblyError::OutOfRange("foo".to_string()), 
+        assert_map_fail!(["foo", 0x123456] =>
+            ArgAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 

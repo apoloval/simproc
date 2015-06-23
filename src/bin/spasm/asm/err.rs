@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::error::FromError;
+use std::convert::From;
 use std::fmt::{Display, Formatter, Error};
 use std::io;
 
@@ -20,15 +20,15 @@ pub struct ProgramError {
 impl ProgramError {
     pub fn new(line: usize, content: &str, reason: &str) -> ProgramError {
         ProgramError {
-            line: line, 
-            content: content.to_string(), 
+            line: line,
+            content: content.to_string(),
             reason: reason.to_string()
         }
     }
 
     pub fn new_lexical_error(line: usize, content: &str) -> ProgramError {
         ProgramError::new(line, content, "invalid lexical expression")
-    }    
+    }
 }
 
 impl Display for ProgramError {
@@ -43,8 +43,6 @@ pub enum AssemblyError {
     BadProgram(Vec<ProgramError>)
 }
 
-impl FromError<io::Error> for AssemblyError {
-    fn from_error(err: io::Error) -> AssemblyError {
-        AssemblyError::Io(err)
-    }
+impl From<io::Error> for AssemblyError {
+    fn from(err: io::Error) -> AssemblyError { AssemblyError::Io(err) }
 }

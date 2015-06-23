@@ -6,18 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#![feature(core)]
-#![feature(fs)]
-#![feature(io)]
-#![feature(plugin)]
-#![feature(rustc_private)]
-
-#![plugin(regex_macros)]
-
+extern crate byteorder;
 extern crate docopt;
 extern crate regex;
-extern crate "rustc-serialize" as rustc_serialize;
-extern crate serialize;
+extern crate rustc_serialize;
 
 extern crate simproc;
 
