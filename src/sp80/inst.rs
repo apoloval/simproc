@@ -19,7 +19,7 @@ pub enum Inst<A: Args> {
     Adc(A::Reg, A::Reg),
     Addi(A::Reg, A::Immediate),
     Sub(A::Reg, A::Reg),
-    Subw(A::AddrReg, A::AddrReg),
+    Sbc(A::Reg, A::Reg),
     Subi(A::Reg, A::Immediate),
     Mulw(A::AddrReg, A::AddrReg),
     And(A::Reg, A::Reg),
@@ -116,7 +116,7 @@ impl<A: Args> inst::Inst for Inst<A> {
             &Inst::Adc(_, _) => 2,
             &Inst::Addi(_, _) => 2,
             &Inst::Sub(_, _) => 2,
-            &Inst::Subw(_, _) => 2,
+            &Inst::Sbc(_, _) => 2,
             &Inst::Subi(_, _) => 2,
             &Inst::Mulw(_, _) => 2,
             &Inst::And(_, _) => 2,
@@ -172,7 +172,7 @@ impl inst::Encode for RuntimeInst {
             &Inst::Adc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x40),
             &Inst::Addi(ref r, Immediate(k)) => pack!(w, reg r in 0xc0, byte k),
             &Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
-            &Inst::Subw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0xc0),
+            &Inst::Sbc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0xc0),
             &Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0xc8, byte k),
             &Inst::Mulw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
             &Inst::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
@@ -247,7 +247,7 @@ mod test {
     fn encode_sub() { assert_encode(Inst::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
 
     #[test]
-    fn encode_subw() { assert_encode(Inst::Subw(AddrReg::A3, AddrReg::A2), &[0xf8, 0xda]); }
+    fn encode_sbc() { assert_encode(Inst::Sbc(Reg::R3, Reg::R2), &[0xf8, 0xda]); }
 
     #[test]
     fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0xcb, 0x64]); }

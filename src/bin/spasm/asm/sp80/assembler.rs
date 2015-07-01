@@ -36,8 +36,8 @@ impl assembler::Assembler for Assembler {
                 Ok(sp80::Inst::Addi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
             &sp80::Inst::Sub(ref r1, ref r2) =>
                 Ok(sp80::Inst::Sub(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
-            &sp80::Inst::Subw(ref a1, ref a2) =>
-                Ok(sp80::Inst::Subw(try!(mapper.map_addr_reg(a1)), try!(mapper.map_addr_reg(a2)))),
+            &sp80::Inst::Sbc(ref r1, ref r2) =>
+                Ok(sp80::Inst::Sbc(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
             &sp80::Inst::Subi(ref r, ref k) =>
                 Ok(sp80::Inst::Subi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
             &sp80::Inst::Mulw(ref a1, ref a2) =>

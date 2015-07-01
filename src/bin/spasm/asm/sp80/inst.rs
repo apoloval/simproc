@@ -19,7 +19,7 @@ impl FromMnemo for Inst<AssemblyArgs> {
             "adc" | "ADC" => Ok(Inst::Adc(args[0].clone(), args[1].clone())),
             "addi" | "ADDI" => Ok(Inst::Addi(args[0].clone(), args[1].clone())),
             "sub" | "SUB" => Ok(Inst::Sub(args[0].clone(), args[1].clone())),
-            "subw" | "SUBW" => Ok(Inst::Subw(args[0].clone(), args[1].clone())),
+            "sbc" | "SBC" => Ok(Inst::Sbc(args[0].clone(), args[1].clone())),
             "subi" | "SUBI" => Ok(Inst::Subi(args[0].clone(), args[1].clone())),
             "mulw" | "MULW" => Ok(Inst::Mulw(args[0].clone(), args[1].clone())),
             "and" | "AND" => Ok(Inst::And(args[0].clone(), args[1].clone())),
