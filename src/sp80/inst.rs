@@ -16,7 +16,7 @@ pub enum Inst<A: Args> {
 
     // Arithmetic-logic instructions
     Add(A::Reg, A::Reg),
-    Addw(A::AddrReg, A::AddrReg),
+    Adc(A::Reg, A::Reg),
     Addi(A::Reg, A::Immediate),
     Sub(A::Reg, A::Reg),
     Subw(A::AddrReg, A::AddrReg),
@@ -72,7 +72,7 @@ pub enum Inst<A: Args> {
 pub type AssemblyInst = Inst<AssemblyArgs>;
 pub type RuntimeInst = Inst<RuntimeArgs>;
 
-/// A macro to pack bits using the opcode coding of SP-80. 
+/// A macro to pack bits using the opcode coding of SP-80.
 macro_rules! pack {
     ($w:ident, $($b:expr),+) => (
         $w.write(&[$($b)+])
@@ -113,7 +113,7 @@ impl<A: Args> inst::Inst for Inst<A> {
     fn len(&self) -> usize {
         match self {
             &Inst::Add(_, _) => 2,
-            &Inst::Addw(_, _) => 2,
+            &Inst::Adc(_, _) => 2,
             &Inst::Addi(_, _) => 2,
             &Inst::Sub(_, _) => 2,
             &Inst::Subw(_, _) => 2,
@@ -164,12 +164,12 @@ impl<A: Args> inst::Inst for Inst<A> {
 }
 
 impl inst::Encode for RuntimeInst {
-    
+
     /// Encode a instruction using the given writer
     fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
         match self {
             &Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
-            &Inst::Addw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
+            &Inst::Adc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x40),
             &Inst::Addi(ref r, Immediate(k)) => pack!(w, reg r in 0xc0, byte k),
             &Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
             &Inst::Subw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0xc0),
@@ -232,13 +232,13 @@ mod test {
         assert!(result.is_ok());
         assert_eq!(bytes.len(), result.ok().unwrap());
         assert_eq!(&w[..], bytes);
-    }    
+    }
 
     #[test]
     fn encode_add() { assert_encode(Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
 
     #[test]
-    fn encode_addw() { assert_encode(Inst::Addw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
+    fn encode_adc() { assert_encode(Inst::Adc(Reg::R3, Reg::R5), &[0xf8, 0x5d]); }
 
     #[test]
     fn encode_addi() { assert_encode(Inst::Addi(Reg::R3, Immediate(100)), &[0xc3, 0x64]); }

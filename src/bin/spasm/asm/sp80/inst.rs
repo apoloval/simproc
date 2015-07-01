@@ -16,7 +16,7 @@ impl FromMnemo for Inst<AssemblyArgs> {
     fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Inst<AssemblyArgs>, String> {
         match mnemo {
             "add" | "ADD" => Ok(Inst::Add(args[0].clone(), args[1].clone())),
-            "addw" | "ADDW" => Ok(Inst::Addw(args[0].clone(), args[1].clone())),
+            "adc" | "ADC" => Ok(Inst::Adc(args[0].clone(), args[1].clone())),
             "addi" | "ADDI" => Ok(Inst::Addi(args[0].clone(), args[1].clone())),
             "sub" | "SUB" => Ok(Inst::Sub(args[0].clone(), args[1].clone())),
             "subw" | "SUBW" => Ok(Inst::Subw(args[0].clone(), args[1].clone())),

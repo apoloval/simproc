@@ -30,8 +30,8 @@ impl assembler::Assembler for Assembler {
         match from {
             &sp80::Inst::Add(ref r1, ref r2) =>
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
-            &sp80::Inst::Addw(ref a1, ref a2) =>
-                Ok(sp80::Inst::Addw(try!(mapper.map_addr_reg(a1)), try!(mapper.map_addr_reg(a2)))),
+            &sp80::Inst::Adc(ref r1, ref r2) =>
+                Ok(sp80::Inst::Adc(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),
             &sp80::Inst::Addi(ref r, ref k) =>
                 Ok(sp80::Inst::Addi(try!(mapper.map_reg(r)), try!(mapper.map_immediate(k)))),
             &sp80::Inst::Sub(ref r1, ref r2) =>
