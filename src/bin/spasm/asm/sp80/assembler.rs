@@ -10,7 +10,7 @@ use simproc::sp80;
 
 use asm::{Assembly, SymbolTable};
 use asm::assembler;
-use asm::sp80::args;
+use asm::sp80::ops;
 
 pub struct Assembler;
 
@@ -19,14 +19,14 @@ pub type RuntimeAssembly = Assembly<sp80::RuntimeInst>;
 impl assembler::Assembler for Assembler {
     type AssemblyInst = sp80::AssemblyInst;
     type RuntimeInst = sp80::RuntimeInst;
-    type AssemblyErr = args::ArgAssemblyError;
+    type AssemblyErr = ops::OpAssemblyError;
 
     fn new() -> Assembler { Assembler }
 
     fn assemble_inst(from: &sp80::AssemblyInst,
                      symbols: &SymbolTable,
-                     placement: usize) -> Result<sp80::RuntimeInst, args::ArgAssemblyError> {
-        let mapper = args::ArgAssembler::with_symbols_and_location(&symbols, placement);
+                     placement: usize) -> Result<sp80::RuntimeInst, ops::OpAssemblyError> {
+        let mapper = ops::OperandAssembler::with_symbols_and_location(&symbols, placement);
         match from {
             &sp80::Inst::Add(ref r1, ref r2) =>
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),

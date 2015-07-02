@@ -9,58 +9,58 @@
 use std::io;
 
 use inst;
-use sp80::args::*;
+use sp80::ops::*;
 
 /// A SP-80 instruction
-pub enum Inst<A: Args> {
+pub enum Inst<O: Operands> {
 
     // Arithmetic-logic instructions
-    Add(A::Reg, A::Reg),
-    Adc(A::Reg, A::Reg),
-    Addi(A::Reg, A::Immediate),
-    Sub(A::Reg, A::Reg),
-    Sbc(A::Reg, A::Reg),
-    Subi(A::Reg, A::Immediate),
-    Mulw(A::AddrReg, A::AddrReg),
-    And(A::Reg, A::Reg),
-    Or(A::Reg, A::Reg),
-    Xor(A::Reg, A::Reg),
-    Lsl(A::Reg, A::Reg),
-    Lsr(A::Reg, A::Reg),
-    Asr(A::Reg, A::Reg),
-    Not(A::Reg),
-    Comp(A::Reg),
-    Inc(A::Reg),
-    Incw(A::AddrReg),
-    Dec(A::Reg),
-    Decw(A::AddrReg),
+    Add(O::Reg, O::Reg),
+    Adc(O::Reg, O::Reg),
+    Addi(O::Reg, O::Immediate),
+    Sub(O::Reg, O::Reg),
+    Sbc(O::Reg, O::Reg),
+    Subi(O::Reg, O::Immediate),
+    Mulw(O::AddrReg, O::AddrReg),
+    And(O::Reg, O::Reg),
+    Or(O::Reg, O::Reg),
+    Xor(O::Reg, O::Reg),
+    Lsl(O::Reg, O::Reg),
+    Lsr(O::Reg, O::Reg),
+    Asr(O::Reg, O::Reg),
+    Not(O::Reg),
+    Comp(O::Reg),
+    Inc(O::Reg),
+    Incw(O::AddrReg),
+    Dec(O::Reg),
+    Decw(O::AddrReg),
 
     // Load/store instructions
-    Mov(A::Reg, A::Reg),
-    Ld(A::Reg, A::AddrReg),
-    St(A::AddrReg, A::Reg),
-    Ldd(A::Reg, A::Addr),
-    Std(A::Addr, A::Reg),
-    Ldi(A::Reg, A::Immediate),
-    Ldsp(A::AddrReg),
-    Push(A::Reg),
-    Pop(A::Reg),
+    Mov(O::Reg, O::Reg),
+    Ld(O::Reg, O::AddrReg),
+    St(O::AddrReg, O::Reg),
+    Ldd(O::Reg, O::Addr),
+    Std(O::Addr, O::Reg),
+    Ldi(O::Reg, O::Immediate),
+    Ldsp(O::AddrReg),
+    Push(O::Reg),
+    Pop(O::Reg),
 
     // Branching instructions
-    Je(A::RelAddr),
-    Jne(A::RelAddr),
-    Jl(A::RelAddr),
-    Jge(A::RelAddr),
-    Jcc(A::RelAddr),
-    Jcs(A::RelAddr),
-    Jvc(A::RelAddr),
-    Jvs(A::RelAddr),
-    Jmp(A::Addr),
-    Rjmp(A::RelAddr),
-    Ijmp(A::AddrReg),
-    Call(A::Addr),
-    Rcall(A::RelAddr),
-    Icall(A::AddrReg),
+    Je(O::RelAddr),
+    Jne(O::RelAddr),
+    Jl(O::RelAddr),
+    Jge(O::RelAddr),
+    Jcc(O::RelAddr),
+    Jcs(O::RelAddr),
+    Jvc(O::RelAddr),
+    Jvs(O::RelAddr),
+    Jmp(O::Addr),
+    Rjmp(O::RelAddr),
+    Ijmp(O::AddrReg),
+    Call(O::Addr),
+    Rcall(O::RelAddr),
+    Icall(O::AddrReg),
     Ret,
     Reti,
 
@@ -69,8 +69,8 @@ pub enum Inst<A: Args> {
     Halt,
 }
 
-pub type AssemblyInst = Inst<AssemblyArgs>;
-pub type RuntimeInst = Inst<RuntimeArgs>;
+pub type AssemblyInst = Inst<AssemblyOperands>;
+pub type RuntimeInst = Inst<RuntimeOperands>;
 
 /// A macro to pack bits using the opcode coding of SP-80.
 macro_rules! pack {
@@ -108,7 +108,7 @@ macro_rules! pack {
 
 }
 
-impl<A: Args> inst::Inst for Inst<A> {
+impl<O: Operands> inst::Inst for Inst<O> {
 
     fn len(&self) -> usize {
         match self {
@@ -222,7 +222,7 @@ impl inst::Encode for RuntimeInst {
 mod test {
 
     use inst::Encode;
-    use sp80::args::*;
+    use sp80::ops::*;
 
     use super::*;
 

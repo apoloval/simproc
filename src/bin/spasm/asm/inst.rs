@@ -12,5 +12,5 @@ use simproc::inst::Inst;
 
 pub trait FromMnemo where Self : Inst {
     type Err : Display;
-    fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Self, Self::Err>;
+    fn from_mnemo(mnemo: &str, ops: &[String]) -> Result<Self, Self::Err>;
 }

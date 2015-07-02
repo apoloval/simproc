@@ -54,7 +54,7 @@ impl AddrReg {
     }
 }
 
-pub trait Args {
+pub trait Operands {
     type Immediate;
     type Addr;
     type RelAddr;
@@ -62,9 +62,9 @@ pub trait Args {
     type AddrReg;
 }
 
-pub struct RuntimeArgs;
+pub struct RuntimeOperands;
 
-impl Args for RuntimeArgs {
+impl Operands for RuntimeOperands {
     type Immediate = Immediate;
     type Addr = Addr;
     type RelAddr = RelAddr;
@@ -72,9 +72,9 @@ impl Args for RuntimeArgs {
     type AddrReg = AddrReg;
 }
 
-pub struct AssemblyArgs;
+pub struct AssemblyOperands;
 
-impl Args for AssemblyArgs {
+impl Operands for AssemblyOperands {
     type Immediate = String;
     type Addr = String;
     type RelAddr = String;

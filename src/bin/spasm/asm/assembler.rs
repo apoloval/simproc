@@ -24,8 +24,8 @@ pub trait Assembler {
 
     fn new() -> Self;
 
-    fn assemble_inst(from: &Self::AssemblyInst, 
-                     symbols: &SymbolTable, 
+    fn assemble_inst(from: &Self::AssemblyInst,
+                     symbols: &SymbolTable,
                      placement: usize) -> Result<Self::RuntimeInst, Self::AssemblyErr>;
 
     fn assemble(&self, input_file: &str) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
@@ -43,20 +43,20 @@ pub trait Assembler {
             let tk = &tokens[i];
             let line = &lines[i];
             match tk {
-                &Token::Label(ref label) => { 
+                &Token::Label(ref label) => {
                     symbols.insert(label.clone(), placement as i64);
                     assembled.push(Assembled::Ignored(line.clone()));
                 },
-                &Token::Mnemonic(ref mnemo, ref args) => {
-                    let from_mnemo: Result<Self::AssemblyInst, _> = 
-                        FromMnemo::from_mnemo(mnemo, args);
+                &Token::Mnemonic(ref mnemo, ref ops) => {
+                    let from_mnemo: Result<Self::AssemblyInst, _> =
+                        FromMnemo::from_mnemo(mnemo, ops);
                     match from_mnemo {
-                        Ok(inst) => { 
-                            let next_placement = placement + inst.len(); 
+                        Ok(inst) => {
+                            let next_placement = placement + inst.len();
                             assembled.push(Assembled::Inst(line.clone(), placement, inst));
                             placement = next_placement;
                         },
-                        Err(err) => { 
+                        Err(err) => {
                             errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
                             assembled.push(Assembled::Ignored(line.clone()));
                         },
@@ -80,7 +80,7 @@ pub trait Assembler {
             match a {
                 &Assembled::Inst(ref l, p, ref inst) => {
                     match Self::assemble_inst(inst, &symbols, placement) {
-                        Ok(asm_inst) => 
+                        Ok(asm_inst) =>
                             assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
                         Err(e) => errors.push(
                             ProgramError::new(i, l.trim(), &format!("{}", e)[..])),

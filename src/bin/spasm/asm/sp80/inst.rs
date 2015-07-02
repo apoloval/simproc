@@ -8,12 +8,12 @@
 
 use asm::inst::FromMnemo;
 
-use simproc::sp80::{AssemblyArgs, Inst};
+use simproc::sp80::{AssemblyOperands, Inst};
 
-impl FromMnemo for Inst<AssemblyArgs> {
+impl FromMnemo for Inst<AssemblyOperands> {
     type Err = String;
 
-    fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Inst<AssemblyArgs>, String> {
+    fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Inst<AssemblyOperands>, String> {
         match mnemo {
             "add" | "ADD" => Ok(Inst::Add(args[0].clone(), args[1].clone())),
             "adc" | "ADC" => Ok(Inst::Adc(args[0].clone(), args[1].clone())),

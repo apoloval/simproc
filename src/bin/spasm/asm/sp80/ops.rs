@@ -14,7 +14,7 @@ use asm::assembly::SymbolTable;
 use asm::parser;
 
 #[derive(Debug, PartialEq)]
-pub enum ArgAssemblyError {
+pub enum OpAssemblyError {
     BadNumber(String),
     OutOfRange(String),
     NoSuchSymbol(String),
@@ -22,24 +22,24 @@ pub enum ArgAssemblyError {
     BadAddrReg(String),
 }
 
-impl fmt::Display for ArgAssemblyError {
+impl fmt::Display for OpAssemblyError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &ArgAssemblyError::BadNumber(ref expr) =>
+            &OpAssemblyError::BadNumber(ref expr) =>
                 write!(fmt, "invalid numeric expression in `{}`", expr),
-            &ArgAssemblyError::OutOfRange(ref expr) =>
+            &OpAssemblyError::OutOfRange(ref expr) =>
                 write!(fmt, "number `{}` is out of range", expr),
-            &ArgAssemblyError::NoSuchSymbol(ref expr) =>
+            &OpAssemblyError::NoSuchSymbol(ref expr) =>
                 write!(fmt, "undeclared symbol `{}`", expr),
-            &ArgAssemblyError::BadReg(ref expr) =>
+            &OpAssemblyError::BadReg(ref expr) =>
                 write!(fmt, "invalid register `{}`", expr),
-            &ArgAssemblyError::BadAddrReg(ref expr) =>
+            &OpAssemblyError::BadAddrReg(ref expr) =>
                 write!(fmt, "invalid address register `{}`", expr),
         }
     }
 }
 
-pub struct ArgAssembler<'a> {
+pub struct OperandAssembler<'a> {
     symbols: &'a SymbolTable,
     location: usize,
 }
@@ -48,7 +48,7 @@ macro_rules! parse_num {
     ($s:expr) => {
         match parser::parse_num(&$s[..]) {
             Some(n) => Ok(n),
-            None => Err(ArgAssemblyError::BadNumber($s.clone())),
+            None => Err(OpAssemblyError::BadNumber($s.clone())),
         }
     }
 }
@@ -57,7 +57,7 @@ macro_rules! parse_symbol {
     ($syms:expr => $s:expr) => {
         match $syms.get($s) {
             Some(val) => Ok(*val),
-            None => Err(ArgAssemblyError::NoSuchSymbol($s.clone())),
+            None => Err(OpAssemblyError::NoSuchSymbol($s.clone())),
         }
     }
 }
@@ -78,13 +78,14 @@ fn to_u16(i: i64) -> Option<u16> {
     if i >= 0 && i < 65536 { Some(i as u16) } else { None }
 }
 
-impl<'a> ArgAssembler<'a> {
+impl<'a> OperandAssembler<'a> {
 
-    pub fn with_symbols_and_location(symbols: &'a SymbolTable, location: usize) -> ArgAssembler<'a> {
-        ArgAssembler { symbols: symbols, location: location }
+    pub fn with_symbols_and_location(
+            symbols: &'a SymbolTable, location: usize) -> OperandAssembler<'a> {
+        OperandAssembler { symbols: symbols, location: location }
     }
 
-    pub fn map_immediate(&self, src: &String) -> Result<Immediate, ArgAssemblyError> {
+    pub fn map_immediate(&self, src: &String) -> Result<Immediate, OpAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
@@ -92,32 +93,32 @@ impl<'a> ArgAssembler<'a> {
             Some(v) => Ok(Immediate(v as u8)),
             None => match to_u8(k) {
                 Some(v) => Ok(Immediate(v)),
-                None => Err(ArgAssemblyError::OutOfRange(src.clone()))
+                None => Err(OpAssemblyError::OutOfRange(src.clone()))
             },
         }
     }
 
-    pub fn map_addr(&self, src: &String) -> Result<Addr, ArgAssemblyError> {
+    pub fn map_addr(&self, src: &String) -> Result<Addr, OpAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
         match to_u16(k) {
             Some(v) => Ok(Addr(v)),
-            None => Err(ArgAssemblyError::OutOfRange(src.clone())),
+            None => Err(OpAssemblyError::OutOfRange(src.clone())),
         }
     }
 
-    pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, ArgAssemblyError> {
+    pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, OpAssemblyError> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.symbols => src);
         let k = try!(lit.or(sym));
         match to_i10!(k - self.location as i64) {
             Some(v) => Ok(RelAddr(v)),
-            None => Err(ArgAssemblyError::OutOfRange(src.clone())),
+            None => Err(OpAssemblyError::OutOfRange(src.clone())),
         }
     }
 
-    pub fn map_reg(&self, src: &String) -> Result<Reg, ArgAssemblyError> {
+    pub fn map_reg(&self, src: &String) -> Result<Reg, OpAssemblyError> {
         match &src[..] {
             "r0" | "R0" => Ok(Reg::R0),
             "r1" | "R1" => Ok(Reg::R1),
@@ -127,17 +128,17 @@ impl<'a> ArgAssembler<'a> {
             "r5" | "R5" => Ok(Reg::R5),
             "r6" | "R6" => Ok(Reg::R6),
             "r7" | "R7" => Ok(Reg::R7),
-            _ => Err(ArgAssemblyError::BadReg(src.clone()))
+            _ => Err(OpAssemblyError::BadReg(src.clone()))
         }
     }
 
-    pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, ArgAssemblyError> {
+    pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, OpAssemblyError> {
         match &src[..] {
             "a0" | "A0" => Ok(AddrReg::A0),
             "a1" | "A1" => Ok(AddrReg::A1),
             "a2" | "A2" => Ok(AddrReg::A2),
             "a3" | "A3" => Ok(AddrReg::A3),
-            _ => Err(ArgAssemblyError::BadAddrReg(src.clone()))
+            _ => Err(OpAssemblyError::BadAddrReg(src.clone()))
         }
     }
 }
@@ -165,7 +166,7 @@ mod test {
     macro_rules! assert_map_eq {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
             let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
+            let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), resolve!(asmblr, $given => $f));
         });
     }
@@ -173,7 +174,7 @@ mod test {
     macro_rules! assert_map_fail {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
             let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0);
+            let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0);
             assert_eq!(Some($expected), asmblr.$f(&$given.to_string()).err());
         });
     }
@@ -209,14 +210,14 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_immediate() {
         assert_map_fail!(=>
-            ArgAssemblyError::OutOfRange("1234".to_string()),
+            OpAssemblyError::OutOfRange("1234".to_string()),
             "1234" => map_immediate);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_immediate() {
         assert_map_fail!(["foo", 1234] =>
-            ArgAssemblyError::OutOfRange("foo".to_string()),
+            OpAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_immediate);
     }
 
@@ -230,7 +231,7 @@ mod test {
     #[test]
     fn should_fail_to_map_neg_literal_address() {
         assert_map_fail!(=>
-            ArgAssemblyError::OutOfRange("-0x1234".to_string()),
+            OpAssemblyError::OutOfRange("-0x1234".to_string()),
             "-0x1234" => map_addr);
     }
 
@@ -244,28 +245,28 @@ mod test {
     #[test]
     fn should_fail_to_map_neg_symbolic_address() {
         assert_map_fail!(["foo", -1234] =>
-            ArgAssemblyError::OutOfRange("foo".to_string()),
+            OpAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_address() {
         assert_map_fail!(=>
-            ArgAssemblyError::OutOfRange("0x123456".to_string()),
+            OpAssemblyError::OutOfRange("0x123456".to_string()),
             "0x123456" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_address() {
         assert_map_fail!(["foo", 0x123456] =>
-            ArgAssemblyError::OutOfRange("foo".to_string()),
+            OpAssemblyError::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 
     #[test]
     fn should_map_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"0x120".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -273,7 +274,7 @@ mod test {
     #[test]
     fn should_map_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x120]);
-        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
         let rel_addr = asmblr.map_rel_addr(&"foo".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
@@ -281,16 +282,16 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_rel_addr() {
         let symbols = SymbolTable::new();
-        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"0x500".to_string()).err();
-        assert_eq!(Some(ArgAssemblyError::OutOfRange("0x500".to_string())), err);
+        assert_eq!(Some(OpAssemblyError::OutOfRange("0x500".to_string())), err);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_rel_addr() {
         let symbols = with_symbols!(["foo", 0x500]);
-        let asmblr = ArgAssembler::with_symbols_and_location(&symbols, 0x100);
+        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
         let err = asmblr.map_rel_addr(&"foo".to_string()).err();
-        assert_eq!(Some(ArgAssemblyError::OutOfRange("foo".to_string())), err);
+        assert_eq!(Some(OpAssemblyError::OutOfRange("foo".to_string())), err);
     }
 }
