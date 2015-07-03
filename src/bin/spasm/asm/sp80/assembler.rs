@@ -8,7 +8,7 @@
 
 use simproc::sp80;
 
-use asm::{Assembly, SymbolTable};
+use asm::{Assembly, AssemblyContext};
 use asm::assembler;
 use asm::sp80::ops;
 
@@ -23,10 +23,10 @@ impl assembler::Assembler for Assembler {
 
     fn new() -> Assembler { Assembler }
 
-    fn assemble_inst(from: &sp80::AssemblyInst,
-                     symbols: &SymbolTable,
-                     placement: usize) -> Result<sp80::RuntimeInst, ops::OpAssemblyError> {
-        let mapper = ops::OperandAssembler::with_symbols_and_location(&symbols, placement);
+    fn assemble_inst(from: &sp80::AssemblyInst, context: &mut AssemblyContext) ->
+            Result<sp80::RuntimeInst, ops::OpAssemblyError> {
+        let mapper = ops::OperandAssembler::with_symbols_and_location(
+            context.symbols(), context.curr_addr());
         match from {
             &sp80::Inst::Add(ref r1, ref r2) =>
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),

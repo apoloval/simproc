@@ -25,9 +25,8 @@ pub trait Assembler {
 
     fn new() -> Self;
 
-    fn assemble_inst(from: &Self::AssemblyInst,
-                     symbols: &SymbolTable,
-                     placement: usize) -> Result<Self::RuntimeInst, Self::AssemblyErr>;
+    fn assemble_inst(from: &Self::AssemblyInst, context: &mut AssemblyContext) ->
+            Result<Self::RuntimeInst, Self::AssemblyErr>;
 
     fn assemble_file(&self, input_file: &str) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let input = try!(File::open(input_file));
@@ -36,8 +35,7 @@ pub trait Assembler {
 
     fn assemble<R: Read>(&self, input: R) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let lines = try!(parser::read_lines(input));
-        let mut symbols: SymbolTable = SymbolTable::new();
-        let mut placement = 0 as usize;
+        let mut context = AssemblyContext::new();
         let mut errors: Vec<ProgramError> = Vec::new();
         let mut assembled: Vec<Assembled<Self::AssemblyInst>> = Vec::new();
 
@@ -49,17 +47,16 @@ pub trait Assembler {
             let line = &lines[i];
             match tk {
                 &Token::Label(ref label) => {
-                    symbols.insert(label.clone(), placement as i64);
-                    assembled.push(Assembled::Ignored(line.clone()));
+                    context.define(&label[..]);
                 },
                 &Token::Mnemonic(ref mnemo, ref ops) => {
                     let from_mnemo: Result<Self::AssemblyInst, _> =
                         FromMnemo::from_mnemo(mnemo, ops);
                     match from_mnemo {
                         Ok(inst) => {
-                            let next_placement = placement + inst.len();
-                            assembled.push(Assembled::Inst(line.clone(), placement, inst));
-                            placement = next_placement;
+                            let inst_len = inst.len();
+                            assembled.push(Assembled::Inst(line.clone(), context.curr_addr(), inst));
+                            context.inc_addr(inst_len);
                         },
                         Err(err) => {
                             errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
@@ -78,19 +75,19 @@ pub trait Assembler {
         }
 
         // Second loop, encode assembled instructions
-        let mut assembly = Assembly::with_symbols(&symbols);
-        placement = 0;
+        let mut assembly = Assembly::with_symbols(context.symbols());
+        context.reset_addr();
         for i in 0..assembled.len() {
             let a = &assembled[i];
             match a {
                 &Assembled::Inst(ref l, p, ref inst) => {
-                    match Self::assemble_inst(inst, &symbols, placement) {
+                    match Self::assemble_inst(inst, &mut context) {
                         Ok(asm_inst) =>
                             assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
                         Err(e) => errors.push(
                             ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
                     };
-                    placement += inst.len();
+                    context.inc_addr(inst.len());
                 },
                 &Assembled::Ignored(ref ign) => {
                     assembly.push(Assembled::Ignored(ign.clone()));
