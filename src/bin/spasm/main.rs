@@ -50,7 +50,7 @@ fn main() {
 
 fn assemble<A: Assembler>(input: &String) -> Option<Assembly<A::RuntimeInst>> {
     let asmblr = A::new();
-    match asmblr.assemble(&input[..]) {
+    match asmblr.assemble_file(&input[..]) {
         Ok(asm) => Some(asm),
         Err(AssemblyError::BadProgram(ref errors)) => {
             println!("Assembled with {} errors:", errors.len());

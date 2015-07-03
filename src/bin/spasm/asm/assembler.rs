@@ -8,6 +8,7 @@
 
 use std::fmt::Display;
 use std::fs::File;
+use std::io::Read;
 
 use asm::assembly::*;
 use asm::err::{AssemblyError, ProgramError};
@@ -28,8 +29,12 @@ pub trait Assembler {
                      symbols: &SymbolTable,
                      placement: usize) -> Result<Self::RuntimeInst, Self::AssemblyErr>;
 
-    fn assemble(&self, input_file: &str) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
+    fn assemble_file(&self, input_file: &str) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let input = try!(File::open(input_file));
+        self.assemble(input)
+    }
+
+    fn assemble<R: Read>(&self, input: R) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let lines = try!(parser::read_lines(input));
         let mut symbols: SymbolTable = SymbolTable::new();
         let mut placement = 0 as usize;
