@@ -25,8 +25,7 @@ impl assembler::Assembler for Assembler {
 
     fn assemble_inst(from: &sp80::AssemblyInst, context: &mut AssemblyContext) ->
             Result<sp80::RuntimeInst, ops::OpAssemblyError> {
-        let mapper = ops::OperandAssembler::with_symbols_and_location(
-            context.symbols(), context.curr_addr());
+        let mapper = ops::OperandAssembler::with_context(context);
         match from {
             &sp80::Inst::Add(ref r1, ref r2) =>
                 Ok(sp80::Inst::Add(try!(mapper.map_reg(r1)), try!(mapper.map_reg(r2)))),

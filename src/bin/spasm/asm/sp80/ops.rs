@@ -10,7 +10,7 @@ use std::fmt;
 
 use simproc::sp80::*;
 
-use asm::assembly::SymbolTable;
+use asm::assembly::AssemblyContext;
 use asm::parser;
 
 #[derive(Debug, PartialEq)]
@@ -40,8 +40,7 @@ impl fmt::Display for OpAssemblyError {
 }
 
 pub struct OperandAssembler<'a> {
-    symbols: &'a SymbolTable,
-    location: usize,
+    context: &'a AssemblyContext
 }
 
 macro_rules! parse_num {
@@ -80,14 +79,13 @@ fn to_u16(i: i64) -> Option<u16> {
 
 impl<'a> OperandAssembler<'a> {
 
-    pub fn with_symbols_and_location(
-            symbols: &'a SymbolTable, location: usize) -> OperandAssembler<'a> {
-        OperandAssembler { symbols: symbols, location: location }
+    pub fn with_context(context: &'a AssemblyContext) -> OperandAssembler<'a> {
+        OperandAssembler { context: context }
     }
 
     pub fn map_immediate(&self, src: &String) -> Result<Immediate, OpAssemblyError> {
         let lit = parse_num!(src);
-        let sym = parse_symbol!(self.symbols => src);
+        let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
         match to_i8(k) {
             Some(v) => Ok(Immediate(v as u8)),
@@ -100,7 +98,7 @@ impl<'a> OperandAssembler<'a> {
 
     pub fn map_addr(&self, src: &String) -> Result<Addr, OpAssemblyError> {
         let lit = parse_num!(src);
-        let sym = parse_symbol!(self.symbols => src);
+        let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
         match to_u16(k) {
             Some(v) => Ok(Addr(v)),
@@ -110,9 +108,9 @@ impl<'a> OperandAssembler<'a> {
 
     pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, OpAssemblyError> {
         let lit = parse_num!(src);
-        let sym = parse_symbol!(self.symbols => src);
+        let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
-        match to_i10!(k - self.location as i64) {
+        match to_i10!(k - self.context.curr_addr() as i64) {
             Some(v) => Ok(RelAddr(v)),
             None => Err(OpAssemblyError::OutOfRange(src.clone())),
         }
@@ -146,16 +144,16 @@ impl<'a> OperandAssembler<'a> {
 #[cfg(test)]
 mod test {
 
-    use asm::assembly::SymbolTable;
+    use asm::assembly::AssemblyContext;
     use simproc::sp80::*;
     use super::*;
 
     macro_rules! with_symbols {
-        () => (SymbolTable::new() );
+        () => (AssemblyContext::new() );
         ($([$sym:expr, $val:expr]),+) => ({
-            let mut symbols = SymbolTable::new();
-            $(symbols.insert($sym.to_string(), $val);)*;
-            symbols
+            let mut context = AssemblyContext::new();
+            $(context.define_value($sym, $val);)*;
+            context
         });
     }
 
@@ -165,16 +163,16 @@ mod test {
 
     macro_rules! assert_map_eq {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
-            let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0);
+            let context = with_symbols!($([$k, $v])*);
+            let asmblr = OperandAssembler::with_context(&context);
             assert_eq!(Some($expected), resolve!(asmblr, $given => $f));
         });
     }
 
     macro_rules! assert_map_fail {
         ($([$k:expr, $v:expr]),* => $expected:expr, $given:expr => $f:ident) => ({
-            let symbols = with_symbols!($([$k, $v])*);
-            let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0);
+            let context = with_symbols!($([$k, $v])*);
+            let asmblr = OperandAssembler::with_context(&context);
             assert_eq!(Some($expected), asmblr.$f(&$given.to_string()).err());
         });
     }
@@ -265,32 +263,36 @@ mod test {
 
     #[test]
     fn should_map_literal_rel_addr() {
-        let symbols = SymbolTable::new();
-        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
+        let mut context = AssemblyContext::new();
+        context.set_addr(0x100);
+        let asmblr = OperandAssembler::with_context(&context);
         let rel_addr = asmblr.map_rel_addr(&"0x120".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
 
     #[test]
     fn should_map_symbolic_rel_addr() {
-        let symbols = with_symbols!(["foo", 0x120]);
-        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
+        let mut context = with_symbols!(["foo", 0x120]);
+        context.set_addr(0x100);
+        let asmblr = OperandAssembler::with_context(&context);
         let rel_addr = asmblr.map_rel_addr(&"foo".to_string()).ok();
         assert_eq!(Some(RelAddr(0x20)), rel_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_rel_addr() {
-        let symbols = SymbolTable::new();
-        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
+        let mut context = AssemblyContext::new();
+        context.set_addr(0x100);
+        let asmblr = OperandAssembler::with_context(&context);
         let err = asmblr.map_rel_addr(&"0x500".to_string()).err();
         assert_eq!(Some(OpAssemblyError::OutOfRange("0x500".to_string())), err);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_rel_addr() {
-        let symbols = with_symbols!(["foo", 0x500]);
-        let asmblr = OperandAssembler::with_symbols_and_location(&symbols, 0x100);
+        let mut context = with_symbols!(["foo", 0x500]);
+        context.set_addr(0x100);
+        let asmblr = OperandAssembler::with_context(&context);
         let err = asmblr.map_rel_addr(&"foo".to_string()).err();
         assert_eq!(Some(OpAssemblyError::OutOfRange("foo".to_string())), err);
     }

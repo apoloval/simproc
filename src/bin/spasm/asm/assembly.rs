@@ -44,11 +44,20 @@ impl AssemblyContext {
     /// Resets the memory address where next element will be assembled (sets it to 0x0000).
     pub fn reset_addr(&mut self) { self.curr_addr = 0 }
 
+    /// Sets the memory address where next element will be assembled.
+    pub fn set_addr(&mut self, addr: usize) { self.curr_addr = addr }
+
     /// Define a new symbol using the next address to be assembled.
     /// A new symbol with the given label will be defined in the symbol table. Its value
     /// will be the current address where next element will be assembled.
     pub fn define(&mut self, label: &str) {
-        self.symbols.insert(label.to_string(), self.curr_addr as i64);
+        let value = self.curr_addr() as i64;
+        self.define_value(label, value)
+    }
+
+    /// Define a new symbol using the given label and value.
+    pub fn define_value(&mut self, label: &str, value: i64) {
+        self.symbols.insert(label.to_string(), value);
     }
 }
 
