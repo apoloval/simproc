@@ -30,6 +30,7 @@ pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
 pub enum Token {
     Label(String),
     Mnemonic(String, Vec<String>),
+    Directive(String, Vec<String>),
     Blank,
     LexicalError,
 }
@@ -39,6 +40,7 @@ const MNEMONIC1_REGEX: &'static str = r"^\s*([:alpha:]+)\s*(?:;.*)?$";
 const MNEMONIC2_REGEX: &'static str = r"^\s*([:alpha:]+)\s*([:word:]+)\s*(?:;.*)?$";
 const MNEMONIC3_REGEX: &'static str =
     r"^\s*([:alpha:]+)\s*([:word:]+)\s*,\s*([:word:]+)\s*(?:;.*)?$";
+const DIRECTIVE_REGEX: &'static str = r"^\s*\.([:alpha:]+)\s*([:word:]+)\s*(?:;.*)?$";
 const BLANK_REGEX: &'static str = r"^\s*(?:;.*)?$";
 
 pub fn parse(line: &str) -> Option<Token> {
@@ -62,6 +64,11 @@ pub fn parse(line: &str) -> Option<Token> {
     match Regex::new(MNEMONIC3_REGEX).unwrap().captures(line) {
         Some(caps) =>
             return Some(Token::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)))),
+        None => (),
+    }
+    match Regex::new(DIRECTIVE_REGEX).unwrap().captures(line) {
+        Some(caps) =>
+            return Some(Token::Directive(cap!(caps, 1), vec!(cap!(caps, 2)))),
         None => (),
     }
     match Regex::new(BLANK_REGEX).unwrap().captures(line) {
@@ -191,6 +198,24 @@ mod test {
     fn should_parse_mnemonic2_with_extra_spaces() {
         should_parse(" \t add \t r1 \t ,  \t  r2  \t ",
             &Token::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+    }
+
+    #[test]
+    fn should_parse_directive() {
+        should_parse(".org 0x8000",
+            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
+    }
+
+    #[test]
+    fn should_parse_directive_with_comment() {
+        should_parse(".org 0x8000 ; here starts our program",
+            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
+    }
+
+    #[test]
+    fn should_parse_directive_with_extra_spaces() {
+        should_parse(" \t  .org   \t     0x8000  \t   \t   ",
+            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
     }
 
     #[test]

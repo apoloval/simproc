@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::Read;
 
 use asm::assembly::*;
+use asm::dir::Directive;
 use asm::err::{AssemblyError, ProgramError};
 use asm::inst::FromMnemo;
 use asm::parser;
@@ -57,6 +58,17 @@ pub trait Assembler {
                             let inst_len = inst.len();
                             assembled.push(Assembled::Inst(line.clone(), context.curr_addr(), inst));
                             context.inc_addr(inst_len);
+                        },
+                        Err(err) => {
+                            errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
+                            assembled.push(Assembled::Ignored(line.clone()));
+                        },
+                    }
+                },
+                &Token::Directive(ref dirname, ref ops) => {
+                    match Directive::from_token(dirname, ops) {
+                        Ok(dir) => {
+
                         },
                         Err(err) => {
                             errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
