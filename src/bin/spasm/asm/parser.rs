@@ -27,7 +27,7 @@ pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Token {
+pub enum Parsed {
     Label(String),
     Mnemonic(String, Vec<String>),
     Directive(String, Vec<String>),
@@ -43,47 +43,47 @@ const MNEMONIC3_REGEX: &'static str =
 const DIRECTIVE_REGEX: &'static str = r"^\s*\.([:alpha:]+)\s*([:word:]+)\s*(?:;.*)?$";
 const BLANK_REGEX: &'static str = r"^\s*(?:;.*)?$";
 
-pub fn parse(line: &str) -> Option<Token> {
+pub fn parse_line(line: &str) -> Option<Parsed> {
 
     macro_rules! cap(
         ($c:ident, $n:expr) => ($c.at($n).unwrap().to_string())
     );
 
     match Regex::new(LABEL_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Token::Label(cap!(caps, 1))),
+        Some(caps) => return Some(Parsed::Label(cap!(caps, 1))),
         None => (),
     }
     match Regex::new(MNEMONIC1_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Token::Mnemonic(cap!(caps, 1), vec!())),
+        Some(caps) => return Some(Parsed::Mnemonic(cap!(caps, 1), vec!())),
         None => (),
     }
     match Regex::new(MNEMONIC2_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Token::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2)))),
+        Some(caps) => return Some(Parsed::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2)))),
         None => (),
     }
     match Regex::new(MNEMONIC3_REGEX).unwrap().captures(line) {
         Some(caps) =>
-            return Some(Token::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)))),
+            return Some(Parsed::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)))),
         None => (),
     }
     match Regex::new(DIRECTIVE_REGEX).unwrap().captures(line) {
         Some(caps) =>
-            return Some(Token::Directive(cap!(caps, 1), vec!(cap!(caps, 2)))),
+            return Some(Parsed::Directive(cap!(caps, 1), vec!(cap!(caps, 2)))),
         None => (),
     }
     match Regex::new(BLANK_REGEX).unwrap().captures(line) {
-        Some(_) => return Some(Token::Blank),
+        Some(_) => return Some(Parsed::Blank),
         None => (),
     }
     None
 }
 
-pub fn tokenize(lines: &Vec<String>) -> Vec<Token> {
-    let mut tokens: Vec<Token> = Vec::with_capacity(lines.len());
+pub fn parse(lines: &Vec<String>) -> Vec<Parsed> {
+    let mut tokens: Vec<Parsed> = Vec::with_capacity(lines.len());
     for line in lines.iter() {
-        match parse(&line[..]) {
+        match parse_line(&line[..]) {
             Some(tk) => tokens.push(tk),
-            None => tokens.push(Token::LexicalError),
+            None => tokens.push(Parsed::LexicalError),
         }
     }
     tokens
@@ -131,110 +131,110 @@ mod test {
         assert_eq!(lines[1], "world");
     }
 
-    fn should_parse(line: &str, expected: &Token) {
-        let actual = parse(line).unwrap();
+    fn should_parse(line: &str, expected: &Parsed) {
+        let actual = parse_line(line).unwrap();
         assert_eq!(actual, *expected);
     }
 
     #[test]
     fn should_parse_label() {
-        should_parse("main:", &Token::Label("main".to_string()));
+        should_parse("main:", &Parsed::Label("main".to_string()));
     }
 
     #[test]
     fn should_parse_label_with_comment() {
-        should_parse("main: ; comment", &Token::Label("main".to_string()));
+        should_parse("main: ; comment", &Parsed::Label("main".to_string()));
     }
 
     #[test]
     fn should_parse_label_with_extra_spaces() {
-        should_parse("   \tmain  \t : \t  ", &Token::Label("main".to_string()));
+        should_parse("   \tmain  \t : \t  ", &Parsed::Label("main".to_string()));
     }
 
     #[test]
     fn should_parse_mnemonic0() {
-        should_parse("reti", &Token::Mnemonic("reti".to_string(), vec!()));
+        should_parse("reti", &Parsed::Mnemonic("reti".to_string(), vec!()));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_comment() {
-        should_parse("reti ; comment", &Token::Mnemonic("reti".to_string(), vec!()));
+        should_parse("reti ; comment", &Parsed::Mnemonic("reti".to_string(), vec!()));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_extra_spaces() {
-        should_parse("   \t reti   \t  ", &Token::Mnemonic("reti".to_string(), vec!()));
+        should_parse("   \t reti   \t  ", &Parsed::Mnemonic("reti".to_string(), vec!()));
     }
 
     #[test]
     fn should_parse_mnemonic1() {
-        should_parse("push r1", &Token::Mnemonic("push".to_string(), vec!("r1".to_string())));
+        should_parse("push r1", &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_comment() {
-        should_parse("push r1 ; comment", &Token::Mnemonic("push".to_string(), vec!("r1".to_string())));
+        should_parse("push r1 ; comment", &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_extra_spaces() {
         should_parse(" \t push \t r1 \t ",
-            &Token::Mnemonic("push".to_string(), vec!("r1".to_string())));
+            &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
     }
 
     #[test]
     fn should_parse_mnemonic2() {
         should_parse("add r1, r2",
-            &Token::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_comment() {
         should_parse("add r1, r2 ; comment",
-            &Token::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_extra_spaces() {
         should_parse(" \t add \t r1 \t ,  \t  r2  \t ",
-            &Token::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
     }
 
     #[test]
     fn should_parse_directive() {
         should_parse(".org 0x8000",
-            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
+            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
     }
 
     #[test]
     fn should_parse_directive_with_comment() {
         should_parse(".org 0x8000 ; here starts our program",
-            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
+            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
     }
 
     #[test]
     fn should_parse_directive_with_extra_spaces() {
         should_parse(" \t  .org   \t     0x8000  \t   \t   ",
-            &Token::Directive("org".to_string(), vec!("0x8000".to_string())))
+            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
     }
 
     #[test]
     fn should_parse_blank() {
-        should_parse("", &Token::Blank);
+        should_parse("", &Parsed::Blank);
     }
 
     #[test]
     fn should_parse_blank_with_comments() {
-        should_parse("   ; comment", &Token::Blank);
+        should_parse("   ; comment", &Parsed::Blank);
     }
 
     #[test]
     fn should_parse_blank_with_extra_spaces() {
-        should_parse("       ", &Token::Blank);
+        should_parse("       ", &Parsed::Blank);
     }
 
     #[test]
-    fn should_tokenize() {
+    fn should_parse_lines() {
         let lines = vec!(
             "; This is a test program".to_string(),
             "main:    ; this is the entry point of the program".to_string(),
@@ -242,7 +242,7 @@ mod test {
             "   ldi r1, 4".to_string(),
             "   add r0, r1".to_string(),
         );
-        let tokens = tokenize(&lines);
+        let tokens = parse(&lines);
         assert_eq!(5, tokens.len());
     }
 
@@ -255,9 +255,9 @@ mod test {
             "++".to_string(),
             "   add r0, r1".to_string(),
         );
-        let tokens = tokenize(&lines);
-        assert_eq!(Token::LexicalError, tokens[2]);
-        assert_eq!(Token::LexicalError, tokens[3]);
+        let tokens = parse(&lines);
+        assert_eq!(Parsed::LexicalError, tokens[2]);
+        assert_eq!(Parsed::LexicalError, tokens[3]);
     }
 
     #[test]

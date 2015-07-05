@@ -15,7 +15,7 @@ use asm::dir::Directive;
 use asm::err::{AssemblyError, ProgramError};
 use asm::inst::FromMnemo;
 use asm::parser;
-use asm::parser::Token;
+use asm::parser::Parsed;
 
 use simproc::inst::{Inst, Encode};
 
@@ -40,17 +40,17 @@ pub trait Assembler {
         let mut errors: Vec<ProgramError> = Vec::new();
         let mut assembled: Vec<Assembled<Self::AssemblyInst>> = Vec::new();
 
-        let tokens = parser::tokenize(&lines);
+        let tokens = parser::parse(&lines);
 
         // First loop, gather assembled elements and errors
         for i in 0..tokens.len() {
             let tk = &tokens[i];
             let line = &lines[i];
             match tk {
-                &Token::Label(ref label) => {
+                &Parsed::Label(ref label) => {
                     context.define(&label[..]);
                 },
-                &Token::Mnemonic(ref mnemo, ref ops) => {
+                &Parsed::Mnemonic(ref mnemo, ref ops) => {
                     let from_mnemo: Result<Self::AssemblyInst, _> =
                         FromMnemo::from_mnemo(mnemo, ops);
                     match from_mnemo {
@@ -65,7 +65,7 @@ pub trait Assembler {
                         },
                     }
                 },
-                &Token::Directive(ref dirname, ref ops) => {
+                &Parsed::Directive(ref dirname, ref ops) => {
                     match Directive::from_token(dirname, ops) {
                         Ok(dir) => {
 
@@ -76,10 +76,10 @@ pub trait Assembler {
                         },
                     }
                 },
-                &Token::Blank => {
+                &Parsed::Blank => {
                     assembled.push(Assembled::Ignored(line.clone()));
                 },
-                &Token::LexicalError => {
+                &Parsed::LexicalError => {
                     errors.push(ProgramError::new_lexical_error(i, &line[..]));
                     assembled.push(Assembled::Ignored(line.clone()));
                 },
