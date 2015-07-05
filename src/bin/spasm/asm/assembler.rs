@@ -65,8 +65,8 @@ pub trait Assembler {
                         },
                     }
                 },
-                &Parsed::Directive(ref dirname, ref ops) => {
-                    match Directive::from_token(dirname, ops) {
+                &Parsed::Directive(ref par) => {
+                    match Directive::from_params(par) {
                         Ok(dir) => {
 
                         },

@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::fmt::{Display, Error, Formatter};
 use std::io;
 use std::io::BufRead;
 use std::str::FromStr;
@@ -26,13 +27,53 @@ pub fn read_lines<R : io::Read>(input: R) -> io::Result<Vec<String>> {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Parameterized {
+    elem: String,
+    params: Vec<String>,
+}
+
+impl Parameterized {
+
+    pub fn from_strings(elem: String, params: Vec<String>) -> Parameterized {
+        Parameterized { elem: elem, params: params.clone() }
+    }
+
+    pub fn elem(&self) -> &str { &self.elem[..] }
+
+    pub fn params(&self) -> &Vec<String> { &self.params }
+}
+
+impl Display for Parameterized {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        try!(write!(fmt, "{}", self.elem));
+        for (i, p) in self.params.iter().enumerate() {
+            try!(write!(fmt, "{}", p));
+            if i < self.params.len() - 1 {
+                try!(write!(fmt, ", "));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Parsed {
     Label(String),
     Mnemonic(String, Vec<String>),
-    Directive(String, Vec<String>),
+    Directive(Parameterized),
     Blank,
     LexicalError,
+}
+
+macro_rules! dir {
+    ($dirname:expr, $( $param:expr ),*) => {
+        {
+            let mut params: Vec<String> = Vec::new();
+            $( params.push($param.to_string()); )*
+            Parsed::Directive(Parameterized::from_strings($dirname.to_string(), params))
+        }
+    }
 }
 
 const LABEL_REGEX: &'static str = r"^\s*([:alpha:][:word:]*)\s*:\s*(?:;.*)?$";
@@ -67,8 +108,10 @@ pub fn parse_line(line: &str) -> Option<Parsed> {
         None => (),
     }
     match Regex::new(DIRECTIVE_REGEX).unwrap().captures(line) {
-        Some(caps) =>
-            return Some(Parsed::Directive(cap!(caps, 1), vec!(cap!(caps, 2)))),
+        Some(caps) => {
+            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2)));
+            return Some(Parsed::Directive(par));
+        },
         None => (),
     }
     match Regex::new(BLANK_REGEX).unwrap().captures(line) {
@@ -202,20 +245,17 @@ mod test {
 
     #[test]
     fn should_parse_directive() {
-        should_parse(".org 0x8000",
-            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
+        should_parse(".org 0x8000", &dir!("org", "0x8000"))
     }
 
     #[test]
     fn should_parse_directive_with_comment() {
-        should_parse(".org 0x8000 ; here starts our program",
-            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
+        should_parse(".org 0x8000 ; here starts our program", &dir!("org", "0x8000"))
     }
 
     #[test]
     fn should_parse_directive_with_extra_spaces() {
-        should_parse(" \t  .org   \t     0x8000  \t   \t   ",
-            &Parsed::Directive("org".to_string(), vec!("0x8000".to_string())))
+        should_parse(" \t  .org   \t     0x8000  \t   \t   ", &dir!("org", "0x8000"))
     }
 
     #[test]
