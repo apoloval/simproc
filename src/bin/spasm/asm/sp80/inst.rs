@@ -7,13 +7,16 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use asm::inst::FromMnemo;
+use asm::parser::Parameterized;
 
 use simproc::sp80::{AssemblyOperands, Inst};
 
 impl FromMnemo for Inst<AssemblyOperands> {
     type Err = String;
 
-    fn from_mnemo(mnemo: &str, args: &[String]) -> Result<Inst<AssemblyOperands>, String> {
+    fn from_mnemo(par: &Parameterized) -> Result<Inst<AssemblyOperands>, String> {
+        let mnemo = par.elem();
+        let args = par.params();
         match mnemo {
             "add" | "ADD" => Ok(Inst::Add(args[0].clone(), args[1].clone())),
             "adc" | "ADC" => Ok(Inst::Adc(args[0].clone(), args[1].clone())),

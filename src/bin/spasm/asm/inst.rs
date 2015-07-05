@@ -10,7 +10,9 @@ use std::fmt::Display;
 
 use simproc::inst::Inst;
 
+use asm::parser::Parameterized;
+
 pub trait FromMnemo where Self : Inst {
     type Err : Display;
-    fn from_mnemo(mnemo: &str, ops: &[String]) -> Result<Self, Self::Err>;
+    fn from_mnemo(par: &Parameterized) -> Result<Self, Self::Err>;
 }

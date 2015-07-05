@@ -50,9 +50,9 @@ pub trait Assembler {
                 &Parsed::Label(ref label) => {
                     context.define(&label[..]);
                 },
-                &Parsed::Mnemonic(ref mnemo, ref ops) => {
+                &Parsed::Mnemonic(ref par) => {
                     let from_mnemo: Result<Self::AssemblyInst, _> =
-                        FromMnemo::from_mnemo(mnemo, ops);
+                        FromMnemo::from_mnemo(par);
                     match from_mnemo {
                         Ok(inst) => {
                             let inst_len = inst.len();

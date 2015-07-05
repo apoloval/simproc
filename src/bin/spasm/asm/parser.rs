@@ -60,10 +60,23 @@ impl Display for Parameterized {
 #[derive(Debug, PartialEq)]
 pub enum Parsed {
     Label(String),
-    Mnemonic(String, Vec<String>),
+    Mnemonic(Parameterized),
     Directive(Parameterized),
     Blank,
     LexicalError,
+}
+
+macro_rules! mnemo {
+    ($dirname:expr) => {
+        Parsed::Mnemonic(Parameterized::from_strings($dirname.to_string(), Vec::new()))
+    };
+    ($dirname:expr, $( $param:expr ),*) => {
+        {
+            let mut params: Vec<String> = Vec::new();
+            $( params.push($param.to_string()); )*
+            Parsed::Mnemonic(Parameterized::from_strings($dirname.to_string(), params))
+        }
+    };
 }
 
 macro_rules! dir {
@@ -95,16 +108,24 @@ pub fn parse_line(line: &str) -> Option<Parsed> {
         None => (),
     }
     match Regex::new(MNEMONIC1_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Parsed::Mnemonic(cap!(caps, 1), vec!())),
+        Some(caps) => {
+            let par = Parameterized::from_strings(cap!(caps, 1), vec!());
+            return Some(Parsed::Mnemonic(par))
+        },
         None => (),
     }
     match Regex::new(MNEMONIC2_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Parsed::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2)))),
+        Some(caps) => {
+            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2)));
+            return Some(Parsed::Mnemonic(par))
+        },
         None => (),
     }
     match Regex::new(MNEMONIC3_REGEX).unwrap().captures(line) {
-        Some(caps) =>
-            return Some(Parsed::Mnemonic(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)))),
+        Some(caps) => {
+            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)));
+            return Some(Parsed::Mnemonic(par))
+        },
         None => (),
     }
     match Regex::new(DIRECTIVE_REGEX).unwrap().captures(line) {
@@ -196,51 +217,47 @@ mod test {
 
     #[test]
     fn should_parse_mnemonic0() {
-        should_parse("reti", &Parsed::Mnemonic("reti".to_string(), vec!()));
+        should_parse("reti", &mnemo!("reti"));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_comment() {
-        should_parse("reti ; comment", &Parsed::Mnemonic("reti".to_string(), vec!()));
+        should_parse("reti ; comment", &mnemo!("reti"));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_extra_spaces() {
-        should_parse("   \t reti   \t  ", &Parsed::Mnemonic("reti".to_string(), vec!()));
+        should_parse("   \t reti   \t  ", &mnemo!("reti"));
     }
 
     #[test]
     fn should_parse_mnemonic1() {
-        should_parse("push r1", &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
+        should_parse("push r1", &mnemo!("push", "r1"));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_comment() {
-        should_parse("push r1 ; comment", &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
+        should_parse("push r1 ; comment", &mnemo!("push", "r1"));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_extra_spaces() {
-        should_parse(" \t push \t r1 \t ",
-            &Parsed::Mnemonic("push".to_string(), vec!("r1".to_string())));
+        should_parse(" \t push \t r1 \t ", &mnemo!("push", "r1"));
     }
 
     #[test]
     fn should_parse_mnemonic2() {
-        should_parse("add r1, r2",
-            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+        should_parse("add r1, r2", &mnemo!("add", "r1", "r2"));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_comment() {
-        should_parse("add r1, r2 ; comment",
-            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+        should_parse("add r1, r2 ; comment", &mnemo!("add", "r1", "r2"));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_extra_spaces() {
-        should_parse(" \t add \t r1 \t ,  \t  r2  \t ",
-            &Parsed::Mnemonic("add".to_string(), vec!("r1".to_string(), "r2".to_string())));
+        should_parse(" \t add \t r1 \t ,  \t  r2  \t ", &mnemo!("add", "r1", "r2"));
     }
 
     #[test]
