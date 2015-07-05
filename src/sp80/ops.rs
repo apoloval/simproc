@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-/// An immediate value that comes after an opcode. 
+/// An immediate value that comes after an opcode.
 #[derive(Debug, PartialEq)]
 pub struct Immediate(pub u8);
 
@@ -14,11 +14,11 @@ pub struct Immediate(pub u8);
 #[derive(Debug, PartialEq)]
 pub struct Addr(pub u16);
 
-/// A relative address, i.e. a delta respect the current PC. 
+/// A relative address, i.e. a delta respect the current PC.
 #[derive(Debug, PartialEq)]
 pub struct RelAddr(pub i16);
 
-/// General purpose 8-bit Regs. 
+/// General purpose 8-bit Regs.
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
 
 impl Reg {
@@ -38,7 +38,7 @@ impl Reg {
     }
 }
 
-/// 16-bits address Regs. 
+/// 16-bits address Regs.
 pub enum AddrReg { A0, A1, A2, A3 }
 
 impl AddrReg {

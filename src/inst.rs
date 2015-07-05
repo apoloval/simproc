@@ -20,7 +20,7 @@ pub trait Encode where Self : Inst {
 
 /// An instruction that can be assembled
 pub trait Assemble<OperandMapper> where Self : Inst {
-	type ToInst;
-	type Err;
-	fn assemble(&self, mapper: &OperandMapper) -> Result<Self::ToInst, Self::Err>;
+    type ToInst;
+    type Err;
+    fn assemble(&self, mapper: &OperandMapper) -> Result<Self::ToInst, Self::Err>;
 }
