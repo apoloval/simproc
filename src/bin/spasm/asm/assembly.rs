@@ -32,6 +32,11 @@ impl AssemblyContext {
         AssemblyContext { symbols: SymbolTable::new(), curr_addr: 0, }
     }
 
+    /// Create a new assembly context with given symbol table.
+    pub fn with_symbols(symbols: &SymbolTable) -> AssemblyContext {
+        AssemblyContext { symbols: symbols.clone(), curr_addr: 0, }
+    }
+
     /// Returns the symbols table.
     pub fn symbols(&self) -> &SymbolTable { &self.symbols }
 
@@ -40,9 +45,6 @@ impl AssemblyContext {
 
     /// Increments the memory address where next element will be assembled.
     pub fn inc_addr(&mut self, nbytes: usize) { self.curr_addr += nbytes }
-
-    /// Resets the memory address where next element will be assembled (sets it to 0x0000).
-    pub fn reset_addr(&mut self) { self.curr_addr = 0 }
 
     /// Sets the memory address where next element will be assembled.
     pub fn set_addr(&mut self, addr: usize) { self.curr_addr = addr }
@@ -75,7 +77,7 @@ pub enum Assembled<I: Inst> {
 
 /// A unit of assembled code.
 pub struct Assembly<I: Inst> {
-    symbols: SymbolTable,
+    context: AssemblyContext,
     assembled: Vec<Assembled<I>>,
 }
 
@@ -83,11 +85,35 @@ impl<I: Inst> Assembly<I> {
 
     pub fn with_symbols(symbols: &SymbolTable) -> Assembly<I> {
         Assembly {
-            symbols: symbols.clone(),
+            context: AssemblyContext::with_symbols(symbols),
             assembled: Vec::new(),
         }
     }
 
+    /// Create a new empty assembly.
+    /// With no symbol defined, no assembled elements and ready to put code at address 0x0000.
+    pub fn new() -> Assembly<I> {
+        Assembly {
+            context: AssemblyContext::new(),
+            assembled: Vec::new(),
+        }
+    }
+
+    /// Returns the assembly context.
+    pub fn ctx(&self) -> &AssemblyContext { &self.context }
+
+    /// Returns the assembly context.
+    pub fn ctx_mut(&mut self) -> &mut AssemblyContext { &mut self.context }
+
+    pub fn assembled(&self) -> &Vec<Assembled<I>> { &self.assembled }
+
+    /// Define a new symbol in the context.
+    pub fn define(&mut self, label: &str) { self.context.define(label) }
+
+    /// Increments the memory address where next element will be assembled.
+    pub fn inc_addr(&mut self, nbytes: usize) { self.context.inc_addr(nbytes) }
+
+    /// Put a new assembled element.
     pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
 }
 
@@ -124,9 +150,9 @@ impl<I: Inst + Encode> Assembly<I> {
         }
 
         try!(writeln!(output, "\nSymbol table:"));
-        if self.symbols.is_empty() { try!(writeln!(output, "  Empty")); }
+        if self.context.symbols.is_empty() { try!(writeln!(output, "  Empty")); }
         else {
-            for (sym, val) in self.symbols.iter() {
+            for (sym, val) in self.context.symbols.iter() {
                 try!(writeln!(output, "  {} : 0x{:04x}", sym, val));
             }
         }

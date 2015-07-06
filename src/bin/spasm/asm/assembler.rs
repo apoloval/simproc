@@ -36,19 +36,17 @@ pub trait Assembler {
 
     fn assemble<R: Read>(&self, input: R) -> Result<Assembly<Self::RuntimeInst>, AssemblyError> {
         let lines = try!(parser::read_lines(input));
-        let mut context = AssemblyContext::new();
         let mut errors: Vec<ProgramError> = Vec::new();
-        let mut assembled: Vec<Assembled<Self::AssemblyInst>> = Vec::new();
+        let mut pre: Assembly<Self::AssemblyInst> = Assembly::new();
 
-        let tokens = parser::parse(&lines);
+        let parsed = parser::parse(&lines);
 
-        // First loop, gather assembled elements and errors
-        for i in 0..tokens.len() {
-            let tk = &tokens[i];
+        // First loop, pre-processing: gather assembled elements and errors
+        for (i, p) in parsed.iter().enumerate() {
             let line = &lines[i];
-            match tk {
+            match p {
                 &Parsed::Label(ref label) => {
-                    context.define(&label[..]);
+                    pre.define(&label[..]);
                 },
                 &Parsed::Mnemonic(ref par) => {
                     let from_mnemo: Result<Self::AssemblyInst, _> =
@@ -56,59 +54,57 @@ pub trait Assembler {
                     match from_mnemo {
                         Ok(inst) => {
                             let inst_len = inst.len();
-                            assembled.push(Assembled::Inst(line.clone(), context.curr_addr(), inst));
-                            context.inc_addr(inst_len);
+                            let curr_addr = pre.ctx().curr_addr();
+                            pre.push(Assembled::Inst(line.clone(), curr_addr, inst));
+                            pre.inc_addr(inst_len);
                         },
                         Err(err) => {
                             errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
-                            assembled.push(Assembled::Ignored(line.clone()));
+                            pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
                 },
                 &Parsed::Directive(ref par) => {
                     match Directive::from_params(par) {
-                        Ok(dir) => {
-
+                        Ok(_) => {
+                            // TODO: apply the directive
                         },
                         Err(err) => {
                             errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
-                            assembled.push(Assembled::Ignored(line.clone()));
+                            pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
                 },
                 &Parsed::Blank => {
-                    assembled.push(Assembled::Ignored(line.clone()));
+                    pre.push(Assembled::Ignored(line.clone()));
                 },
                 &Parsed::LexicalError => {
                     errors.push(ProgramError::new_lexical_error(i, &line[..]));
-                    assembled.push(Assembled::Ignored(line.clone()));
+                    pre.push(Assembled::Ignored(line.clone()));
                 },
             };
         }
 
-        // Second loop, encode assembled instructions
-        let mut assembly = Assembly::with_symbols(context.symbols());
-        context.reset_addr();
-        for i in 0..assembled.len() {
-            let a = &assembled[i];
+        // Second loop, post-processing: encode assembled instructions
+        let mut post = Assembly::with_symbols(pre.ctx().symbols());
+        for (i, a) in pre.assembled().iter().enumerate() {
             match a {
                 &Assembled::Inst(ref l, p, ref inst) => {
-                    match Self::assemble_inst(inst, &mut context) {
+                    match Self::assemble_inst(inst, post.ctx_mut()) {
                         Ok(asm_inst) =>
-                            assembly.push(Assembled::Inst(l.clone(), p, asm_inst)),
+                            post.push(Assembled::Inst(l.clone(), p, asm_inst)),
                         Err(e) => errors.push(
                             ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
                     };
-                    context.inc_addr(inst.len());
+                    post.inc_addr(inst.len());
                 },
                 &Assembled::Ignored(ref ign) => {
-                    assembly.push(Assembled::Ignored(ign.clone()));
+                    post.push(Assembled::Ignored(ign.clone()));
                 },
             }
         }
 
-
-        if errors.is_empty() { Ok(assembly) }
+        if errors.is_empty() { Ok(post) }
         else { Err(AssemblyError::BadProgram(errors)) }
     }
 }
