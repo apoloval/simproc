@@ -21,6 +21,7 @@ Options:
 ";
 
 #[derive(RustcDecodable)]
+#[allow(dead_code)]
 pub struct Args {
     arg_input: String,
     flag_bin: bool,
@@ -29,6 +30,8 @@ pub struct Args {
     flag_version: bool,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, PartialEq)]
 pub enum Action { Help, Version, Bin, Text }
 
 impl Args {
@@ -51,6 +54,7 @@ impl Args {
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_args() -> Args {
     Docopt::new(USAGE)
         .and_then(|d| d.decode())
@@ -63,6 +67,78 @@ mod test {
     use super::*;
 
     use docopt::Docopt;
+
+    #[test]
+    fn should_produce_help_from_args() {
+        let args = Args {
+            arg_input: "".to_string(),
+            flag_bin: false,
+            flag_text: false,
+            flag_help: true,
+            flag_version: false,
+        };
+        assert_eq!(Action::Help, args.action());
+    }
+
+    #[test]
+    fn should_produce_version_from_args() {
+        let args = Args {
+            arg_input: "".to_string(),
+            flag_bin: false,
+            flag_text: false,
+            flag_help: false,
+            flag_version: true,
+        };
+        assert_eq!(Action::Version, args.action());
+    }
+
+    #[test]
+    fn should_produce_bin_from_args() {
+        let args = Args {
+            arg_input: "".to_string(),
+            flag_bin: true,
+            flag_text: false,
+            flag_help: false,
+            flag_version: false,
+        };
+        assert_eq!(Action::Bin, args.action());
+    }
+
+    #[test]
+    fn should_produce_text_from_args() {
+        let args = Args {
+            arg_input: "".to_string(),
+            flag_bin: false,
+            flag_text: true,
+            flag_help: false,
+            flag_version: false,
+        };
+        assert_eq!(Action::Text, args.action());
+    }
+
+    #[test]
+    fn should_produce_input_file_from_args() {
+        let args = Args {
+            arg_input: "foobar.asm".to_string(),
+            flag_bin: true,
+            flag_text: false,
+            flag_help: false,
+            flag_version: false,
+        };
+        assert_eq!("foobar.asm", args.input_file());
+    }
+
+    #[test]
+    fn should_produce_output_file_from_args() {
+        let args = Args {
+            arg_input: "foobar.asm".to_string(),
+            flag_bin: true,
+            flag_text: false,
+            flag_help: false,
+            flag_version: false,
+        };
+        assert_eq!("foobar.asm.bin", args.output_file().unwrap());
+    }
 
     #[test]
     fn should_parse_help() {

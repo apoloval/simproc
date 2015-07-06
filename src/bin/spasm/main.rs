@@ -25,6 +25,7 @@ use asm::{Assembly, AssemblyError};
 use asm::assembler::Assembler;
 use asm::sp80;
 
+#[allow(dead_code)]
 fn main() {
     let args = args::parse_args();
     let asm = match args.action() {
@@ -48,6 +49,7 @@ fn main() {
     }
 }
 
+#[allow(dead_code)]
 fn assemble<A: Assembler>(input: &String) -> Option<Assembly<A::RuntimeInst>> {
     let asmblr = A::new();
     match asmblr.assemble_file(&input[..]) {
@@ -57,13 +59,14 @@ fn assemble<A: Assembler>(input: &String) -> Option<Assembly<A::RuntimeInst>> {
             for e in errors.iter() { println!("\t{}", e); }
             None
         },
-        Err(AssemblyError::Io(ref e)) =>  { 
+        Err(AssemblyError::Io(ref e)) =>  {
             println!("{}", e);
             None
         },
     }
 }
 
+#[allow(dead_code)]
 fn write_as_text<RI: Inst + Encode>(asm: &Assembly<RI>) {
     match asm.write_as_text(&mut stdout()) {
         Ok(_) => {},
@@ -71,11 +74,12 @@ fn write_as_text<RI: Inst + Encode>(asm: &Assembly<RI>) {
     };
 }
 
+#[allow(dead_code)]
 fn write_as_bin<RI: Inst + Encode>(asm: &Assembly<RI>, output_file: &str) {
     let mut output = match File::create(output_file) {
         Ok(f) => f,
-        Err(e) => { 
-            println!("Unexpected error while opening output: {}", e); 
+        Err(e) => {
+            println!("Unexpected error while opening output: {}", e);
             return;
         },
     };
