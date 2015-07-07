@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use simproc::sp80::*;
+use simproc::inst::*;
 
 use asm::assembly::AssemblyContext;
 use asm::parser;
@@ -145,7 +145,7 @@ impl<'a> OperandAssembler<'a> {
 mod test {
 
     use asm::assembly::AssemblyContext;
-    use simproc::sp80::*;
+    use simproc::inst::*;
     use super::*;
 
     macro_rules! with_symbols {

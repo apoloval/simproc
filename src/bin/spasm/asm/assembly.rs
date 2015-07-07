@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::io;
 
-use simproc::inst::{Inst, Encode};
+use simproc::inst::*;
 
 /// The symbol table associates symbols with memory addresses.
 pub type SymbolTable = HashMap<String, i64>;
@@ -70,20 +70,23 @@ impl AssemblyContext {
 ///   * `addr` is the memory address where the instruction is allocated
 ///   * `inst` is the assembled instruction
 /// * `Ignored(line: String)`: an ignored source text line (i.e. a comment, assembler directive...)
-pub enum Assembled<I: Inst> {
-    Inst(String, usize, I),
+pub enum Assembled<O: Operands> {
+    Inst(String, usize, Inst<O>),
     Ignored(String),
 }
 
 /// A unit of assembled code.
-pub struct Assembly<I: Inst> {
+pub struct Assembly<O: Operands> {
     context: AssemblyContext,
-    assembled: Vec<Assembled<I>>,
+    assembled: Vec<Assembled<O>>,
 }
 
-impl<I: Inst> Assembly<I> {
+pub type SymbolicAssembly = Assembly<AssemblyOperands>;
+pub type RuntimeAssembly = Assembly<RuntimeOperands>;
 
-    pub fn with_symbols(symbols: &SymbolTable) -> Assembly<I> {
+impl<O: Operands> Assembly<O> {
+
+    pub fn with_symbols(symbols: &SymbolTable) -> Assembly<O> {
         Assembly {
             context: AssemblyContext::with_symbols(symbols),
             assembled: Vec::new(),
@@ -92,7 +95,7 @@ impl<I: Inst> Assembly<I> {
 
     /// Create a new empty assembly.
     /// With no symbol defined, no assembled elements and ready to put code at address 0x0000.
-    pub fn new() -> Assembly<I> {
+    pub fn new() -> Assembly<O> {
         Assembly {
             context: AssemblyContext::new(),
             assembled: Vec::new(),
@@ -105,7 +108,7 @@ impl<I: Inst> Assembly<I> {
     /// Returns the assembly context.
     pub fn ctx_mut(&mut self) -> &mut AssemblyContext { &mut self.context }
 
-    pub fn assembled(&self) -> &Vec<Assembled<I>> { &self.assembled }
+    pub fn assembled(&self) -> &Vec<Assembled<O>> { &self.assembled }
 
     /// Define a new symbol in the context.
     pub fn define(&mut self, label: &str) { self.context.define(label) }
@@ -114,10 +117,10 @@ impl<I: Inst> Assembly<I> {
     pub fn inc_addr(&mut self, nbytes: usize) { self.context.inc_addr(nbytes) }
 
     /// Put a new assembled element.
-    pub fn push(&mut self, code: Assembled<I>) { self.assembled.push(code) }
+    pub fn push(&mut self, code: Assembled<O>) { self.assembled.push(code) }
 }
 
-impl<I: Inst + Encode> Assembly<I> {
+impl Assembly<RuntimeOperands> {
 
     pub fn write_as_bin<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
         for item in self.assembled.iter() {

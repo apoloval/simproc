@@ -8,8 +8,7 @@
 
 use std::io;
 
-use inst;
-use sp80::ops::*;
+use inst::ops::*;
 
 /// A SP-80 instruction
 pub enum Inst<O: Operands> {
@@ -108,9 +107,10 @@ macro_rules! pack {
 
 }
 
-impl<O: Operands> inst::Inst for Inst<O> {
+impl<O: Operands> Inst<O> {
 
-    fn len(&self) -> usize {
+    #[allow(dead_code)]
+    pub fn len(&self) -> usize {
         match self {
             &Inst::Add(_, _) => 2,
             &Inst::Adc(_, _) => 2,
@@ -163,10 +163,10 @@ impl<O: Operands> inst::Inst for Inst<O> {
 
 }
 
-impl inst::Encode for RuntimeInst {
+impl RuntimeInst {
 
     /// Encode a instruction using the given writer
-    fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
+    pub fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
         match self {
             &Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
             &Inst::Adc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x40),
@@ -221,8 +221,7 @@ impl inst::Encode for RuntimeInst {
 #[cfg(test)]
 mod test {
 
-    use inst::Encode;
-    use sp80::ops::*;
+    use inst::ops::*;
 
     use super::*;
 

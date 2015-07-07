@@ -19,9 +19,7 @@ mod asm;
 use std::fs::File;
 use std::io::stdout;
 
-use simproc::inst::{Inst, Encode};
-
-use asm::{Assembly, AssemblyError};
+use asm::{AssemblyError, RuntimeAssembly};
 use asm::assembler::Assembler;
 use asm::sp80;
 
@@ -50,7 +48,7 @@ fn main() {
 }
 
 #[allow(dead_code)]
-fn assemble<A: Assembler>(input: &String) -> Option<Assembly<A::RuntimeInst>> {
+fn assemble<A: Assembler>(input: &String) -> Option<RuntimeAssembly> {
     let asmblr = A::new();
     match asmblr.assemble_file(&input[..]) {
         Ok(asm) => Some(asm),
@@ -67,7 +65,7 @@ fn assemble<A: Assembler>(input: &String) -> Option<Assembly<A::RuntimeInst>> {
 }
 
 #[allow(dead_code)]
-fn write_as_text<RI: Inst + Encode>(asm: &Assembly<RI>) {
+fn write_as_text(asm: &RuntimeAssembly) {
     match asm.write_as_text(&mut stdout()) {
         Ok(_) => {},
         Err(e) => { println!("Unexpected error while writing output: {}", e); },
@@ -75,7 +73,7 @@ fn write_as_text<RI: Inst + Encode>(asm: &Assembly<RI>) {
 }
 
 #[allow(dead_code)]
-fn write_as_bin<RI: Inst + Encode>(asm: &Assembly<RI>, output_file: &str) {
+fn write_as_bin(asm: &RuntimeAssembly, output_file: &str) {
     let mut output = match File::create(output_file) {
         Ok(f) => f,
         Err(e) => {
