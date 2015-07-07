@@ -47,6 +47,7 @@ impl AssemblyContext {
     pub fn inc_addr(&mut self, nbytes: usize) { self.curr_addr += nbytes }
 
     /// Sets the memory address where next element will be assembled.
+    #[cfg(test)]
     pub fn set_addr(&mut self, addr: usize) { self.curr_addr = addr }
 
     /// Define a new symbol using the next address to be assembled.
