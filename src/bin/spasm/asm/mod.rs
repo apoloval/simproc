@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 mod dir;
+mod ops;
 mod parser;
 
 pub mod assembly;

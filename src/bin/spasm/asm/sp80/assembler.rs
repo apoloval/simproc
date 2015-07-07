@@ -10,7 +10,7 @@ use simproc::inst::*;
 
 use asm::AssemblyContext;
 use asm::assembler;
-use asm::sp80::ops;
+use asm::ops;
 
 pub struct Assembler;
 
