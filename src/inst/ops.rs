@@ -72,9 +72,9 @@ impl Operands for RuntimeOperands {
     type AddrReg = AddrReg;
 }
 
-pub struct AssemblyOperands;
+pub struct SymbolicOperands;
 
-impl Operands for AssemblyOperands {
+impl Operands for SymbolicOperands {
     type Immediate = String;
     type Addr = String;
     type RelAddr = String;

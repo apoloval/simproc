@@ -19,7 +19,7 @@ impl assembler::Assembler for Assembler {
 
     fn new() -> Assembler { Assembler }
 
-    fn assemble_inst(from: &AssemblyInst, context: &mut AssemblyContext) ->
+    fn assemble_inst(from: &SymbolicInst, context: &mut AssemblyContext) ->
             Result<RuntimeInst, ops::OpAssemblyError> {
         let mapper = ops::OperandAssembler::with_context(context);
         match from {

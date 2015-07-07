@@ -81,7 +81,7 @@ pub struct Assembly<O: Operands> {
     assembled: Vec<Assembled<O>>,
 }
 
-pub type SymbolicAssembly = Assembly<AssemblyOperands>;
+pub type SymbolicAssembly = Assembly<SymbolicOperands>;
 pub type RuntimeAssembly = Assembly<RuntimeOperands>;
 
 impl<O: Operands> Assembly<O> {

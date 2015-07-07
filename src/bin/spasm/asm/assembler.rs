@@ -24,7 +24,7 @@ pub trait Assembler {
 
     fn new() -> Self;
 
-    fn assemble_inst(from: &AssemblyInst, context: &mut AssemblyContext) ->
+    fn assemble_inst(from: &SymbolicInst, context: &mut AssemblyContext) ->
             Result<RuntimeInst, Self::AssemblyErr>;
 
     fn assemble_file(&self, input_file: &str) -> Result<RuntimeAssembly, AssemblyError> {
@@ -47,7 +47,7 @@ pub trait Assembler {
                     pre.define(&label[..]);
                 },
                 &Parsed::Mnemonic(ref par) => {
-                    let from_mnemo: Result<AssemblyInst, _> = self.from_mnemo(par);
+                    let from_mnemo: Result<SymbolicInst, _> = self.from_mnemo(par);
                     match from_mnemo {
                         Ok(inst) => {
                             let inst_len = inst.len();
@@ -105,7 +105,7 @@ pub trait Assembler {
         else { Err(AssemblyError::BadProgram(errors)) }
     }
 
-    fn from_mnemo(&self, par: &Parameterized) -> Result<Inst<AssemblyOperands>, String> {
+    fn from_mnemo(&self, par: &Parameterized) -> Result<SymbolicInst, String> {
         let mnemo = par.elem();
         let args = par.params();
         match mnemo {
