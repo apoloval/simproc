@@ -18,5 +18,3 @@ pub use self::assembler::Assembler;
 
 pub mod err;
 pub use self::err::{AssemblyError, ProgramError};
-
-pub mod sp80;

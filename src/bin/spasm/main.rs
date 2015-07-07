@@ -21,7 +21,6 @@ use std::io::stdout;
 
 use asm::{AssemblyError, RuntimeAssembly};
 use asm::assembler::Assembler;
-use asm::sp80;
 
 #[allow(dead_code)]
 fn main() {
@@ -34,7 +33,7 @@ fn main() {
             return;
         },
         _ => {
-            match assemble::<sp80::Assembler>(&args.input_file()) {
+            match assemble(&args.input_file()) {
                 Some(asm) => asm,
                 None => { return; },
             }
@@ -48,8 +47,8 @@ fn main() {
 }
 
 #[allow(dead_code)]
-fn assemble<A: Assembler>(input: &String) -> Option<RuntimeAssembly> {
-    let asmblr = A::new();
+fn assemble(input: &String) -> Option<RuntimeAssembly> {
+    let asmblr = Assembler::new();
     match asmblr.assemble_file(&input[..]) {
         Ok(asm) => Some(asm),
         Err(AssemblyError::BadProgram(ref errors)) => {
