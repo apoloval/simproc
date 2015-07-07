@@ -48,9 +48,9 @@ impl Display for Parameterized {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         try!(write!(fmt, "{}", self.elem));
         for (i, p) in self.params.iter().enumerate() {
-            try!(write!(fmt, "{}", p));
+            try!(write!(fmt, " {}", p));
             if i < self.params.len() - 1 {
-                try!(write!(fmt, ", "));
+                try!(write!(fmt, ","));
             }
         }
         Ok(())
