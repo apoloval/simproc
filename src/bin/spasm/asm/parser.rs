@@ -39,7 +39,7 @@ impl Parameterized {
         Parameterized { elem: elem, params: params.clone() }
     }
 
-    pub fn elem(&self) -> &str { &self.elem[..] }
+    pub fn elem(&self) -> &str { &self.elem }
 
     pub fn params(&self) -> &Vec<String> { &self.params }
 }
@@ -145,7 +145,7 @@ pub fn parse_line(line: &str) -> Option<Parsed> {
 pub fn parse(lines: &Vec<String>) -> Vec<Parsed> {
     let mut tokens: Vec<Parsed> = Vec::with_capacity(lines.len());
     for line in lines.iter() {
-        match parse_line(&line[..]) {
+        match parse_line(&line) {
             Some(tk) => tokens.push(tk),
             None => tokens.push(Parsed::LexicalError),
         }

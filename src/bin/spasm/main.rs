@@ -41,7 +41,7 @@ fn main() {
     };
     match args.action() {
         args::Action::Text => { write_as_text(&asm); },
-        args::Action::Bin => { write_as_bin(&asm, &args.output_file().unwrap()[..]); },
+        args::Action::Bin => { write_as_bin(&asm, &args.output_file().unwrap()); },
         _ => {},
     }
 }
@@ -49,7 +49,7 @@ fn main() {
 #[allow(dead_code)]
 fn assemble(input: &String) -> Option<RuntimeAssembly> {
     let asmblr = Assembler::new();
-    match asmblr.assemble_file(&input[..]) {
+    match asmblr.assemble_file(&input) {
         Ok(asm) => Some(asm),
         Err(AssemblyError::BadProgram(ref errors)) => {
             println!("Assembled with {} errors:", errors.len());

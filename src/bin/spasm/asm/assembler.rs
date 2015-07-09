@@ -42,7 +42,7 @@ impl Assembler {
             let line = &lines[i];
             match p {
                 &Parsed::Label(ref label) => {
-                    pre.define(&label[..]);
+                    pre.define(&label);
                 },
                 &Parsed::Mnemonic(ref par) => {
                     match from_mnemo(par) {
@@ -53,7 +53,7 @@ impl Assembler {
                             pre.inc_addr(inst_len);
                         },
                         Err(err) => {
-                            errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
+                            errors.push(ProgramError::new(i, &line, &format!("{}", err)));
                             pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
@@ -64,7 +64,7 @@ impl Assembler {
                             // TODO: apply the directive
                         },
                         Err(err) => {
-                            errors.push(ProgramError::new(i, &line[..], &format!("{}", err)[..]));
+                            errors.push(ProgramError::new(i, &line, &format!("{}", err)));
                             pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
@@ -73,7 +73,7 @@ impl Assembler {
                     pre.push(Assembled::Ignored(line.clone()));
                 },
                 &Parsed::LexicalError => {
-                    errors.push(ProgramError::new_lexical_error(i, &line[..]));
+                    errors.push(ProgramError::new_lexical_error(i, &line));
                     pre.push(Assembled::Ignored(line.clone()));
                 },
             };
@@ -88,7 +88,7 @@ impl Assembler {
                         Ok(asm_inst) =>
                             post.push(Assembled::Inst(l.clone(), p, asm_inst)),
                         Err(e) => errors.push(
-                            ProgramError::new(i, l.trim(), &format!("{}", e)[..])),
+                            ProgramError::new(i, l.trim(), &format!("{}", e))),
                     };
                     post.inc_addr(inst.len());
                 },

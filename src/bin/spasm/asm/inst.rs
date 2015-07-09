@@ -59,7 +59,7 @@ fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnem
 
 /// Returns a symbolic instruction from a parameterized mnemotechnic
 pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, FromMnemoError> {
-    match &par.elem().to_ascii_lowercase()[..] {
+    match par.elem().to_ascii_lowercase().trim() {
         "add" => binary_inst(par, Inst::Add),
         "adc" => binary_inst(par, Inst::Adc),
         "addi" => binary_inst(par, Inst::Addi),

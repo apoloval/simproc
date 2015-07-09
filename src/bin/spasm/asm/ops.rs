@@ -45,7 +45,7 @@ pub struct OperandAssembler<'a> {
 
 macro_rules! parse_num {
     ($s:expr) => {
-        match parser::parse_num(&$s[..]) {
+        match parser::parse_num(&$s) {
             Some(n) => Ok(n),
             None => Err(OpAssemblyError::BadNumber($s.clone())),
         }
@@ -117,7 +117,7 @@ impl<'a> OperandAssembler<'a> {
     }
 
     pub fn map_reg(&self, src: &String) -> Result<Reg, OpAssemblyError> {
-        match &src[..] {
+        match src.trim() {
             "r0" | "R0" => Ok(Reg::R0),
             "r1" | "R1" => Ok(Reg::R1),
             "r2" | "R2" => Ok(Reg::R2),
@@ -131,7 +131,7 @@ impl<'a> OperandAssembler<'a> {
     }
 
     pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, OpAssemblyError> {
-        match &src[..] {
+        match src.trim() {
             "a0" | "A0" => Ok(AddrReg::A0),
             "a1" | "A1" => Ok(AddrReg::A1),
             "a2" | "A2" => Ok(AddrReg::A2),

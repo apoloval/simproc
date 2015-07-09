@@ -54,7 +54,7 @@ impl Directive {
     fn org_from_params(par: &Parameterized) -> Result<Directive, DirImportErr> {
         let params = par.params();
         if params.len() == 1 {
-            match parse_num(&params[0][..]) {
+            match parse_num(&params[0]) {
                 Some(addr) => return Ok(Directive::Origin(addr as usize)),
                 None => {},
             }
