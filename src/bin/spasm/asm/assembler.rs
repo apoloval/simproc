@@ -6,16 +6,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::ascii::AsciiExt;
 use std::fs::File;
 use std::io::Read;
 
 use asm::assembly::*;
 use asm::dir::Directive;
 use asm::err::{AssemblyError, ProgramError};
+use asm::inst::from_mnemo;
 use asm::ops::*;
 use asm::parser;
-use asm::parser::Parameterized;
 use asm::parser::Parsed;
 
 use simproc::inst::*;
@@ -46,7 +45,7 @@ impl Assembler {
                     pre.define(&label[..]);
                 },
                 &Parsed::Mnemonic(ref par) => {
-                    let from_mnemo: Result<SymbolicInst, _> = self.from_mnemo(par);
+                    let from_mnemo: Result<SymbolicInst, _> = from_mnemo(par);
                     match from_mnemo {
                         Ok(inst) => {
                             let inst_len = inst.len();
@@ -102,89 +101,6 @@ impl Assembler {
 
         if errors.is_empty() { Ok(post) }
         else { Err(AssemblyError::BadProgram(errors)) }
-    }
-
-    fn from_mnemo(&self, par: &Parameterized) -> Result<SymbolicInst, String> {
-
-        macro_rules! ensure_args {
-            ($par:expr => $expected:expr) => {
-                if $par.params().len() != $expected {
-                    return Err(format!("invalid operand count in `{}`: {} operand(s) expected",
-                        $par, $expected));
-                }
-            }
-        }
-
-        fn nullary_inst(par: &Parameterized, inst: SymbolicInst) -> Result<SymbolicInst, String> {
-            ensure_args!(par => 0);
-            Ok(inst)
-        }
-
-        fn unary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, String>
-                where F: FnOnce(String) -> SymbolicInst {
-            ensure_args!(par => 1);
-            let arg0 = par.params()[0].clone();
-            Ok(inst(arg0))
-        }
-
-        fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, String>
-                where F: FnOnce(String, String) -> SymbolicInst {
-            ensure_args!(par => 2);
-            let arg0 = par.params()[0].clone();
-            let arg1 = par.params()[1].clone();
-            Ok(inst(arg0, arg1))
-        }
-
-        let mnemo = par.elem();
-        match &mnemo.to_ascii_lowercase()[..] {
-            "add" => binary_inst(par, Inst::Add),
-            "adc" => binary_inst(par, Inst::Adc),
-            "addi" => binary_inst(par, Inst::Addi),
-            "sub" => binary_inst(par, Inst::Sub),
-            "sbc" => binary_inst(par, Inst::Sbc),
-            "subi" => binary_inst(par, Inst::Subi),
-            "mulw" => binary_inst(par, Inst::Mulw),
-            "and" => binary_inst(par, Inst::And),
-            "or" => binary_inst(par, Inst::Or),
-            "xor" => binary_inst(par, Inst::Xor),
-            "lsl" => binary_inst(par, Inst::Lsl),
-            "lsr" => binary_inst(par, Inst::Lsr),
-            "asr" => binary_inst(par, Inst::Asr),
-            "not" => unary_inst(par, Inst::Not),
-            "comp" => unary_inst(par, Inst::Comp),
-            "inc" => unary_inst(par, Inst::Inc),
-            "incw" => unary_inst(par, Inst::Incw),
-            "dec" => unary_inst(par, Inst::Dec),
-            "decw" => unary_inst(par, Inst::Decw),
-            "mov" => binary_inst(par, Inst::Mov),
-            "ld" => binary_inst(par, Inst::Ld),
-            "st" => binary_inst(par, Inst::St),
-            "ldd" => binary_inst(par, Inst::Ldd),
-            "std" => binary_inst(par, Inst::Std),
-            "ldi" => binary_inst(par, Inst::Ldi),
-            "ldsp" => unary_inst(par, Inst::Ldsp),
-            "push" => unary_inst(par, Inst::Push),
-            "pop" => unary_inst(par, Inst::Pop),
-            "je" => unary_inst(par, Inst::Je),
-            "jne" => unary_inst(par, Inst::Jne),
-            "jl" => unary_inst(par, Inst::Jl),
-            "jge" => unary_inst(par, Inst::Jge),
-            "jcc" => unary_inst(par, Inst::Jcc),
-            "jcs" => unary_inst(par, Inst::Jcs),
-            "jvc" => unary_inst(par, Inst::Jvc),
-            "jvs" => unary_inst(par, Inst::Jvs),
-            "jmp" => unary_inst(par, Inst::Jmp),
-            "rjmp" => unary_inst(par, Inst::Rjmp),
-            "ijmp" => unary_inst(par, Inst::Ijmp),
-            "call" => unary_inst(par, Inst::Call),
-            "rcall" => unary_inst(par, Inst::Rcall),
-            "icall" => unary_inst(par, Inst::Icall),
-            "ret" => nullary_inst(par, Inst::Ret),
-            "reti" => nullary_inst(par, Inst::Reti),
-            "nop" => nullary_inst(par, Inst::Nop),
-            "halt" => nullary_inst(par, Inst::Halt),
-            _ => Err(format!("unknown mnemonic: `{}`", mnemo))
-        }
     }
 
     fn assemble_inst(&self, from: &SymbolicInst, context: &mut AssemblyContext) ->
