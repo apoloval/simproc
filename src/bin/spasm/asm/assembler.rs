@@ -45,8 +45,7 @@ impl Assembler {
                     pre.define(&label[..]);
                 },
                 &Parsed::Mnemonic(ref par) => {
-                    let from_mnemo: Result<SymbolicInst, _> = from_mnemo(par);
-                    match from_mnemo {
+                    match from_mnemo(par) {
                         Ok(inst) => {
                             let inst_len = inst.len();
                             let curr_addr = pre.ctx().curr_addr();

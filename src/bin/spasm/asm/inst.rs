@@ -7,33 +7,49 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
+use std::fmt;
 
 use simproc::inst::*;
 
 use asm::parser::Parameterized;
 
-macro_rules! ensure_args {
-    ($par:expr => $expected:expr) => {
-        if $par.params().len() != $expected {
-            return Err(format!("invalid operand count in `{}`: {} operand(s) expected",
-                $par, $expected));
+pub enum FromMnemoError {
+    UnknownMnemo(Parameterized),
+    InvalidOperandsCount(Parameterized, usize),
+}
+
+impl fmt::Display for FromMnemoError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &FromMnemoError::UnknownMnemo(ref par) =>
+                write!(fmt, "unknown mnemonic in `{}`", par),
+            &FromMnemoError::InvalidOperandsCount(ref par, ref c) =>
+                write!(fmt, "invalid operand count in `{}`: {} operand(s) expected", par, c),
         }
     }
 }
 
-fn nullary_inst(par: &Parameterized, inst: SymbolicInst) -> Result<SymbolicInst, String> {
+macro_rules! ensure_args {
+    ($par:expr => $expected:expr) => {
+        if $par.params().len() != $expected {
+            return Err(FromMnemoError::InvalidOperandsCount($par.clone(), $expected));
+        }
+    }
+}
+
+fn nullary_inst(par: &Parameterized, inst: SymbolicInst) -> Result<SymbolicInst, FromMnemoError> {
     ensure_args!(par => 0);
     Ok(inst)
 }
 
-fn unary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, String>
+fn unary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnemoError>
         where F: FnOnce(String) -> SymbolicInst {
     ensure_args!(par => 1);
     let arg0 = par.params()[0].clone();
     Ok(inst(arg0))
 }
 
-fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, String>
+fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnemoError>
         where F: FnOnce(String, String) -> SymbolicInst {
     ensure_args!(par => 2);
     let arg0 = par.params()[0].clone();
@@ -42,9 +58,8 @@ fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, String>
 }
 
 /// Returns a symbolic instruction from a parameterized mnemotechnic
-pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, String> {
-    let mnemo = par.elem();
-    match &mnemo.to_ascii_lowercase()[..] {
+pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, FromMnemoError> {
+    match &par.elem().to_ascii_lowercase()[..] {
         "add" => binary_inst(par, Inst::Add),
         "adc" => binary_inst(par, Inst::Adc),
         "addi" => binary_inst(par, Inst::Addi),
@@ -91,6 +106,28 @@ pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, String> {
         "reti" => nullary_inst(par, Inst::Reti),
         "nop" => nullary_inst(par, Inst::Nop),
         "halt" => nullary_inst(par, Inst::Halt),
-        _ => Err(format!("unknown mnemonic: `{}`", mnemo))
+        _ => Err(FromMnemoError::UnknownMnemo(par.clone()))
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use asm::parser::Parameterized;
+
+    use super::*;
+
+    #[test]
+    fn should_display_unknown_mnemo() {
+        let par = Parameterized::from_strings("foobar".to_string(), Vec::new());
+        let disp = format!("{}", FromMnemoError::UnknownMnemo(par));
+        assert_eq!("unknown mnemonic in `foobar`", disp);
+    }
+
+    #[test]
+    fn should_display_invalid_operands_count() {
+        let par = Parameterized::from_strings("foobar".to_string(), Vec::new());
+        let disp = format!("{}", FromMnemoError::InvalidOperandsCount(par, 1));
+        assert_eq!("invalid operand count in `foobar`: 1 operand(s) expected", disp);
     }
 }
