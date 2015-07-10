@@ -48,13 +48,13 @@ impl Parameterized {
 
 macro_rules! param {
     ($elem:expr) => {
-        Parameterized::from_strings($elem, &[])
+        ::asm::parser::Parameterized::from_strings($elem, &[])
     };
     ($elem:expr, $( $param:expr ),*) => {
         {
             let mut params: Vec<&str> = Vec::new();
             $( params.push($param); )*
-            Parameterized::from_strings($elem, &params)
+            ::asm::parser::Parameterized::from_strings($elem, &params)
         }
     };
 }

@@ -16,6 +16,7 @@ use asm::parser::{Parameterized, parse_num};
 ///
 /// * `Origin(address: usize)`: indicates the memory address where the following
 /// instructions will be assembled.
+#[derive(Debug, PartialEq)]
 pub enum Directive {
     Origin(usize)
 }
@@ -25,6 +26,7 @@ pub enum Directive {
 ///
 /// * `BadArguments(directive: String, args: Vec<String>)`: invalid arguments for given directive
 /// * `Unknown(directive: String)`: the given directive is unknown
+#[derive(Debug, PartialEq)]
 pub enum DirImportErr {
     BadParams(Parameterized),
     Unknown(String),
@@ -60,5 +62,39 @@ impl Directive {
             }
         }
         Err(DirImportErr::BadParams(par.clone()))
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use asm::parser::Parameterized;
+
+    use super::*;
+
+    #[test]
+    fn should_make_org_from_params() {
+        assert_eq!(
+            Ok(Directive::Origin(0x8000)),
+            Directive::from_params(&param!("org", "0x8000")));
+    }
+
+    #[test]
+    fn should_fail_make_org_from_invalid_params() {
+        should_fail_make_from_invalid_params(&param!("org"));
+        should_fail_make_from_invalid_params(&param!("org", "foobar"));
+    }
+
+    #[test]
+    fn should_fail_make_from_unknown_directive() {
+        assert_eq!(
+            Err(DirImportErr::Unknown("foobar".to_string())),
+            Directive::from_params(&param!("foobar")));
+    }
+
+    fn should_fail_make_from_invalid_params(params: &Parameterized) {
+        assert_eq!(
+            Err(DirImportErr::BadParams(params.clone())),
+            Directive::from_params(&params));
     }
 }
