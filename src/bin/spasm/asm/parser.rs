@@ -46,6 +46,19 @@ impl Parameterized {
     pub fn params(&self) -> &Vec<String> { &self.params }
 }
 
+macro_rules! param {
+    ($elem:expr) => {
+        Parameterized::from_strings($elem, &[])
+    };
+    ($elem:expr, $( $param:expr ),*) => {
+        {
+            let mut params: Vec<&str> = Vec::new();
+            $( params.push($param); )*
+            Parameterized::from_strings($elem, &params)
+        }
+    };
+}
+
 impl Display for Parameterized {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         try!(write!(fmt, "{}", self.elem));
@@ -66,29 +79,6 @@ pub enum Parsed {
     Directive(Parameterized),
     Blank,
     LexicalError,
-}
-
-macro_rules! mnemo {
-    ($dirname:expr) => {
-        Parsed::Mnemonic(Parameterized::from_strings($dirname, &[]))
-    };
-    ($dirname:expr, $( $param:expr ),*) => {
-        {
-            let mut params: Vec<&str> = Vec::new();
-            $( params.push($param); )*
-            Parsed::Mnemonic(Parameterized::from_strings($dirname, &params))
-        }
-    };
-}
-
-macro_rules! dir {
-    ($dirname:expr, $( $param:expr ),*) => {
-        {
-            let mut params: Vec<&str> = Vec::new();
-            $( params.push($param); )*
-            Parsed::Directive(Parameterized::from_strings($dirname, &params))
-        }
-    }
 }
 
 const LABEL_REGEX: &'static str = r"^\s*([:alpha:][:word:]*)\s*:\s*(?:;.*)?$";
@@ -219,62 +209,65 @@ mod test {
 
     #[test]
     fn should_parse_mnemonic0() {
-        should_parse("reti", &mnemo!("reti"));
+        should_parse("reti", &Parsed::Mnemonic(param!("reti")));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_comment() {
-        should_parse("reti ; comment", &mnemo!("reti"));
+        should_parse("reti ; comment", &Parsed::Mnemonic(param!("reti")));
     }
 
     #[test]
     fn should_parse_mnemonic0_with_extra_spaces() {
-        should_parse("   \t reti   \t  ", &mnemo!("reti"));
+        should_parse("   \t reti   \t  ", &Parsed::Mnemonic(param!("reti")));
     }
 
     #[test]
     fn should_parse_mnemonic1() {
-        should_parse("push r1", &mnemo!("push", "r1"));
+        should_parse("push r1", &Parsed::Mnemonic(param!("push", "r1")));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_comment() {
-        should_parse("push r1 ; comment", &mnemo!("push", "r1"));
+        should_parse("push r1 ; comment", &Parsed::Mnemonic(param!("push", "r1")));
     }
 
     #[test]
     fn should_parse_mnemonic1_with_extra_spaces() {
-        should_parse(" \t push \t r1 \t ", &mnemo!("push", "r1"));
+        should_parse(" \t push \t r1 \t ", &Parsed::Mnemonic(param!("push", "r1")));
     }
 
     #[test]
     fn should_parse_mnemonic2() {
-        should_parse("add r1, r2", &mnemo!("add", "r1", "r2"));
+        should_parse("add r1, r2", &Parsed::Mnemonic(param!("add", "r1", "r2")));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_comment() {
-        should_parse("add r1, r2 ; comment", &mnemo!("add", "r1", "r2"));
+        should_parse("add r1, r2 ; comment", &Parsed::Mnemonic(param!("add", "r1", "r2")));
     }
 
     #[test]
     fn should_parse_mnemonic2_with_extra_spaces() {
-        should_parse(" \t add \t r1 \t ,  \t  r2  \t ", &mnemo!("add", "r1", "r2"));
+        should_parse(" \t add \t r1 \t ,  \t  r2  \t ", 
+            &Parsed::Mnemonic(param!("add", "r1", "r2")));
     }
 
     #[test]
     fn should_parse_directive() {
-        should_parse(".org 0x8000", &dir!("org", "0x8000"))
+        should_parse(".org 0x8000", &Parsed::Directive(param!("org", "0x8000")));
     }
 
     #[test]
     fn should_parse_directive_with_comment() {
-        should_parse(".org 0x8000 ; here starts our program", &dir!("org", "0x8000"))
+        should_parse(".org 0x8000 ; here starts our program",
+            &Parsed::Directive(param!("org", "0x8000")));
     }
 
     #[test]
     fn should_parse_directive_with_extra_spaces() {
-        should_parse(" \t  .org   \t     0x8000  \t   \t   ", &dir!("org", "0x8000"))
+        should_parse(" \t  .org   \t     0x8000  \t   \t   ",
+            &Parsed::Directive(param!("org", "0x8000")));
     }
 
     #[test]
