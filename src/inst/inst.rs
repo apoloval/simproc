@@ -11,6 +11,7 @@ use std::io;
 use inst::ops::*;
 
 /// A SP-80 instruction
+#[derive(Debug, PartialEq)]
 pub enum Inst<O: Operands> {
 
     // Arithmetic-logic instructions

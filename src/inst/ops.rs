@@ -72,6 +72,7 @@ impl Operands for RuntimeOperands {
     type AddrReg = AddrReg;
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SymbolicOperands;
 
 impl Operands for SymbolicOperands {

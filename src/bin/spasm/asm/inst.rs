@@ -13,6 +13,7 @@ use simproc::inst::*;
 
 use asm::parser::Parameterized;
 
+#[derive(Debug, PartialEq)]
 pub enum FromMnemoError {
     UnknownMnemo(Parameterized),
     InvalidOperandsCount(Parameterized, usize),
@@ -115,19 +116,280 @@ mod test {
 
     use asm::parser::Parameterized;
 
+    use simproc::inst::*;
+
     use super::*;
 
     #[test]
     fn should_display_unknown_mnemo() {
-        let par = Parameterized::from_strings("foobar".to_string(), Vec::new());
-        let disp = format!("{}", FromMnemoError::UnknownMnemo(par));
+        let disp = format!("{}", FromMnemoError::UnknownMnemo(param!("foobar")));
         assert_eq!("unknown mnemonic in `foobar`", disp);
     }
 
     #[test]
     fn should_display_invalid_operands_count() {
-        let par = Parameterized::from_strings("foobar".to_string(), Vec::new());
-        let disp = format!("{}", FromMnemoError::InvalidOperandsCount(par, 1));
+        let disp = format!("{}", FromMnemoError::InvalidOperandsCount(param!("foobar"), 1));
         assert_eq!("invalid operand count in `foobar`: 1 operand(s) expected", disp);
+    }
+
+    #[test]
+    fn should_convert_add_from_mnemo() {
+        should_convert_binary_from_mnemo("add", Inst::Add);
+    }
+
+    #[test]
+    fn should_convert_adc_from_mnemo() {
+        should_convert_binary_from_mnemo("adc", Inst::Adc);
+    }
+
+    #[test]
+    fn should_convert_addi_from_mnemo() {
+        should_convert_binary_from_mnemo("addi", Inst::Addi);
+    }
+
+    #[test]
+    fn should_convert_sub_from_mnemo() {
+        should_convert_binary_from_mnemo("sub", Inst::Sub);
+    }
+
+    #[test]
+    fn should_convert_sbc_from_mnemo() {
+        should_convert_binary_from_mnemo("sbc", Inst::Sbc);
+    }
+
+    #[test]
+    fn should_convert_subi_from_mnemo() {
+        should_convert_binary_from_mnemo("subi", Inst::Subi);
+    }
+
+    #[test]
+    fn should_convert_mulw_from_mnemo() {
+        should_convert_binary_from_mnemo("mulw", Inst::Mulw);
+    }
+
+    #[test]
+    fn should_convert_and_from_mnemo() {
+        should_convert_binary_from_mnemo("and", Inst::And);
+    }
+
+    #[test]
+    fn should_convert_or_from_mnemo() {
+        should_convert_binary_from_mnemo("or", Inst::Or);
+    }
+
+    #[test]
+    fn should_convert_xor_from_mnemo() {
+        should_convert_binary_from_mnemo("xor", Inst::Xor);
+    }
+
+    #[test]
+    fn should_convert_lsl_from_mnemo() {
+        should_convert_binary_from_mnemo("lsl", Inst::Lsl);
+    }
+
+    #[test]
+    fn should_convert_lsr_from_mnemo() {
+        should_convert_binary_from_mnemo("lsr", Inst::Lsr);
+    }
+
+    #[test]
+    fn should_convert_asr_from_mnemo() {
+        should_convert_binary_from_mnemo("asr", Inst::Asr);
+    }
+
+    #[test]
+    fn should_convert_not_from_mnemo() {
+        should_convert_unary_from_mnemo("not", Inst::Not);
+    }
+
+    #[test]
+    fn should_convert_comp_from_mnemo() {
+        should_convert_unary_from_mnemo("comp", Inst::Comp);
+    }
+
+    #[test]
+    fn should_convert_inc_from_mnemo() {
+        should_convert_unary_from_mnemo("inc", Inst::Inc);
+    }
+
+    #[test]
+    fn should_convert_incw_from_mnemo() {
+        should_convert_unary_from_mnemo("incw", Inst::Incw);
+    }
+
+    #[test]
+    fn should_convert_dec_from_mnemo() {
+        should_convert_unary_from_mnemo("dec", Inst::Dec);
+    }
+
+    #[test]
+    fn should_convert_decw_from_mnemo() {
+        should_convert_unary_from_mnemo("decw", Inst::Decw);
+    }
+
+    #[test]
+    fn should_convert_mov_from_mnemo() {
+        should_convert_binary_from_mnemo("mov", Inst::Mov);
+    }
+
+    #[test]
+    fn should_convert_ld_from_mnemo() {
+        should_convert_binary_from_mnemo("ld", Inst::Ld);
+    }
+
+    #[test]
+    fn should_convert_st_from_mnemo() {
+        should_convert_binary_from_mnemo("st", Inst::St);
+    }
+
+    #[test]
+    fn should_convert_ldd_from_mnemo() {
+        should_convert_binary_from_mnemo("ldd", Inst::Ldd);
+    }
+
+    #[test]
+    fn should_convert_std_from_mnemo() {
+        should_convert_binary_from_mnemo("std", Inst::Std);
+    }
+
+    #[test]
+    fn should_convert_ldi_from_mnemo() {
+        should_convert_binary_from_mnemo("ldi", Inst::Ldi);
+    }
+
+    #[test]
+    fn should_convert_ldsp_from_mnemo() {
+        should_convert_unary_from_mnemo("ldsp", Inst::Ldsp);
+    }
+
+    #[test]
+    fn should_convert_push_from_mnemo() {
+        should_convert_unary_from_mnemo("push", Inst::Push);
+    }
+
+    #[test]
+    fn should_convert_pop_from_mnemo() {
+        should_convert_unary_from_mnemo("pop", Inst::Pop);
+    }
+
+    #[test]
+    fn should_convert_je_from_mnemo() {
+        should_convert_unary_from_mnemo("je", Inst::Je);
+    }
+
+    #[test]
+    fn should_convert_jne_from_mnemo() {
+        should_convert_unary_from_mnemo("jne", Inst::Jne);
+    }
+
+    #[test]
+    fn should_convert_jl_from_mnemo() {
+        should_convert_unary_from_mnemo("jl", Inst::Jl);
+    }
+
+    #[test]
+    fn should_convert_jge_from_mnemo() {
+        should_convert_unary_from_mnemo("jge", Inst::Jge);
+    }
+
+    #[test]
+    fn should_convert_jcc_from_mnemo() {
+        should_convert_unary_from_mnemo("jcc", Inst::Jcc);
+    }
+
+    #[test]
+    fn should_convert_jcs_from_mnemo() {
+        should_convert_unary_from_mnemo("jcs", Inst::Jcs);
+    }
+
+    #[test]
+    fn should_convert_jvc_from_mnemo() {
+        should_convert_unary_from_mnemo("jvc", Inst::Jvc);
+    }
+
+    #[test]
+    fn should_convert_jvs_from_mnemo() {
+        should_convert_unary_from_mnemo("jvs", Inst::Jvs);
+    }
+
+    #[test]
+    fn should_convert_jmp_from_mnemo() {
+        should_convert_unary_from_mnemo("jmp", Inst::Jmp);
+    }
+
+    #[test]
+    fn should_convert_rjmp_from_mnemo() {
+        should_convert_unary_from_mnemo("rjmp", Inst::Rjmp);
+    }
+
+    #[test]
+    fn should_convert_ijmp_from_mnemo() {
+        should_convert_unary_from_mnemo("ijmp", Inst::Ijmp);
+    }
+
+    #[test]
+    fn should_convert_call_from_mnemo() {
+        should_convert_unary_from_mnemo("call", Inst::Call);
+    }
+
+    #[test]
+    fn should_convert_rcall_from_mnemo() {
+        should_convert_unary_from_mnemo("rcall", Inst::Rcall);
+    }
+
+    #[test]
+    fn should_convert_icall_from_mnemo() {
+        should_convert_unary_from_mnemo("icall", Inst::Icall);
+    }
+
+    #[test]
+    fn should_convert_ret_from_mnemo() {
+        should_convert_nullary_from_mnemo("ret", Inst::Ret);
+    }
+
+    #[test]
+    fn should_convert_reti_from_mnemo() {
+        should_convert_nullary_from_mnemo("reti", Inst::Reti);
+    }
+
+    #[test]
+    fn should_convert_nop_from_mnemo() {
+        should_convert_nullary_from_mnemo("nop", Inst::Nop);
+    }
+
+    #[test]
+    fn should_convert_halt_from_mnemo() {
+        should_convert_nullary_from_mnemo("halt", Inst::Halt);
+    }
+
+    fn should_convert_nullary_from_mnemo(iname: &str, inst: SymbolicInst) {
+        assert_eq!(Ok(inst), from_mnemo(&param!(iname)));
+        should_fail_with_invalid_operands(&param!(iname, "p1"), 0);
+        should_fail_with_invalid_operands(&param!(iname, "p1", "p2"), 0);
+    }
+
+    fn should_convert_unary_from_mnemo<I>(iname: &str, inst: I)
+            where I: FnOnce(String) -> SymbolicInst {
+        assert_eq!(
+            Ok(inst("p1".to_string())),
+            from_mnemo(&param!(iname, "p1")));
+        should_fail_with_invalid_operands(&param!(iname), 1);
+        should_fail_with_invalid_operands(&param!(iname, "p1", "p2"), 1);
+    }
+
+    fn should_convert_binary_from_mnemo<I>(iname: &str, inst: I)
+            where I: FnOnce(String, String) -> SymbolicInst {
+        assert_eq!(
+            Ok(inst("p1".to_string(), "p2".to_string())),
+            from_mnemo(&param!(iname, "p1", "p2")));
+        should_fail_with_invalid_operands(&param!(iname), 2);
+        should_fail_with_invalid_operands(&param!(iname, "p1"), 2);
+        should_fail_with_invalid_operands(&param!(iname, "p1", "p2", "p3"), 2);
+    }
+
+    fn should_fail_with_invalid_operands(params: &Parameterized, expected: usize) {
+        assert_eq!(
+            Err(FromMnemoError::InvalidOperandsCount(params.clone(), expected)),
+            from_mnemo(params));
     }
 }
