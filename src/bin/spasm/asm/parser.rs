@@ -35,8 +35,10 @@ pub struct Parameterized {
 
 impl Parameterized {
 
-    pub fn from_strings(elem: String, params: Vec<String>) -> Parameterized {
-        Parameterized { elem: elem, params: params.clone() }
+    pub fn from_strings(elem: &str, params: &[&str]) -> Parameterized {
+        let mut par: Vec<String> = Vec::new();
+        for p in params { par.push(p.to_string()); }
+        Parameterized { elem: elem.to_string(), params: par }
     }
 
     pub fn elem(&self) -> &str { &self.elem }
@@ -68,13 +70,13 @@ pub enum Parsed {
 
 macro_rules! mnemo {
     ($dirname:expr) => {
-        Parsed::Mnemonic(Parameterized::from_strings($dirname.to_string(), Vec::new()))
+        Parsed::Mnemonic(Parameterized::from_strings($dirname, &[]))
     };
     ($dirname:expr, $( $param:expr ),*) => {
         {
-            let mut params: Vec<String> = Vec::new();
-            $( params.push($param.to_string()); )*
-            Parsed::Mnemonic(Parameterized::from_strings($dirname.to_string(), params))
+            let mut params: Vec<&str> = Vec::new();
+            $( params.push($param); )*
+            Parsed::Mnemonic(Parameterized::from_strings($dirname, &params))
         }
     };
 }
@@ -82,9 +84,9 @@ macro_rules! mnemo {
 macro_rules! dir {
     ($dirname:expr, $( $param:expr ),*) => {
         {
-            let mut params: Vec<String> = Vec::new();
-            $( params.push($param.to_string()); )*
-            Parsed::Directive(Parameterized::from_strings($dirname.to_string(), params))
+            let mut params: Vec<&str> = Vec::new();
+            $( params.push($param); )*
+            Parsed::Directive(Parameterized::from_strings($dirname, &params))
         }
     }
 }
@@ -100,37 +102,37 @@ const BLANK_REGEX: &'static str = r"^\s*(?:;.*)?$";
 pub fn parse_line(line: &str) -> Option<Parsed> {
 
     macro_rules! cap(
-        ($c:ident, $n:expr) => ($c.at($n).unwrap().to_string())
+        ($c:ident, $n:expr) => ($c.at($n).unwrap())
     );
 
     match Regex::new(LABEL_REGEX).unwrap().captures(line) {
-        Some(caps) => return Some(Parsed::Label(cap!(caps, 1))),
+        Some(caps) => return Some(Parsed::Label(cap!(caps, 1).to_string())),
         None => (),
     }
     match Regex::new(MNEMONIC1_REGEX).unwrap().captures(line) {
         Some(caps) => {
-            let par = Parameterized::from_strings(cap!(caps, 1), vec!());
+            let par = Parameterized::from_strings(cap!(caps, 1), &[]);
             return Some(Parsed::Mnemonic(par))
         },
         None => (),
     }
     match Regex::new(MNEMONIC2_REGEX).unwrap().captures(line) {
         Some(caps) => {
-            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2)));
+            let par = Parameterized::from_strings(cap!(caps, 1), &[cap!(caps, 2)]);
             return Some(Parsed::Mnemonic(par))
         },
         None => (),
     }
     match Regex::new(MNEMONIC3_REGEX).unwrap().captures(line) {
         Some(caps) => {
-            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2), cap!(caps, 3)));
+            let par = Parameterized::from_strings(cap!(caps, 1), &[cap!(caps, 2), cap!(caps, 3)]);
             return Some(Parsed::Mnemonic(par))
         },
         None => (),
     }
     match Regex::new(DIRECTIVE_REGEX).unwrap().captures(line) {
         Some(caps) => {
-            let par = Parameterized::from_strings(cap!(caps, 1), vec!(cap!(caps, 2)));
+            let par = Parameterized::from_strings(cap!(caps, 1), &[cap!(caps, 2)]);
             return Some(Parsed::Directive(par));
         },
         None => (),
