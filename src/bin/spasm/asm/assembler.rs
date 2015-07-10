@@ -57,9 +57,7 @@ impl Assembler {
                 },
                 &Parsed::Directive(ref par) => {
                     match Directive::from_params(par) {
-                        Ok(_) => {
-                            // TODO: apply the directive
-                        },
+                        Ok(dir) => dir.apply(&mut pre),
                         Err(err) => {
                             errors.push(ProgramError::new(i, &line, &format!("{}", err)));
                             pre.push(Assembled::Ignored(line.clone()));

@@ -8,6 +8,7 @@
 
 use std::fmt::{Display, Error, Formatter};
 
+use asm::assembly::SymbolicAssembly;
 use asm::parser::{Parameterized, parse_num};
 
 /// An assembly language directive
@@ -63,11 +64,18 @@ impl Directive {
         }
         Err(DirImportErr::BadParams(par.clone()))
     }
+
+    pub fn apply(&self, asm: &mut SymbolicAssembly) {
+        match self {
+            &Directive::Origin(ref orig) => asm.ctx_mut().set_addr(*orig),
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
 
+    use asm::assembly::SymbolicAssembly;
     use asm::parser::Parameterized;
 
     use super::*;
@@ -90,6 +98,14 @@ mod test {
         assert_eq!(
             Err(DirImportErr::Unknown("foobar".to_string())),
             Directive::from_params(&param!("foobar")));
+    }
+
+    #[test]
+    fn should_apply_origin() {
+        let mut asm = SymbolicAssembly::new();
+        let dir = Directive::Origin(0x8000);
+        dir.apply(&mut asm);
+        assert_eq!(0x8000, asm.ctx().curr_addr());
     }
 
     fn should_fail_make_from_invalid_params(params: &Parameterized) {
