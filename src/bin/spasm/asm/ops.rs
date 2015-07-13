@@ -6,38 +6,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::fmt;
-
 use simproc::inst::*;
 
 use asm::assembly::AssemblyContext;
+use asm::err::Error;
 use asm::parser;
-
-#[derive(Debug, PartialEq)]
-pub enum OpAssemblyError {
-    BadNumber(String),
-    OutOfRange(String),
-    NoSuchSymbol(String),
-    BadReg(String),
-    BadAddrReg(String),
-}
-
-impl fmt::Display for OpAssemblyError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            &OpAssemblyError::BadNumber(ref expr) =>
-                write!(fmt, "invalid numeric expression in `{}`", expr),
-            &OpAssemblyError::OutOfRange(ref expr) =>
-                write!(fmt, "number `{}` is out of range", expr),
-            &OpAssemblyError::NoSuchSymbol(ref expr) =>
-                write!(fmt, "undeclared symbol `{}`", expr),
-            &OpAssemblyError::BadReg(ref expr) =>
-                write!(fmt, "invalid register `{}`", expr),
-            &OpAssemblyError::BadAddrReg(ref expr) =>
-                write!(fmt, "invalid address register `{}`", expr),
-        }
-    }
-}
 
 pub struct OperandAssembler<'a> {
     context: &'a AssemblyContext
@@ -47,7 +20,7 @@ macro_rules! parse_num {
     ($s:expr) => {
         match parser::parse_num(&$s) {
             Some(n) => Ok(n),
-            None => Err(OpAssemblyError::BadNumber($s.clone())),
+            None => Err(Error::BadNumber($s.clone())),
         }
     }
 }
@@ -56,7 +29,7 @@ macro_rules! parse_symbol {
     ($syms:expr => $s:expr) => {
         match $syms.get($s) {
             Some(val) => Ok(*val),
-            None => Err(OpAssemblyError::NoSuchSymbol($s.clone())),
+            None => Err(Error::NoSuchSymbol($s.clone())),
         }
     }
 }
@@ -83,7 +56,7 @@ impl<'a> OperandAssembler<'a> {
         OperandAssembler { context: context }
     }
 
-    pub fn map_immediate(&self, src: &String) -> Result<Immediate, OpAssemblyError> {
+    pub fn map_immediate(&self, src: &String) -> Result<Immediate, Error> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
@@ -91,32 +64,32 @@ impl<'a> OperandAssembler<'a> {
             Some(v) => Ok(Immediate(v as u8)),
             None => match to_u8(k) {
                 Some(v) => Ok(Immediate(v)),
-                None => Err(OpAssemblyError::OutOfRange(src.clone()))
+                None => Err(Error::OutOfRange(src.clone()))
             },
         }
     }
 
-    pub fn map_addr(&self, src: &String) -> Result<Addr, OpAssemblyError> {
+    pub fn map_addr(&self, src: &String) -> Result<Addr, Error> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
         match to_u16(k) {
             Some(v) => Ok(Addr(v)),
-            None => Err(OpAssemblyError::OutOfRange(src.clone())),
+            None => Err(Error::OutOfRange(src.clone())),
         }
     }
 
-    pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, OpAssemblyError> {
+    pub fn map_rel_addr(&self, src: &String) -> Result<RelAddr, Error> {
         let lit = parse_num!(src);
         let sym = parse_symbol!(self.context.symbols() => src);
         let k = try!(lit.or(sym));
         match to_i10!(k - self.context.curr_addr() as i64) {
             Some(v) => Ok(RelAddr(v)),
-            None => Err(OpAssemblyError::OutOfRange(src.clone())),
+            None => Err(Error::OutOfRange(src.clone())),
         }
     }
 
-    pub fn map_reg(&self, src: &String) -> Result<Reg, OpAssemblyError> {
+    pub fn map_reg(&self, src: &String) -> Result<Reg, Error> {
         match src.trim() {
             "r0" | "R0" => Ok(Reg::R0),
             "r1" | "R1" => Ok(Reg::R1),
@@ -126,17 +99,17 @@ impl<'a> OperandAssembler<'a> {
             "r5" | "R5" => Ok(Reg::R5),
             "r6" | "R6" => Ok(Reg::R6),
             "r7" | "R7" => Ok(Reg::R7),
-            _ => Err(OpAssemblyError::BadReg(src.clone()))
+            _ => Err(Error::BadReg(src.clone()))
         }
     }
 
-    pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, OpAssemblyError> {
+    pub fn map_addr_reg(&self, src: &String) -> Result<AddrReg, Error> {
         match src.trim() {
             "a0" | "A0" => Ok(AddrReg::A0),
             "a1" | "A1" => Ok(AddrReg::A1),
             "a2" | "A2" => Ok(AddrReg::A2),
             "a3" | "A3" => Ok(AddrReg::A3),
-            _ => Err(OpAssemblyError::BadAddrReg(src.clone()))
+            _ => Err(Error::BadAddrReg(src.clone()))
         }
     }
 }
@@ -144,8 +117,11 @@ impl<'a> OperandAssembler<'a> {
 #[cfg(test)]
 mod test {
 
-    use asm::assembly::AssemblyContext;
     use simproc::inst::*;
+
+    use asm::assembly::AssemblyContext;
+    use asm::err::Error;
+
     use super::*;
 
     macro_rules! with_symbols {
@@ -208,14 +184,14 @@ mod test {
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_immediate() {
         assert_map_fail!(=>
-            OpAssemblyError::OutOfRange("1234".to_string()),
+            Error::OutOfRange("1234".to_string()),
             "1234" => map_immediate);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_immediate() {
         assert_map_fail!(["foo", 1234] =>
-            OpAssemblyError::OutOfRange("foo".to_string()),
+            Error::OutOfRange("foo".to_string()),
             "foo" => map_immediate);
     }
 
@@ -229,7 +205,7 @@ mod test {
     #[test]
     fn should_fail_to_map_neg_literal_address() {
         assert_map_fail!(=>
-            OpAssemblyError::OutOfRange("-0x1234".to_string()),
+            Error::OutOfRange("-0x1234".to_string()),
             "-0x1234" => map_addr);
     }
 
@@ -243,21 +219,21 @@ mod test {
     #[test]
     fn should_fail_to_map_neg_symbolic_address() {
         assert_map_fail!(["foo", -1234] =>
-            OpAssemblyError::OutOfRange("foo".to_string()),
+            Error::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_literal_address() {
         assert_map_fail!(=>
-            OpAssemblyError::OutOfRange("0x123456".to_string()),
+            Error::OutOfRange("0x123456".to_string()),
             "0x123456" => map_addr);
     }
 
     #[test]
     fn should_fail_to_map_out_of_bounds_symbolic_address() {
         assert_map_fail!(["foo", 0x123456] =>
-            OpAssemblyError::OutOfRange("foo".to_string()),
+            Error::OutOfRange("foo".to_string()),
             "foo" => map_addr);
     }
 
@@ -285,7 +261,7 @@ mod test {
         context.set_addr(0x100);
         let asmblr = OperandAssembler::with_context(&context);
         let err = asmblr.map_rel_addr(&"0x500".to_string()).err();
-        assert_eq!(Some(OpAssemblyError::OutOfRange("0x500".to_string())), err);
+        assert_eq!(Some(Error::OutOfRange("0x500".to_string())), err);
     }
 
     #[test]
@@ -294,6 +270,6 @@ mod test {
         context.set_addr(0x100);
         let asmblr = OperandAssembler::with_context(&context);
         let err = asmblr.map_rel_addr(&"foo".to_string()).err();
-        assert_eq!(Some(OpAssemblyError::OutOfRange("foo".to_string())), err);
+        assert_eq!(Some(Error::OutOfRange("foo".to_string())), err);
     }
 }

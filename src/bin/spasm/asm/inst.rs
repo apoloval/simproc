@@ -7,52 +7,35 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
-use std::fmt;
 
 use simproc::inst::*;
 
 use asm::assembly::*;
+use asm::err::Error;
 use asm::ops::*;
 use asm::parser::Parameterized;
-
-#[derive(Debug, PartialEq)]
-pub enum FromMnemoError {
-    UnknownMnemo(Parameterized),
-    InvalidOperandsCount(Parameterized, usize),
-}
-
-impl fmt::Display for FromMnemoError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            &FromMnemoError::UnknownMnemo(ref par) =>
-                write!(fmt, "unknown mnemonic in `{}`", par),
-            &FromMnemoError::InvalidOperandsCount(ref par, ref c) =>
-                write!(fmt, "invalid operand count in `{}`: {} operand(s) expected", par, c),
-        }
-    }
-}
 
 macro_rules! ensure_args {
     ($par:expr => $expected:expr) => {
         if $par.params().len() != $expected {
-            return Err(FromMnemoError::InvalidOperandsCount($par.clone(), $expected));
+            return Err(Error::BadOperandsCount($expected));
         }
     }
 }
 
-fn nullary_inst(par: &Parameterized, inst: SymbolicInst) -> Result<SymbolicInst, FromMnemoError> {
+fn nullary_inst(par: &Parameterized, inst: SymbolicInst) -> Result<SymbolicInst, Error> {
     ensure_args!(par => 0);
     Ok(inst)
 }
 
-fn unary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnemoError>
+fn unary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, Error>
         where F: FnOnce(String) -> SymbolicInst {
     ensure_args!(par => 1);
     let arg0 = par.params()[0].clone();
     Ok(inst(arg0))
 }
 
-fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnemoError>
+fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, Error>
         where F: FnOnce(String, String) -> SymbolicInst {
     ensure_args!(par => 2);
     let arg0 = par.params()[0].clone();
@@ -61,8 +44,9 @@ fn binary_inst<F>(par: &Parameterized, inst: F) -> Result<SymbolicInst, FromMnem
 }
 
 /// Returns a symbolic instruction from a parameterized mnemotechnic
-pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, FromMnemoError> {
-    match par.elem().to_ascii_lowercase().trim() {
+pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, Error> {
+    let mnemo = par.elem();
+    match mnemo.to_ascii_lowercase().trim() {
         "add" => binary_inst(par, Inst::Add),
         "adc" => binary_inst(par, Inst::Adc),
         "addi" => binary_inst(par, Inst::Addi),
@@ -109,12 +93,12 @@ pub fn from_mnemo(par: &Parameterized) -> Result<SymbolicInst, FromMnemoError> {
         "reti" => nullary_inst(par, Inst::Reti),
         "nop" => nullary_inst(par, Inst::Nop),
         "halt" => nullary_inst(par, Inst::Halt),
-        _ => Err(FromMnemoError::UnknownMnemo(par.clone()))
+        _ => Err(Error::UnknownMnemo(mnemo.to_string()))
     }
 }
 
 pub fn assemble_inst(from: &SymbolicInst, context: &mut AssemblyContext) ->
-        Result<RuntimeInst, OpAssemblyError> {
+        Result<RuntimeInst, Error> {
     let mapper = OperandAssembler::with_context(context);
     match from {
         &Inst::Add(ref r1, ref r2) =>
@@ -216,23 +200,12 @@ pub fn assemble_inst(from: &SymbolicInst, context: &mut AssemblyContext) ->
 #[cfg(test)]
 mod test {
 
-    use asm::parser::Parameterized;
-
     use simproc::inst::*;
 
+    use asm::err::Error;
+    use asm::parser::Parameterized;
+
     use super::*;
-
-    #[test]
-    fn should_display_unknown_mnemo() {
-        let disp = format!("{}", FromMnemoError::UnknownMnemo(param!("foobar")));
-        assert_eq!("unknown mnemonic in `foobar`", disp);
-    }
-
-    #[test]
-    fn should_display_invalid_operands_count() {
-        let disp = format!("{}", FromMnemoError::InvalidOperandsCount(param!("foobar"), 1));
-        assert_eq!("invalid operand count in `foobar`: 1 operand(s) expected", disp);
-    }
 
     #[test]
     fn should_convert_add_from_mnemo() {
@@ -491,7 +464,7 @@ mod test {
 
     fn should_fail_with_invalid_operands(params: &Parameterized, expected: usize) {
         assert_eq!(
-            Err(FromMnemoError::InvalidOperandsCount(params.clone(), expected)),
+            Err(Error::BadOperandsCount(expected)),
             from_mnemo(params));
     }
 }

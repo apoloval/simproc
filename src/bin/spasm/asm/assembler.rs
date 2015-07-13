@@ -50,7 +50,7 @@ impl Assembler {
                             pre.inc_addr(inst_len);
                         },
                         Err(err) => {
-                            errors.push(ProgramError::new(i, &line, &format!("{}", err)));
+                            errors.push(ProgramError::new(i, &line, err));
                             pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
@@ -59,7 +59,7 @@ impl Assembler {
                     match Directive::from_params(par) {
                         Ok(dir) => dir.apply(&mut pre),
                         Err(err) => {
-                            errors.push(ProgramError::new(i, &line, &format!("{}", err)));
+                            errors.push(ProgramError::new(i, &line, err));
                             pre.push(Assembled::Ignored(line.clone()));
                         },
                     }
@@ -82,8 +82,7 @@ impl Assembler {
                     match assemble_inst(inst, post.ctx_mut()) {
                         Ok(asm_inst) =>
                             post.push(Assembled::Inst(l.clone(), p, asm_inst)),
-                        Err(e) => errors.push(
-                            ProgramError::new(i, l.trim(), &format!("{}", e))),
+                        Err(e) => errors.push(ProgramError::new(i, l.trim(), e)),
                     };
                     post.inc_addr(inst.len());
                 },
