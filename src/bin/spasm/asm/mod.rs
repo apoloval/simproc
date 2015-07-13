@@ -9,6 +9,7 @@
 #[macro_use]
 mod parser;
 
+mod data;
 mod dir;
 mod inst;
 mod ops;

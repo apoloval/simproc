@@ -49,6 +49,11 @@ impl AssemblyContext {
     /// Sets the memory address where next element will be assembled.
     pub fn set_addr(&mut self, addr: usize) { self.curr_addr = addr }
 
+    /// Resolve the given label from the symbol table.
+    pub fn resolve(&self, label: &str) -> Option<i64> {
+        self.symbols().get(label).map(|v| *v)
+    }
+
     /// Define a new symbol using the next address to be assembled.
     /// A new symbol with the given label will be defined in the symbol table. Its value
     /// will be the current address where next element will be assembled.
