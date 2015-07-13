@@ -8,8 +8,10 @@
 
 use std::fs::File;
 use std::io::Read;
+use std::iter::FromIterator;
 
 use asm::assembly::*;
+use asm::data::*;
 use asm::dir::Directive;
 use asm::err::{AssemblyError, ProgramError};
 use asm::inst::*;
@@ -78,6 +80,13 @@ impl Assembler {
         let mut post = Assembly::with_symbols(pre.ctx().symbols());
         for (i, a) in pre.assembled().iter().enumerate() {
             match a {
+                &Assembled::Data(ref l, p, size, ref data) => {
+                    let dat = Vec::from_iter(data.iter().map(|d| &d[..]));
+                    match assemble_data(size, &dat, post.ctx()) {
+                        Ok(data) => post.push(Assembled::Data(l.clone(), p, size, data)),
+                        Err(e) => errors.push(ProgramError::new(i, l.trim(), e)),
+                    }
+                },
                 &Assembled::Inst(ref l, p, ref inst) => {
                     match assemble_inst(inst, post.ctx_mut()) {
                         Ok(asm_inst) =>

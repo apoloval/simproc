@@ -75,23 +75,24 @@ impl AssemblyContext {
 ///   * `addr` is the memory address where the instruction is allocated
 ///   * `inst` is the assembled instruction
 /// * `Ignored(line: String)`: an ignored source text line (i.e. a comment, assembler directive...)
-pub enum Assembled<O: Operands> {
+pub enum Assembled<O: Operands, DataUnit> {
+    Data(String, usize, u8, Vec<DataUnit>),
     Inst(String, usize, Inst<O>),
     Ignored(String),
 }
 
 /// A unit of assembled code.
-pub struct Assembly<O: Operands> {
+pub struct Assembly<O: Operands, DataUnit> {
     context: AssemblyContext,
-    assembled: Vec<Assembled<O>>,
+    assembled: Vec<Assembled<O, DataUnit>>,
 }
 
-pub type SymbolicAssembly = Assembly<SymbolicOperands>;
-pub type RuntimeAssembly = Assembly<RuntimeOperands>;
+pub type SymbolicAssembly = Assembly<SymbolicOperands, String>;
+pub type RuntimeAssembly = Assembly<RuntimeOperands, u8>;
 
-impl<O: Operands> Assembly<O> {
+impl<O: Operands, D> Assembly<O, D> {
 
-    pub fn with_symbols(symbols: &SymbolTable) -> Assembly<O> {
+    pub fn with_symbols(symbols: &SymbolTable) -> Self {
         Assembly {
             context: AssemblyContext::with_symbols(symbols),
             assembled: Vec::new(),
@@ -100,7 +101,7 @@ impl<O: Operands> Assembly<O> {
 
     /// Create a new empty assembly.
     /// With no symbol defined, no assembled elements and ready to put code at address 0x0000.
-    pub fn new() -> Assembly<O> {
+    pub fn new() -> Self {
         Assembly {
             context: AssemblyContext::new(),
             assembled: Vec::new(),
@@ -113,7 +114,7 @@ impl<O: Operands> Assembly<O> {
     /// Returns the assembly context.
     pub fn ctx_mut(&mut self) -> &mut AssemblyContext { &mut self.context }
 
-    pub fn assembled(&self) -> &Vec<Assembled<O>> { &self.assembled }
+    pub fn assembled(&self) -> &Vec<Assembled<O, D>> { &self.assembled }
 
     /// Define a new symbol in the context.
     pub fn define(&mut self, label: &str) { self.context.define(label) }
@@ -122,14 +123,17 @@ impl<O: Operands> Assembly<O> {
     pub fn inc_addr(&mut self, nbytes: usize) { self.context.inc_addr(nbytes) }
 
     /// Put a new assembled element.
-    pub fn push(&mut self, code: Assembled<O>) { self.assembled.push(code) }
+    pub fn push(&mut self, code: Assembled<O, D>) { self.assembled.push(code) }
 }
 
-impl Assembly<RuntimeOperands> {
+impl RuntimeAssembly {
 
     pub fn write_as_bin<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
         for item in self.assembled.iter() {
             match item {
+                &Assembled::Data(_, _, _, ref bytes) => {
+                    try!(output.write(bytes));
+                },
                 &Assembled::Inst(_, _, ref inst) => {
                     try!(inst.encode(output));
                 },
@@ -142,6 +146,15 @@ impl Assembly<RuntimeOperands> {
     pub fn write_as_text<W : io::Write>(&self, output: &mut W) -> io::Result<()> {
         for item in self.assembled.iter() {
             match item {
+                &Assembled::Data(ref line, place, _, ref bytes) => {
+                    try!(write!(output, "0x{:04x} : ", place as u16));
+                    let nbytes = bytes.len();
+                    for b in bytes {
+                        try!(write!(output, "{:02x} ", b));
+                    }
+                    for _ in 0..(10 - 3*nbytes) { try!(write!(output, " ")); }
+                    try!(writeln!(output, "{}", line));
+                },
                 &Assembled::Inst(ref line, place, ref inst) => {
                     let mut buff: Vec<u8> = Vec::new();
                     let nbytes = inst.encode(&mut buff).unwrap();
