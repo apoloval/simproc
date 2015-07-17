@@ -19,6 +19,7 @@ pub struct Addr(pub u16);
 pub struct RelAddr(pub i16);
 
 /// General purpose 8-bit Regs.
+#[derive(Debug, PartialEq)]
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
 
 impl Reg {
@@ -39,6 +40,7 @@ impl Reg {
 }
 
 /// 16-bits address Regs.
+#[derive(Debug, PartialEq)]
 pub enum AddrReg { A0, A1, A2, A3 }
 
 impl AddrReg {

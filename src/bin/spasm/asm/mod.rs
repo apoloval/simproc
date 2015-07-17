@@ -12,6 +12,7 @@ mod parser;
 mod data;
 mod dir;
 mod inst;
+mod lexer;
 mod ops;
 
 pub mod assembly;
