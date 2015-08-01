@@ -58,21 +58,25 @@ impl TextLocate for ExprList {
 	fn loc(&self) -> &TextLoc { &self.loc }
 }
 
+type Label = Option<String>;
+type DirectName = String;
+type DirectArgs = ExprList;
+type MnemoName = String;
+type MnemoArgs = ExprList;
+
 #[derive(Debug, PartialEq)]
 pub enum Statement {
-	DeclLabel(TextLoc, String),
-	Direct(TextLoc, String, ExprList),
-	Mnemo(TextLoc, String, ExprList),
-	Empty(TextLoc),
+	Direct(TextLoc, Label, DirectName, DirectArgs),
+	Mnemo(TextLoc, Label, MnemoName, MnemoArgs),
+	Empty(TextLoc, Label),
 }
 
 impl TextLocate for Statement {
 	fn loc(&self) -> &TextLoc {
 		match self {
-			&Statement::DeclLabel(ref loc, _) => loc,
-			&Statement::Direct(ref loc, _, _) => loc,
-			&Statement::Mnemo(ref loc, _, _) => loc,
-			&Statement::Empty(ref loc) => loc,
+			&Statement::Direct(ref loc, _, _, _) => loc,
+			&Statement::Mnemo(ref loc, _, _, _) => loc,
+			&Statement::Empty(ref loc, _) => loc,
 		}
 	}
 }
@@ -93,16 +97,49 @@ impl<I: Iterator<Item=Token>> Parser<I> {
 		Parser { input: input.into_iter() }
 	}
 
-    fn next_from_id(&mut self, id_loc: TextLoc, id: String) -> Option<Result<Statement, SyntaxError>> {
+	fn next_statement(&mut self, allow_label: bool) -> Option<Result<Statement, SyntaxError>> {
+		match self.input.next() {
+			Some(Token::Ident(loc, id)) => self.next_statement_from_id(loc, id, allow_label),
+			Some(Token::Direct(loc, dir)) => self.direct_from(loc, dir),
+			Some(Token::Eol(loc)) => Some(Ok(Statement::Empty(loc!(loc.line, 1, ""), None))),
+			Some(other) => Some(Err(SyntaxError::UnexpectedToken(other))),
+			None => None,
+		}
+	}
+
+    fn next_statement_from_id(
+    	&mut self,
+    	id_loc: TextLoc,
+    	id: String,
+    	allow_label: bool) -> Option<Result<Statement, SyntaxError>>
+    {
     	match self.input.next() {
-    		Some(Token::Colon(c_loc)) => Some(Ok(Statement::DeclLabel(id_loc + &c_loc, id))),
-    		Some(Token::Eol(_)) | None => Some(Ok(Statement::Mnemo(id_loc, id, ExprList::empty()))),
+    		Some(Token::Colon(c_loc)) =>
+    			if allow_label { self.next_with_label(id_loc + &c_loc, id) }
+    			else { Some(Err(SyntaxError::UnexpectedToken(Token::Colon(c_loc)))) },
+    		Some(Token::Eol(_)) | None =>
+    			Some(Ok(Statement::Mnemo(id_loc, None, id, ExprList::empty()))),
     		Some(other) => {
     			match self.next_expr_list_from(other) {
-    				Ok(list) => Some(Ok(Statement::Mnemo(id_loc + list.loc(), id, list))),
+    				Ok(list) =>
+    					Some(Ok(Statement::Mnemo(id_loc + list.loc(), None, id, list))),
     				Err(e) => Some(Err(e)),
     			}
     		},
+    	}
+    }
+
+    fn next_with_label(
+    	&mut self, loc: TextLoc, label: String) -> Option<Result<Statement, SyntaxError>>
+    {
+    	match self.next_statement(false) {
+    		Some(Ok(Statement::Direct(l, _, i, a))) =>
+    			Some(Ok(Statement::Direct(loc + &l, Some(label), i, a))),
+    		Some(Ok(Statement::Mnemo(l, _, i, a))) =>
+    			Some(Ok(Statement::Mnemo(loc + &l, Some(label), i, a))),
+    		Some(Ok(Statement::Empty(_, _))) =>
+    			Some(Ok(Statement::Empty(loc, Some(label)))),
+			other => other,
     	}
     }
 
@@ -110,10 +147,11 @@ impl<I: Iterator<Item=Token>> Parser<I> {
     			   dir_loc: TextLoc,
     			   dir: String) -> Option<Result<Statement, SyntaxError>> {
     	match self.input.next() {
-    		Some(Token::Eol(_)) | None => Some(Ok(Statement::Direct(dir_loc, dir, ExprList::empty()))),
+    		Some(Token::Eol(_)) | None =>
+    			Some(Ok(Statement::Direct(dir_loc, None, dir, ExprList::empty()))),
     		Some(other) => {
     			match self.next_expr_list_from(other) {
-    				Ok(list) => Some(Ok(Statement::Direct(dir_loc + list.loc(), dir, list))),
+    				Ok(list) => Some(Ok(Statement::Direct(dir_loc + list.loc(), None, dir, list))),
     				Err(e) => Some(Err(e)),
     			}
     		},
@@ -152,13 +190,7 @@ impl<I: Iterator<Item=Token>> Iterator for Parser<I> {
 	type Item = Result<Statement, SyntaxError>;
 
 	fn next(&mut self) -> Option<Result<Statement, SyntaxError>> {
-		match self.input.next() {
-			Some(Token::Ident(loc, id)) => self.next_from_id(loc, id),
-			Some(Token::Direct(loc, dir)) => self.direct_from(loc, dir),
-			Some(Token::Eol(loc)) => Some(Ok(Statement::Empty(loc))),
-			Some(other) => Some(Err(SyntaxError::UnexpectedToken(other))),
-			None => None,
-		}
+		self.next_statement(true)
 	}
 }
 
@@ -171,20 +203,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_parse_label() {
-    	let input = vec![
-    		ident!(1, 1, "foo"),
-    		colon!(1, 4),
-    		eol!(1, 5),
-    	];
-    	let mut parser = Parser::parse(input);
-    	assert_eq!(Some(Ok(Statement::DeclLabel(
-    		loc!(1, 1, "foo:"), "foo".to_string()))), parser.next());
-    	assert_eq!(Some(Ok(Statement::Empty(loc!(1, 5, "\n")))), parser.next());
-    	assert_eq!(None, parser.next());
-    }
-
-    #[test]
     fn should_parse_nullary_mnemo() {
     	let input = vec![
     		ident!(1, 1, "nop"),
@@ -194,6 +212,7 @@ mod test {
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
     			loc!(1, 1, "nop"),
+    			None,
     			"nop".to_string(),
     			ExprList::empty()))),
     		parser.next());
@@ -211,6 +230,7 @@ mod test {
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
     			loc!(1, 1, "push R0"),
+	    		None,
     			"push".to_string(),
     			ExprList::from_expr(Expr::Reg(loc!(1, 6, "R0"), Reg::R0))))),
     		parser.next());
@@ -230,6 +250,7 @@ mod test {
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
     			loc!(1, 1, "add R0, R1"),
+    			None,
     			"add".to_string(),
     			ExprList {
     				loc: loc!(1, 5, "R0, R1"),
@@ -242,6 +263,25 @@ mod test {
     }
 
     #[test]
+    fn should_parse_labeled_mnemo() {
+    	let input = vec![
+    		ident!(1, 1, "foo"),
+    		colon!(1, 4),
+    		ident!(1, 6, "nop"),
+    		eol!(1, 6),
+    	];
+    	let mut parser = Parser::parse(input);
+    	assert_eq!(
+    		Some(Ok(Statement::Mnemo(
+    			loc!(1, 1, "foo: nop"),
+    			Some("foo".to_string()),
+    			"nop".to_string(),
+    			ExprList::empty()))),
+    		parser.next());
+    	assert_eq!(None, parser.next());
+    }
+
+    #[test]
     fn should_parse_nullary_directive() {
     	let input = vec![
     		direct!(1, 1, "dir"),
@@ -249,7 +289,11 @@ mod test {
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
-    		Some(Ok(Statement::Direct(loc![1, 1, ".dir"], "dir".to_string(), ExprList::empty()))),
+    		Some(Ok(Statement::Direct(
+    			loc![1, 1, ".dir"],
+    			None,
+    			"dir".to_string(),
+    			ExprList::empty()))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -271,6 +315,7 @@ mod test {
     	assert_eq!(
     		Some(Ok(Statement::Direct(
     			loc![1, 1, ".dir 1, 2, 3, 4"],
+    			None,
     			"dir".to_string(),
     			ExprList {
     				loc: loc!(1, 6, "1, 2, 3, 4"),
@@ -280,6 +325,72 @@ mod test {
 	    				Expr::Number(loc!(1, 12, "3"), 3),
 	    				Expr::Number(loc!(1, 15, "4"), 4)]
     			}))),
+    		parser.next());
+    	assert_eq!(None, parser.next());
+    }
+
+    #[test]
+    fn should_parse_labeled_directive() {
+    	let input = vec![
+    		ident!(1, 1, "foo"),
+    		colon!(1, 4),
+    		direct!(1, 6, "dir"),
+    		eol!(1, 9),
+    	];
+    	let mut parser = Parser::parse(input);
+    	assert_eq!(
+    		Some(Ok(Statement::Direct(
+    			loc![1, 1, "foo: .dir"],
+    			Some("foo".to_string()),
+    			"dir".to_string(),
+    			ExprList::empty()))),
+    		parser.next());
+    	assert_eq!(None, parser.next());
+    }
+
+    #[test]
+    fn should_parse_empty() {
+    	let input = vec![
+    		eol!(1, 6),
+    	];
+    	let mut parser = Parser::parse(input);
+    	assert_eq!(
+    		Some(Ok(Statement::Empty(loc!(1, 1, ""), None))),
+    		parser.next());
+    	assert_eq!(None, parser.next());
+    }
+
+    #[test]
+    fn should_parse_labeled_empty() {
+    	let input = vec![
+    		ident!(1, 1, "foo"),
+    		colon!(1, 4),
+    		eol!(1, 5),
+    	];
+    	let mut parser = Parser::parse(input);
+    	assert_eq!(
+    		Some(Ok(Statement::Empty(
+    			loc!(1, 1, "foo:"),
+    			Some("foo".to_string())))),
+    		parser.next());
+    	assert_eq!(None, parser.next());
+    }
+
+    #[test]
+    fn should_fail_parse_two_consecutive_labels() {
+    	let input = vec![
+    		ident!(1, 1, "foo"),
+    		colon!(1, 4),
+    		ident!(1, 6, "bar"),
+    		colon!(1, 9),
+    		eol!(1, 10),
+    	];
+    	let mut parser = Parser::parse(input);
+    	assert_eq!(
+    		Some(Err(SyntaxError::UnexpectedToken(colon!(1, 9)))),
+    		parser.next());
+    	assert_eq!(
+    		Some(Ok(Statement::Empty(loc!(1, 1, ""), None))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
