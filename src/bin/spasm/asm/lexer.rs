@@ -26,11 +26,22 @@ macro_rules! loc {
     ($l:expr, $c:expr, $t:expr) => (TextLoc { line: $l, col: $c, txt: $t.to_string() })
 }
 
-impl Add for TextLoc {
+impl TextLoc {
+    pub fn undef() -> TextLoc {
+        TextLoc { line: 0, col: 0, txt: "".to_string() }
+    }
+
+    pub fn is_undef(&self) -> bool {
+        self.line == 0 && self.col == 0 && self.txt == ""
+    }
+}
+
+impl<'a> Add<&'a TextLoc> for TextLoc {
 
     type Output = Self;
 
-    fn add(self, rhs: TextLoc) -> Self {
+    fn add(self, rhs: &TextLoc) -> Self {
+        if rhs.is_undef() { return self }
         let ns = rhs.col - (self.col + self.txt.len());
         let spaces: String = (0..ns).map(|_| ' ').collect();
         let ntext = self.txt + &spaces + &rhs.txt;
@@ -40,6 +51,10 @@ impl Add for TextLoc {
             txt: ntext,
         }
     }
+}
+
+pub trait TextLocate {
+    fn loc(&self) -> &TextLoc;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -54,6 +69,23 @@ pub enum Token {
     Number(TextLoc, i64),
     Register(TextLoc, Reg),
     Unknown(TextLoc),
+}
+
+impl TextLocate for Token {
+    fn loc(&self) -> &TextLoc {
+        match self {
+            &Token::AddrRegister(ref loc, _) => loc,
+            &Token::Colon(ref loc) => loc,
+            &Token::Comma(ref loc) => loc,
+            &Token::Direct(ref loc, _) => loc,
+            &Token::Eol(ref loc) => loc,
+            &Token::Ident(ref loc, _) => loc,
+            &Token::Minus(ref loc) => loc,
+            &Token::Number(ref loc, _) => loc,
+            &Token::Register(ref loc, _) => loc,
+            &Token::Unknown(ref loc) => loc,
+        }
+    }
 }
 
 macro_rules! colon { ($l:expr, $c:expr) => (Token::Colon(loc!($l, $c, ":"))) }
@@ -199,12 +231,12 @@ impl<I : Iterator<Item=char>> Iterator for Scanner<I> {
                 let zero = self.take(1);
                 let (loc, num) = match self.next_char() {
                     Some('x') | Some('X') => {
-                        let loc = zero + self.take(1) + self.take_while(|c| c.is_digit(16));
+                        let loc = zero + &self.take(1) + &self.take_while(|c| c.is_digit(16));
                         let num = Self::decode_hex(&loc.txt);
                         (loc, num)
                     },
                     _ => {
-                        let loc = zero + self.take_while(|c| c.is_digit(10));
+                        let loc = zero + &self.take_while(|c| c.is_digit(10));
                         let num = Self::decode_dec(&loc.txt);
                         (loc, num)
                     },
@@ -231,7 +263,7 @@ impl<I : Iterator<Item=char>> Iterator for Scanner<I> {
                 if dirname.txt.is_empty() { Some(Token::Unknown(dot)) }
                 else {
                     let dir = dirname.txt.clone();
-                    Some(Token::Direct(dot + dirname, dir))
+                    Some(Token::Direct(dot + &dirname, dir))
                 }
             },
             '\x1a' => None,
@@ -250,15 +282,22 @@ mod test {
     #[test]
     fn should_add_locs() {
         assert_eq!(
-            loc!(1, 1, "a") + loc!(1, 2, "b"),
+            loc!(1, 1, "a") + &loc!(1, 2, "b"),
             loc!(1, 1, "ab"));
     }
 
     #[test]
     fn should_add_locs_considering_spaces() {
         assert_eq!(
-            loc!(1, 1, "a") + loc!(1, 3, "b"),
+            loc!(1, 1, "a") + &loc!(1, 3, "b"),
             loc!(1, 1, "a b"));
+    }
+
+    #[test]
+    fn should_add_undefined_locs() {
+        assert_eq!(
+            loc!(1, 1, "a") + &TextLoc::undef(),
+            loc!(1, 1, "a"));
     }
 
     #[test]
