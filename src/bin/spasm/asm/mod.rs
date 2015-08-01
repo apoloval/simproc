@@ -7,12 +7,14 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #[macro_use]
+mod lexer;
+#[macro_use]
 mod parser;
 
 mod data;
 mod dir;
 mod inst;
-mod lexer;
+mod new_parser;
 mod ops;
 
 pub mod assembly;
