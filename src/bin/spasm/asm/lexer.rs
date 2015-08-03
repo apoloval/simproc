@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
+use std::fmt;
 use std::iter::{IntoIterator, Peekable};
 use std::ops::Add;
 use std::str::FromStr;
@@ -20,6 +21,12 @@ pub struct TextLoc {
     pub line: usize,
     pub col: usize,
     pub txt: String,
+}
+
+impl fmt::Display for TextLoc {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(fmt, "in line {}, column {}", self.line, self.col)
+    }
 }
 
 macro_rules! loc {

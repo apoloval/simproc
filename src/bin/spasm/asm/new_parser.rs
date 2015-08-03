@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::fmt;
 use std::iter::IntoIterator;
 
 use simproc::inst::{Reg};
@@ -16,6 +17,12 @@ use asm::lexer::*;
 pub enum Expr {
 	Number(TextLoc, i64),
 	Reg(TextLoc, Reg),
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    	write!(fmt, "{}", self.loc().txt)
+    }
 }
 
 impl TextLocate for Expr {
@@ -85,6 +92,17 @@ impl TextLocate for Statement {
 pub enum SyntaxError {
 	UnexpectedToken(Token),
 	UnexpectedEof,
+}
+
+impl fmt::Display for SyntaxError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    	match self {
+    		&SyntaxError::UnexpectedToken(ref tok) =>
+    			write!(fmt, "unexpected token {}", tok.loc().txt),
+    		&SyntaxError::UnexpectedEof =>
+    			write!(fmt, "unexpected end of file"),
+    	}
+    }
 }
 
 pub struct Parser<I: Iterator<Item=Token>> {
