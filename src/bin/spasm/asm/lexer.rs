@@ -30,7 +30,8 @@ impl fmt::Display for TextLoc {
 }
 
 macro_rules! loc {
-    ($l:expr, $c:expr, $t:expr) => (TextLoc { line: $l, col: $c, txt: $t.to_string() })
+    ($l:expr, $c:expr, $t:expr) => (TextLoc { line: $l, col: $c, txt: $t.to_string() });
+    () => (TextLoc::undef());
 }
 
 impl TextLoc {

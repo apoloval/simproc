@@ -8,15 +8,26 @@
 
 use std::fmt;
 use std::iter::IntoIterator;
+use std::ops::Index;
 
 use simproc::inst::{Reg};
 
 use asm::lexer::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
 	Number(TextLoc, i64),
 	Reg(TextLoc, Reg),
+}
+
+impl Expr {
+    pub fn number(l: usize, c: usize, n: i64) -> Expr {
+        Expr::Number(loc!(l, c, format!("{}", n)), n)
+    }
+
+    pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
+        Expr::Reg(loc!(l, c, format!("{}", r)), r)
+    }
 }
 
 impl fmt::Display for Expr {
@@ -41,28 +52,60 @@ pub struct ExprList {
 }
 
 impl ExprList {
-	fn empty() -> ExprList {
+	pub fn empty() -> ExprList {
 		ExprList {
 			loc: TextLoc::undef(),
 			list: Vec::new(),
 		}
 	}
 
-	fn from_expr(e: Expr) -> ExprList {
+	pub fn from_expr(e: Expr) -> ExprList {
 		ExprList {
 			loc: e.loc().clone(),
 			list: vec![e],
 		}
 	}
 
-	fn append(&mut self, comma_loc: TextLoc, e: Expr) {
-		self.loc = self.loc.clone() + &comma_loc + e.loc();
+	pub fn append(&mut self, comma_loc: TextLoc, e: Expr) {
+		self.loc = if self.loc.is_undef() { e.loc().clone() }
+            else { self.loc.clone() + &comma_loc + e.loc() };
 		self.list.push(e);
 	}
+
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
+
+	pub fn len(&self) -> usize { self.list.len() }
+}
+
+impl Index<usize> for ExprList {
+	type Output = Expr;
+
+    fn index<'a>(&self, i: usize) -> &Expr {
+        &self.list[i]
+    }
 }
 
 impl TextLocate for ExprList {
 	fn loc(&self) -> &TextLoc { &self.loc }
+}
+
+macro_rules! exprlist {
+    () => (ExprList::empty());
+    ($( $e:expr ),+) => ({
+        let mut list = ExprList::empty();
+        $(
+            if list.is_empty() { list = ExprList::from_expr($e) }
+            else {
+                let e = $e;
+                let cl = {
+                    let el = e.loc();
+                    loc!(el.line, el.col - 2, ",")
+                };
+                list.append(cl, e);
+            }
+        )*
+        list
+    });
 }
 
 type Label = Option<String>;
@@ -76,6 +119,16 @@ pub enum Statement {
 	Direct(TextLoc, Label, DirectName, DirectArgs),
 	Mnemo(TextLoc, Label, MnemoName, MnemoArgs),
 	Empty(TextLoc, Label),
+}
+
+impl Statement {
+	pub fn label(&self) -> &Option<String> {
+		match self {
+			&Statement::Direct(_, ref lab, _, _) => lab,
+			&Statement::Mnemo(_, ref lab, _, _) => lab,
+			&Statement::Empty(_, ref lab) => lab,
+		}
+	}
 }
 
 impl TextLocate for Statement {
