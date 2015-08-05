@@ -81,6 +81,7 @@ pub trait Operands {
     type AddrReg;
 }
 
+#[derive(Debug, PartialEq)]
 pub struct RuntimeOperands;
 
 impl Operands for RuntimeOperands {

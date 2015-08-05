@@ -31,4 +31,5 @@ mod lexer;
 #[macro_use]
 mod new_parser;
 
+mod full;
 mod pre;
