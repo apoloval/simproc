@@ -7,14 +7,11 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #[macro_use]
-mod lexer;
-#[macro_use]
 mod parser;
 
 mod data;
 mod dir;
 mod inst;
-mod new_parser;
 mod ops;
 
 pub mod assembly;
@@ -25,3 +22,15 @@ pub use self::assembler::Assembler;
 
 pub mod err;
 pub use self::err::{AssemblyError, ProgramError};
+
+
+
+#[macro_use]
+mod lexer;
+
+#[macro_use]
+mod new_parser;
+
+mod pre;
+
+mod new_err;
