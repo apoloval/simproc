@@ -9,6 +9,7 @@
 use simproc::inst::*;
 
 use asm::lexer::*;
+use asm::new_parser::Expr;
 use asm::pre::*;
 
 #[derive(Debug, PartialEq)]
@@ -19,6 +20,7 @@ pub enum FullAssembled {
 #[derive(Debug, PartialEq)]
 pub enum FullAssembleError {
     // Pre(PreAssembleError),
+    TypeMismatch { loc: TextLoc, expected: String },
     NotImplemented,
 }
 
@@ -60,8 +62,19 @@ pub fn full_assemble_inst(
     _symbols: &SymbolTable) -> Result<RuntimeInst, FullAssembleError>
 {
     match inst {
+        Inst::Add(r1, r2) => Ok(Inst::Add(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Nop => Ok(Inst::Nop),
         _ => Err(FullAssembleError::NotImplemented),
+    }
+}
+
+fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
+    match e {
+        Expr::Reg(_, reg) => Ok(reg),
+        e => Err(FullAssembleError::TypeMismatch {
+            loc: e.loc().clone(),
+            expected: "register name".to_string()
+        })
     }
 }
 
@@ -71,6 +84,7 @@ mod test {
     use simproc::inst::*;
 
     use asm::lexer::TextLoc;
+    use asm::new_parser::Expr;
     use asm::pre::*;
 
     use super::*;
@@ -99,5 +113,28 @@ mod test {
             base_addr: Addr(0x100),
             inst: Inst::Nop,
         })));
+    }
+
+    #[test]
+    fn should_assemble_add() {
+        let symbols = SymbolTable::new();
+        assert_eq!(
+            full_assemble_inst(
+                Inst::Add(Expr::reg(1, 5, Reg::R0), Expr::reg(1, 9, Reg::R1)),
+                &symbols),
+            Ok(Inst::Add(Reg::R0, Reg::R1)));
+    }
+
+    #[test]
+    fn should_fail_assemble_add_with_invalid_args() {
+        let symbols = SymbolTable::new();
+        assert_eq!(
+            full_assemble_inst(
+                Inst::Add(Expr::reg(1, 5, Reg::R0), Expr::num(1, 9, 100)),
+                &symbols),
+            Err(FullAssembleError::TypeMismatch {
+                loc: loc!(1, 9, "100"),
+                expected: "register name".to_string(),
+            }));
     }
 }
