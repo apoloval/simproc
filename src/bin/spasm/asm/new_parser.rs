@@ -21,10 +21,6 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn number(l: usize, c: usize, n: i64) -> Expr {
-        Expr::Number(loc!(l, c, format!("{}", n)), n)
-    }
-
     pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
         Expr::Reg(loc!(l, c, format!("{}", r)), r)
     }
@@ -119,16 +115,6 @@ pub enum Statement {
 	Direct(TextLoc, Label, DirectName, DirectArgs),
 	Mnemo(TextLoc, Label, MnemoName, MnemoArgs),
 	Empty(TextLoc, Label),
-}
-
-impl Statement {
-	pub fn label(&self) -> &Option<String> {
-		match self {
-			&Statement::Direct(_, ref lab, _, _) => lab,
-			&Statement::Mnemo(_, ref lab, _, _) => lab,
-			&Statement::Empty(_, ref lab) => lab,
-		}
-	}
 }
 
 impl TextLocate for Statement {

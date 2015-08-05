@@ -223,7 +223,7 @@ mod test {
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
-        let result: Vec<PreAssemblerOutput> = pre.pre_assemble(&mut symbols);
+        let _: Vec<PreAssemblerOutput> = pre.pre_assemble(&mut symbols);
         assert_eq!(symbols["lab1"], 0);
         assert_eq!(symbols["lab2"], 1);
     }

@@ -32,5 +32,3 @@ mod lexer;
 mod new_parser;
 
 mod pre;
-
-mod new_err;
