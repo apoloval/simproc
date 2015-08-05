@@ -158,13 +158,16 @@ impl fmt::Display for SyntaxError {
     }
 }
 
-pub struct Parser<I: Iterator<Item=Token>> {
+pub type ParserInput = ScannerOutput;
+pub type ParserOutput = Result<Statement, SyntaxError>;
+
+pub struct Parser<I: Iterator<Item=ParserInput>> {
 	input: I,
 }
 
-impl<I: Iterator<Item=Token>> Parser<I> {
+impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
-	pub fn parse<T>(input: T) -> Self where T: IntoIterator<Item=Token, IntoIter=I> {
+	pub fn parse<T>(input: T) -> Self where T: IntoIterator<Item=ParserInput, IntoIter=I> {
 		Parser { input: input.into_iter() }
 	}
 
@@ -257,8 +260,9 @@ impl<I: Iterator<Item=Token>> Parser<I> {
     }
 }
 
-impl<I: Iterator<Item=Token>> Iterator for Parser<I> {
-	type Item = Result<Statement, SyntaxError>;
+impl<I: Iterator<Item=ParserInput>> Iterator for Parser<I> {
+
+	type Item = ParserOutput;
 
 	fn next(&mut self) -> Option<Result<Statement, SyntaxError>> {
 		self.next_statement(true)

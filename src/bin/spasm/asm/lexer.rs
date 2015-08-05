@@ -112,15 +112,18 @@ macro_rules! reg {
     ($l:expr, $c:expr, $r:expr) => (Token::Register(loc!($l, $c, format!("{}", $r)), $r))
 }
 
-pub struct Scanner<I : Iterator<Item=char>> {
+pub type ScannerInput = char;
+pub type ScannerOutput = Token;
+
+pub struct Scanner<I : Iterator<Item=ScannerInput>> {
     input: Peekable<I>,
     line: usize,
     col: usize,
 }
 
-impl<I : Iterator<Item=char>> Scanner<I> {
+impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
 
-    pub fn scan<T>(input: T) -> Self where T: IntoIterator<Item=char, IntoIter=I> { Scanner {
+    pub fn scan<T>(input: T) -> Self where T: IntoIterator<Item=ScannerInput, IntoIter=I> { Scanner {
         input: input.into_iter().peekable(),
         line: 1,
         col: 1,
@@ -130,7 +133,7 @@ impl<I : Iterator<Item=char>> Scanner<I> {
 
     fn new_col(&mut self) { self.col += 1; }
 
-    fn next_char(&mut self) -> Option<char> {
+    fn next_char(&mut self) -> Option<ScannerInput> {
         self.input.peek().cloned()
     }
 
@@ -139,7 +142,7 @@ impl<I : Iterator<Item=char>> Scanner<I> {
         self.loc_from(txt)
     }
 
-    fn take_while<F>(&mut self, f: F) -> TextLoc where F: FnMut(&char) -> bool {
+    fn take_while<F>(&mut self, f: F) -> TextLoc where F: FnMut(&ScannerInput) -> bool {
         let mut pred = f;
         let mut txt = String::with_capacity(256);
         loop {
@@ -220,9 +223,9 @@ impl<I : Iterator<Item=char>> Scanner<I> {
     }
 }
 
-impl<I : Iterator<Item=char>> Iterator for Scanner<I> {
+impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
 
-    type Item = Token;
+    type Item = ScannerOutput;
 
     fn next(&mut self) -> Option<Token> {
         self.skip_whitespaces();

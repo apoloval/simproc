@@ -43,7 +43,7 @@ pub enum PreAssembleError {
 }
 
 
-pub type PreAssemblerInput = Result<Statement, SyntaxError>;
+pub type PreAssemblerInput = ParserOutput;
 pub type PreAssemblerOutput = Result<PreAssembled, PreAssembleError>;
 
 pub struct PreAssembler<I: Iterator<Item=PreAssemblerInput>> {
