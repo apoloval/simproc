@@ -70,7 +70,7 @@ pub fn full_assemble_inst(
 
 fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
     match e {
-        Expr::Reg(_, reg) => Ok(reg),
+        Expr::Reg { loc: _, reg } => Ok(reg),
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "register name".to_string()

@@ -16,17 +16,17 @@ use asm::lexer::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
-	Number(TextLoc, i64),
-	Reg(TextLoc, Reg),
+	Number { loc: TextLoc, num: i64 },
+	Reg { loc: TextLoc, reg: Reg },
 }
 
 impl Expr {
     pub fn num(l: usize, c: usize, n: i64) -> Expr {
-        Expr::Number(loc!(l, c, format!("{}", n)), n)
+        Expr::Number { loc: loc!(l, c, format!("{}", n)), num: n }
     }
 
     pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
-        Expr::Reg(loc!(l, c, format!("{}", r)), r)
+        Expr::Reg { loc: loc!(l, c, format!("{}", r)), reg: r }
     }
 }
 
@@ -39,8 +39,8 @@ impl fmt::Display for Expr {
 impl TextLocate for Expr {
 	fn loc(&self) -> &TextLoc {
 		match self {
-			&Expr::Number(ref loc, _) => loc,
-			&Expr::Reg(ref loc, _) => loc,
+			&Expr::Number { ref loc, num: _ } => loc,
+			&Expr::Reg { ref loc, reg: _ } => loc,
 		}
 	}
 }
@@ -231,8 +231,8 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
     fn next_expr_from(&mut self, tk: Token) -> Result<Expr, SyntaxError> {
     	match tk {
-    		Token::Register(loc, reg) => Ok(Expr::Reg(loc, reg)),
-    		Token::Number(loc, n) => Ok(Expr::Number(loc, n)),
+    		Token::Register(loc, reg) => Ok(Expr::Reg { loc: loc, reg: reg }),
+    		Token::Number(loc, n) => Ok(Expr::Number { loc: loc, num: n }),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
     	}
     }
@@ -297,7 +297,7 @@ mod test {
     			loc!(1, 1, "push R0"),
 	    		None,
     			"push".to_string(),
-    			ExprList::from_expr(Expr::Reg(loc!(1, 6, "R0"), Reg::R0))))),
+    			ExprList::from_expr(Expr::reg(1, 6, Reg::R0))))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -320,8 +320,8 @@ mod test {
     			ExprList {
     				loc: loc!(1, 5, "R0, R1"),
     				list: vec![
-    				Expr::Reg(loc!(1, 5, "R0"), Reg::R0),
-    				Expr::Reg(loc!(1, 9, "R1"), Reg::R1)]
+    				Expr::reg(1, 5, Reg::R0),
+    				Expr::reg(1, 9, Reg::R1)]
     			}))),
     		parser.next());
     	assert_eq!(None, parser.next());
@@ -385,10 +385,10 @@ mod test {
     			ExprList {
     				loc: loc!(1, 6, "1, 2, 3, 4"),
     				list: vec![
-	    				Expr::Number(loc!(1, 6, "1"), 1),
-	    				Expr::Number(loc!(1, 9, "2"), 2),
-	    				Expr::Number(loc!(1, 12, "3"), 3),
-	    				Expr::Number(loc!(1, 15, "4"), 4)]
+	    				Expr::num(1, 6, 1),
+	    				Expr::num(1, 9, 2),
+	    				Expr::num(1, 12, 3),
+	    				Expr::num(1, 15, 4)]
     			}))),
     		parser.next());
     	assert_eq!(None, parser.next());
