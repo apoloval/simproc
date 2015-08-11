@@ -63,6 +63,16 @@ pub fn full_assemble_inst(
 {
     match inst {
         Inst::Add(r1, r2) => Ok(Inst::Add(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Adc(r1, r2) => Ok(Inst::Adc(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::And(r1, r2) => Ok(Inst::And(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Or(r1, r2) => Ok(Inst::Or(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Lsl(r1, r2) => Ok(Inst::Lsl(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Nop => Ok(Inst::Nop),
         _ => Err(FullAssembleError::NotImplemented),
     }
@@ -144,6 +154,36 @@ mod test {
 
     #[test]
     fn should_assemble_add() { should_assemble_reg_reg!(Inst::Add) }
+
+    #[test]
+    fn should_assemble_adc() { should_assemble_reg_reg!(Inst::Adc) }
+
+    #[test]
+    fn should_assemble_sub() { should_assemble_reg_reg!(Inst::Sub) }
+
+    #[test]
+    fn should_assemble_sbc() { should_assemble_reg_reg!(Inst::Sbc) }
+
+    #[test]
+    fn should_assemble_and() { should_assemble_reg_reg!(Inst::And) }
+
+    #[test]
+    fn should_assemble_or() { should_assemble_reg_reg!(Inst::Or) }
+
+    #[test]
+    fn should_assemble_xor() { should_assemble_reg_reg!(Inst::Xor) }
+
+    #[test]
+    fn should_assemble_lsl() { should_assemble_reg_reg!(Inst::Lsl) }
+
+    #[test]
+    fn should_assemble_lsr() { should_assemble_reg_reg!(Inst::Lsr) }
+
+    #[test]
+    fn should_assemble_asr() { should_assemble_reg_reg!(Inst::Asr) }
+
+    #[test]
+    fn should_assemble_mov() { should_assemble_reg_reg!(Inst::Mov) }
 
     impl Arbitrary for Expr {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
