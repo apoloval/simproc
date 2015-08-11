@@ -10,6 +10,9 @@ docopt = "*"
 regex = "*"
 rustc-serialize = "*"
 
+[dev-dependencies]
+quickcheck = "*"
+
 [lib]
 name = "simproc"
 

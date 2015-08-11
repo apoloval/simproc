@@ -81,6 +81,7 @@ fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
 #[cfg(test)]
 mod test {
 
+    use quickcheck::*;
     use simproc::inst::*;
 
     use asm::lexer::TextLoc;
@@ -88,6 +89,32 @@ mod test {
     use asm::pre::*;
 
     use super::*;
+
+    macro_rules! should_assemble_reg_reg {
+        ($i:expr) => ({
+            fn assembles_reg_reg(op1: Expr, op2: Expr) -> TestResult {
+                match (op1, op2) {
+                    (Expr::Reg { loc: l1, reg: r1 }, Expr::Reg { loc: l2, reg: r2 }) => {
+                        let symbols = SymbolTable::new();
+                        let expected = Ok($i(r1, r2));
+                        let actual = full_assemble_inst(
+                            $i(Expr::Reg { loc: l1, reg: r1 }, Expr::Reg { loc: l2, reg: r2 }),
+                            &symbols);
+                        TestResult::from_bool(actual == expected)
+                    },
+                    (e1, e2) => {
+                        let symbols = SymbolTable::new();
+                        match full_assemble_inst($i(e1, e2), &symbols) {
+                            Err(FullAssembleError::TypeMismatch { loc: _, expected: _ }) =>
+                                TestResult::passed(),
+                            r => TestResult::error(format!("unexpected result: {:?}", r)),
+                        }
+                    },
+                }
+            }
+            quickcheck(assembles_reg_reg as fn(Expr, Expr) -> TestResult);
+        })
+    }
 
     #[test]
     fn should_assemble_empty_program() {
@@ -116,25 +143,17 @@ mod test {
     }
 
     #[test]
-    fn should_assemble_add() {
-        let symbols = SymbolTable::new();
-        assert_eq!(
-            full_assemble_inst(
-                Inst::Add(Expr::reg(1, 5, Reg::R0), Expr::reg(1, 9, Reg::R1)),
-                &symbols),
-            Ok(Inst::Add(Reg::R0, Reg::R1)));
-    }
+    fn should_assemble_add() { should_assemble_reg_reg!(Inst::Add) }
 
-    #[test]
-    fn should_fail_assemble_add_with_invalid_args() {
-        let symbols = SymbolTable::new();
-        assert_eq!(
-            full_assemble_inst(
-                Inst::Add(Expr::reg(1, 5, Reg::R0), Expr::num(1, 9, 100)),
-                &symbols),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 9, "100"),
-                expected: "register name".to_string(),
-            }));
+    impl Arbitrary for Expr {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let choices = [
+                Expr::reg(1, 1, *g.choose(&[
+                    Reg::R0, Reg::R1, Reg::R2, Reg::R3,
+                    Reg::R4, Reg::R5, Reg::R6, Reg::R7]).unwrap()),
+                Expr::num(1, 1, g.next_u64() as i64),
+            ];
+            g.choose(&choices).unwrap().clone()
+        }
     }
 }

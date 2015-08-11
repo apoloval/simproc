@@ -13,6 +13,9 @@ extern crate rustc_serialize;
 
 extern crate simproc;
 
+#[cfg(test)]
+extern crate quickcheck;
+
 mod args;
 mod asm;
 
