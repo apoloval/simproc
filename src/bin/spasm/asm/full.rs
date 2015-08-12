@@ -68,14 +68,21 @@ pub fn full_assemble_inst(
         Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Subi(r, l) => Ok(Inst::Subi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
+        Inst::Mulw(r1, r2) => Ok(Inst::Mulw(try!(to_areg(r1)), try!(to_areg(r2)))),
         Inst::And(r1, r2) => Ok(Inst::And(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Or(r1, r2) => Ok(Inst::Or(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Lsl(r1, r2) => Ok(Inst::Lsl(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Not(r) => Ok(Inst::Not(try!(to_reg(r)))),
+        Inst::Comp(r) => Ok(Inst::Comp(try!(to_reg(r)))),
+        Inst::Inc(r) => Ok(Inst::Inc(try!(to_reg(r)))),
+        Inst::Dec(r) => Ok(Inst::Dec(try!(to_reg(r)))),
         Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
+        Inst::Push(r) => Ok(Inst::Push(try!(to_reg(r)))),
+        Inst::Pop(r) => Ok(Inst::Pop(try!(to_reg(r)))),
         Inst::Nop => Ok(Inst::Nop),
         _ => Err(FullAssembleError::NotImplemented),
     }
@@ -87,6 +94,16 @@ fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "register name".to_string()
+        })
+    }
+}
+
+fn to_areg(e: Expr) -> Result<AddrReg, FullAssembleError> {
+    match e {
+        Expr::AddrReg { loc: _, reg } => Ok(reg),
+        e => Err(FullAssembleError::TypeMismatch {
+            loc: e.loc().clone(),
+            expected: "address register name".to_string()
         })
     }
 }
@@ -114,6 +131,14 @@ mod test {
     use super::*;
 
     macro_rules! should_assemble_type_mismatch {
+        ($i:expr, $e1:expr) => ({
+            let symbols = SymbolTable::new();
+            match full_assemble_inst($i($e1), &symbols) {
+                Err(FullAssembleError::TypeMismatch { loc: _, expected: _ }) =>
+                    TestResult::passed(),
+                r => TestResult::error(format!("unexpected result: {:?}", r)),
+            }
+        });
         ($i:expr, $e1:expr, $e2:expr) => ({
             let symbols = SymbolTable::new();
             match full_assemble_inst($i($e1, $e2), &symbols) {
@@ -121,12 +146,12 @@ mod test {
                     TestResult::passed(),
                 r => TestResult::error(format!("unexpected result: {:?}", r)),
             }
-        })
+        });
     }
 
     macro_rules! should_assemble_reg_reg {
         ($i:expr) => ({
-            fn assembles_reg_reg(op1: Expr, op2: Expr) -> TestResult {
+            fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
                     (Expr::Reg { loc: l1, reg: r1 }, Expr::Reg { loc: l2, reg: r2 }) => {
                         let symbols = SymbolTable::new();
@@ -139,13 +164,13 @@ mod test {
                     (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
                 }
             }
-            quickcheck(assembles_reg_reg as fn(Expr, Expr) -> TestResult);
+            quickcheck(assemble_with_operands as fn(Expr, Expr) -> TestResult);
         })
     }
 
     macro_rules! should_assemble_reg_imm {
         ($i:path) => ({
-            fn assembles_reg_reg(op1: Expr, op2: Expr) -> TestResult {
+            fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
                     (Expr::Reg { loc: l1, reg: r }, Expr::Number { loc: l2, num: n }) => {
                         let symbols = SymbolTable::new();
@@ -161,7 +186,45 @@ mod test {
                     (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
                 }
             }
-            quickcheck(assembles_reg_reg as fn(Expr, Expr) -> TestResult);
+            quickcheck(assemble_with_operands as fn(Expr, Expr) -> TestResult);
+        })
+    }
+
+    macro_rules! should_assemble_areg_areg {
+        ($i:expr) => ({
+            fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
+                match (op1, op2) {
+                    (Expr::AddrReg { loc: l1, reg: r1 }, Expr::AddrReg { loc: l2, reg: r2 }) => {
+                        let symbols = SymbolTable::new();
+                        let expected = Ok($i(r1, r2));
+                        let actual = full_assemble_inst(
+                            $i(Expr::AddrReg { loc: l1, reg: r1 }, Expr::AddrReg { loc: l2, reg: r2 }),
+                            &symbols);
+                        TestResult::from_bool(actual == expected)
+                    },
+                    (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
+                }
+            }
+            quickcheck(assemble_with_operands as fn(Expr, Expr) -> TestResult);
+        })
+    }
+
+    macro_rules! should_assemble_reg {
+        ($i:expr) => ({
+            fn assemble_with_operands(op1: Expr) -> TestResult {
+                match op1 {
+                    Expr::Reg { loc: l1, reg: r1 } => {
+                        let symbols = SymbolTable::new();
+                        let expected = Ok($i(r1));
+                        let actual = full_assemble_inst(
+                            $i(Expr::Reg { loc: l1, reg: r1 }),
+                            &symbols);
+                        TestResult::from_bool(actual == expected)
+                    },
+                    e1 => { should_assemble_type_mismatch!($i, e1) },
+                }
+            }
+            quickcheck(assemble_with_operands as fn(Expr) -> TestResult);
         })
     }
 
@@ -210,6 +273,9 @@ mod test {
     fn should_assemble_subi() { should_assemble_reg_imm!(Inst::Subi) }
 
     #[test]
+    fn should_assemble_mulw() { should_assemble_areg_areg!(Inst::Mulw) }
+
+    #[test]
     fn should_assemble_and() { should_assemble_reg_reg!(Inst::And) }
 
     #[test]
@@ -228,10 +294,28 @@ mod test {
     fn should_assemble_asr() { should_assemble_reg_reg!(Inst::Asr) }
 
     #[test]
+    fn should_assemble_not() { should_assemble_reg!(Inst::Not) }
+
+    #[test]
+    fn should_assemble_comp() { should_assemble_reg!(Inst::Comp) }
+
+    #[test]
+    fn should_assemble_inc() { should_assemble_reg!(Inst::Inc) }
+
+    #[test]
+    fn should_assemble_dec() { should_assemble_reg!(Inst::Dec) }
+
+    #[test]
     fn should_assemble_mov() { should_assemble_reg_reg!(Inst::Mov) }
 
     #[test]
     fn should_assemble_ldi() { should_assemble_reg_imm!(Inst::Ldi) }
+
+    #[test]
+    fn should_assemble_push() { should_assemble_reg!(Inst::Push) }
+
+    #[test]
+    fn should_assemble_pop() { should_assemble_reg!(Inst::Pop) }
 
     impl Arbitrary for Expr {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -239,6 +323,8 @@ mod test {
                 Expr::reg(1, 1, *g.choose(&[
                     Reg::R0, Reg::R1, Reg::R2, Reg::R3,
                     Reg::R4, Reg::R5, Reg::R6, Reg::R7]).unwrap()),
+                Expr::areg(1, 1, *g.choose(&[
+                    AddrReg::A0, AddrReg::A1, AddrReg::A2, AddrReg::A3]).unwrap()),
                 Expr::num(1, 1, g.next_u64() as i64),
             ];
             g.choose(&choices).unwrap().clone()
