@@ -78,11 +78,17 @@ pub fn full_assemble_inst(
         Inst::Not(r) => Ok(Inst::Not(try!(to_reg(r)))),
         Inst::Comp(r) => Ok(Inst::Comp(try!(to_reg(r)))),
         Inst::Inc(r) => Ok(Inst::Inc(try!(to_reg(r)))),
+        Inst::Incw(r) => Ok(Inst::Incw(try!(to_areg(r)))),
         Inst::Dec(r) => Ok(Inst::Dec(try!(to_reg(r)))),
+        Inst::Decw(r) => Ok(Inst::Decw(try!(to_areg(r)))),
         Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
+        Inst::Ldsp(r) => Ok(Inst::Ldsp(try!(to_areg(r)))),
         Inst::Push(r) => Ok(Inst::Push(try!(to_reg(r)))),
         Inst::Pop(r) => Ok(Inst::Pop(try!(to_reg(r)))),
+
+        Inst::Ijmp(r) => Ok(Inst::Ijmp(try!(to_areg(r)))),
+        Inst::Icall(r) => Ok(Inst::Icall(try!(to_areg(r)))),
         Inst::Nop => Ok(Inst::Nop),
         _ => Err(FullAssembleError::NotImplemented),
     }
@@ -228,6 +234,25 @@ mod test {
         })
     }
 
+    macro_rules! should_assemble_areg {
+        ($i:expr) => ({
+            fn assemble_with_operands(op1: Expr) -> TestResult {
+                match op1 {
+                    Expr::AddrReg { loc: l1, reg: r1 } => {
+                        let symbols = SymbolTable::new();
+                        let expected = Ok($i(r1));
+                        let actual = full_assemble_inst(
+                            $i(Expr::AddrReg { loc: l1, reg: r1 }),
+                            &symbols);
+                        TestResult::from_bool(actual == expected)
+                    },
+                    e1 => { should_assemble_type_mismatch!($i, e1) },
+                }
+            }
+            quickcheck(assemble_with_operands as fn(Expr) -> TestResult);
+        })
+    }
+
     #[test]
     fn should_assemble_empty_program() {
         let input = Vec::new();
@@ -303,7 +328,13 @@ mod test {
     fn should_assemble_inc() { should_assemble_reg!(Inst::Inc) }
 
     #[test]
+    fn should_assemble_incw() { should_assemble_areg!(Inst::Incw) }
+
+    #[test]
     fn should_assemble_dec() { should_assemble_reg!(Inst::Dec) }
+
+    #[test]
+    fn should_assemble_decw() { should_assemble_areg!(Inst::Decw) }
 
     #[test]
     fn should_assemble_mov() { should_assemble_reg_reg!(Inst::Mov) }
@@ -312,10 +343,19 @@ mod test {
     fn should_assemble_ldi() { should_assemble_reg_imm!(Inst::Ldi) }
 
     #[test]
+    fn should_assemble_ldsp() { should_assemble_areg!(Inst::Ldsp) }
+
+    #[test]
     fn should_assemble_push() { should_assemble_reg!(Inst::Push) }
 
     #[test]
     fn should_assemble_pop() { should_assemble_reg!(Inst::Pop) }
+
+    #[test]
+    fn should_assemble_ijmp() { should_assemble_areg!(Inst::Ijmp) }
+
+    #[test]
+    fn should_assemble_icall() { should_assemble_areg!(Inst::Icall) }
 
     impl Arbitrary for Expr {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
