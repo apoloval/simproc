@@ -96,7 +96,7 @@ pub fn full_assemble_inst(
 
 fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
     match e {
-        Expr::Reg { loc: _, reg } => Ok(reg),
+        Expr::Reg(_, reg) => Ok(reg),
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "register name".to_string()
@@ -106,7 +106,7 @@ fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
 
 fn to_areg(e: Expr) -> Result<AddrReg, FullAssembleError> {
     match e {
-        Expr::AddrReg { loc: _, reg } => Ok(reg),
+        Expr::AddrReg(_, reg) => Ok(reg),
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "address register name".to_string()
@@ -116,7 +116,7 @@ fn to_areg(e: Expr) -> Result<AddrReg, FullAssembleError> {
 
 fn to_immediate(e: Expr, _symbols: &SymbolTable) -> Result<Immediate, FullAssembleError> {
     match e {
-        Expr::Number { loc: _, num: n } => Ok(Immediate(n as u8)),
+        Expr::Number(_, n) => Ok(Immediate(n as u8)),
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "immediate value".to_string()
@@ -159,11 +159,11 @@ mod test {
         ($i:expr) => ({
             fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
-                    (Expr::Reg { loc: l1, reg: r1 }, Expr::Reg { loc: l2, reg: r2 }) => {
+                    (Expr::Reg(l1, r1), Expr::Reg(l2, r2)) => {
                         let symbols = SymbolTable::new();
                         let expected = Ok($i(r1, r2));
                         let actual = full_assemble_inst(
-                            $i(Expr::Reg { loc: l1, reg: r1 }, Expr::Reg { loc: l2, reg: r2 }),
+                            $i(Expr::Reg(l1, r1), Expr::Reg(l2, r2)),
                             &symbols);
                         TestResult::from_bool(actual == expected)
                     },
@@ -178,11 +178,11 @@ mod test {
         ($i:path) => ({
             fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
-                    (Expr::Reg { loc: l1, reg: r }, Expr::Number { loc: l2, num: n }) => {
+                    (Expr::Reg(l1, r), Expr::Number(l2, n)) => {
                         let symbols = SymbolTable::new();
                         let pre = $i(
-                            Expr::Reg { loc: l1, reg: r },
-                            Expr::Number { loc: l2, num: n });
+                            Expr::Reg(l1, r),
+                            Expr::Number(l2, n));
                         match full_assemble_inst(pre, &symbols) {
                             Ok($i(rr, _)) =>
                                 TestResult::from_bool(r == rr),
@@ -200,11 +200,11 @@ mod test {
         ($i:expr) => ({
             fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
-                    (Expr::AddrReg { loc: l1, reg: r1 }, Expr::AddrReg { loc: l2, reg: r2 }) => {
+                    (Expr::AddrReg(l1, r1), Expr::AddrReg(l2, r2)) => {
                         let symbols = SymbolTable::new();
                         let expected = Ok($i(r1, r2));
                         let actual = full_assemble_inst(
-                            $i(Expr::AddrReg { loc: l1, reg: r1 }, Expr::AddrReg { loc: l2, reg: r2 }),
+                            $i(Expr::AddrReg(l1, r1), Expr::AddrReg(l2, r2)),
                             &symbols);
                         TestResult::from_bool(actual == expected)
                     },
@@ -219,11 +219,11 @@ mod test {
         ($i:expr) => ({
             fn assemble_with_operands(op1: Expr) -> TestResult {
                 match op1 {
-                    Expr::Reg { loc: l1, reg: r1 } => {
+                    Expr::Reg(l1, r1) => {
                         let symbols = SymbolTable::new();
                         let expected = Ok($i(r1));
                         let actual = full_assemble_inst(
-                            $i(Expr::Reg { loc: l1, reg: r1 }),
+                            $i(Expr::Reg(l1, r1)),
                             &symbols);
                         TestResult::from_bool(actual == expected)
                     },
@@ -238,11 +238,11 @@ mod test {
         ($i:expr) => ({
             fn assemble_with_operands(op1: Expr) -> TestResult {
                 match op1 {
-                    Expr::AddrReg { loc: l1, reg: r1 } => {
+                    Expr::AddrReg(l1, r1) => {
                         let symbols = SymbolTable::new();
                         let expected = Ok($i(r1));
                         let actual = full_assemble_inst(
-                            $i(Expr::AddrReg { loc: l1, reg: r1 }),
+                            $i(Expr::AddrReg(l1, r1)),
                             &symbols);
                         TestResult::from_bool(actual == expected)
                     },

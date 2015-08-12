@@ -16,22 +16,22 @@ use asm::lexer::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
-	Number { loc: TextLoc, num: i64 },
-	Reg { loc: TextLoc, reg: Reg },
-    AddrReg { loc: TextLoc, reg: AddrReg },
+	Number(TextLoc, i64),
+	Reg(TextLoc, Reg),
+    AddrReg(TextLoc, AddrReg),
 }
 
 impl Expr {
     pub fn num(l: usize, c: usize, n: i64) -> Expr {
-        Expr::Number { loc: loc!(l, c, format!("{}", n)), num: n }
+        Expr::Number(loc!(l, c, format!("{}", n)), n)
     }
 
     pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
-        Expr::Reg { loc: loc!(l, c, format!("{}", r)), reg: r }
+        Expr::Reg(loc!(l, c, format!("{}", r)), r)
     }
 
     pub fn areg(l: usize, c: usize, r: AddrReg) -> Expr {
-        Expr::AddrReg { loc: loc!(l, c, format!("{}", r)), reg: r }
+        Expr::AddrReg(loc!(l, c, format!("{}", r)), r)
     }
 }
 
@@ -44,9 +44,9 @@ impl fmt::Display for Expr {
 impl TextLocate for Expr {
 	fn loc(&self) -> &TextLoc {
 		match self {
-			&Expr::Number { ref loc, num: _ } => loc,
-			&Expr::Reg { ref loc, reg: _ } => loc,
-            &Expr::AddrReg { ref loc, reg: _ } => loc,
+			&Expr::Number(ref loc, _) => loc,
+			&Expr::Reg(ref loc, _) => loc,
+            &Expr::AddrReg(ref loc, _) => loc,
 		}
 	}
 }
@@ -237,9 +237,9 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
     fn next_expr_from(&mut self, tk: Token) -> Result<Expr, SyntaxError> {
     	match tk {
-            Token::AddrRegister(loc, reg) => Ok(Expr::AddrReg { loc: loc, reg: reg }),
-    		Token::Register(loc, reg) => Ok(Expr::Reg { loc: loc, reg: reg }),
-    		Token::Number(loc, n) => Ok(Expr::Number { loc: loc, num: n }),
+            Token::AddrRegister(loc, reg) => Ok(Expr::AddrReg(loc, reg)),
+    		Token::Register(loc, reg) => Ok(Expr::Reg(loc, reg)),
+    		Token::Number(loc, n) => Ok(Expr::Number(loc, n)),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
     	}
     }
