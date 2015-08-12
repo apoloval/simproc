@@ -178,30 +178,32 @@ mod test {
         ($i:expr) => ({
             let symbols = SymbolTable::new();
             let result = full_assemble_inst($i, &symbols);
-            assert!(result.is_ok())
+            assert_eq!(result, Ok($i));
         });
-        ($i:expr, $t1:path) => ({
+        ($i:path, $t1:path) => ({
             fn assemble_with_operands(op1: Expr) -> TestResult {
                 match op1 {
                     $t1(l1, r1) => {
                         let symbols = SymbolTable::new();
-                        let result = full_assemble_inst($i($t1(l1, r1)), &symbols);
-                        TestResult::from_bool(result.is_ok())
+                        match full_assemble_inst($i($t1(l1, r1)), &symbols) {
+                            Ok($i(_)) => TestResult::passed(),
+                            e => TestResult::error(format!("unexpected result: {:?}", e)),
+                        }
                     },
                     e1 => { should_assemble_type_mismatch!($i, e1) },
                 }
             }
             quickcheck(assemble_with_operands as fn(Expr) -> TestResult);
         });
-        ($i:expr, $t1:path, $t2:path) => ({
+        ($i:path, $t1:path, $t2:path) => ({
             fn assemble_with_operands(op1: Expr, op2: Expr) -> TestResult {
                 match (op1, op2) {
                     ($t1(l1, r1), $t2(l2, r2)) => {
                         let symbols = SymbolTable::new();
-                        let result = full_assemble_inst(
-                            $i($t1(l1, r1), $t2(l2, r2)),
-                            &symbols);
-                        TestResult::from_bool(result.is_ok())
+                        match full_assemble_inst($i($t1(l1, r1), $t2(l2, r2)), &symbols) {
+                            Ok($i(_, _)) => TestResult::passed(),
+                            e => TestResult::error(format!("unexpected result: {:?}", e)),
+                        }
                     },
                     (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
                 }
