@@ -83,6 +83,10 @@ pub fn full_assemble_inst(
         Inst::Decw(r) => Ok(Inst::Decw(try!(to_areg(r)))),
 
         Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Ld(r1, r2) => Ok(Inst::Ld(try!(to_reg(r1)), try!(to_areg(r2)))),
+        Inst::St(r1, r2) => Ok(Inst::St(try!(to_areg(r1)), try!(to_reg(r2)))),
+        Inst::Ldd(r1, r2) => Ok(Inst::Ldd(try!(to_reg(r1)), try!(to_addr(r2, symbols)))),
+        Inst::Std(r1, r2) => Ok(Inst::Std(try!(to_addr(r1, symbols)), try!(to_reg(r2)))),
         Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
         Inst::Ldsp(r) => Ok(Inst::Ldsp(try!(to_areg(r)))),
         Inst::Push(r) => Ok(Inst::Push(try!(to_reg(r)))),
@@ -90,7 +94,11 @@ pub fn full_assemble_inst(
 
         Inst::Ijmp(r) => Ok(Inst::Ijmp(try!(to_areg(r)))),
         Inst::Icall(r) => Ok(Inst::Icall(try!(to_areg(r)))),
+        Inst::Ret => Ok(Inst::Ret),
+        Inst::Reti => Ok(Inst::Reti),
+
         Inst::Nop => Ok(Inst::Nop),
+        Inst::Halt => Ok(Inst::Halt),
         _ => Err(FullAssembleError::NotImplemented),
     }
 }
@@ -121,6 +129,16 @@ fn to_immediate(e: Expr, _symbols: &SymbolTable) -> Result<Immediate, FullAssemb
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "immediate value".to_string()
+        })
+    }
+}
+
+fn to_addr(e: Expr, _symbols: &SymbolTable) -> Result<Addr, FullAssembleError> {
+    match e {
+        Expr::Number(_, n) => Ok(Addr(n as u16)),
+        e => Err(FullAssembleError::TypeMismatch {
+            loc: e.loc().clone(),
+            expected: "memory address".to_string()
         })
     }
 }
@@ -157,6 +175,11 @@ mod test {
     }
 
     macro_rules! should_assemble {
+        ($i:expr) => ({
+            let symbols = SymbolTable::new();
+            let result = full_assemble_inst($i, &symbols);
+            assert!(result.is_ok())
+        });
         ($i:expr, $t1:path) => ({
             fn assemble_with_operands(op1: Expr) -> TestResult {
                 match op1 {
@@ -274,6 +297,18 @@ mod test {
     fn should_assemble_mov() { should_assemble!(Inst::Mov, Expr::Reg, Expr::Reg) }
 
     #[test]
+    fn should_assemble_ld() { should_assemble!(Inst::Ld, Expr::Reg, Expr::AddrReg) }
+
+    #[test]
+    fn should_assemble_st() { should_assemble!(Inst::St, Expr::AddrReg, Expr::Reg) }
+
+    #[test]
+    fn should_assemble_ldd() { should_assemble!(Inst::Ldd, Expr::Reg, Expr::Number) }
+
+    #[test]
+    fn should_assemble_std() { should_assemble!(Inst::Std, Expr::Number, Expr::Reg) }
+
+    #[test]
     fn should_assemble_ldi() { should_assemble!(Inst::Ldi, Expr::Reg, Expr::Number) }
 
     #[test]
@@ -290,6 +325,18 @@ mod test {
 
     #[test]
     fn should_assemble_icall() { should_assemble!(Inst::Icall, Expr::AddrReg) }
+
+    #[test]
+    fn should_assemble_ret() { should_assemble!(Inst::Ret) }
+
+    #[test]
+    fn should_assemble_reti() { should_assemble!(Inst::Reti) }
+
+    #[test]
+    fn should_assemble_nop() { should_assemble!(Inst::Nop) }
+
+    #[test]
+    fn should_assemble_halt() { should_assemble!(Inst::Halt) }
 
     impl Arbitrary for Expr {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
