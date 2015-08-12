@@ -57,43 +57,51 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
     }
 }
 
+pub trait ExprAssembler {
+    fn to_reg(&self, e: Expr) -> Result<Reg, FullAssembleError>;
+    fn to_areg(&self, e: Expr) -> Result<AddrReg, FullAssembleError>;
+    fn to_immediate(&self, e: Expr) -> Result<Immediate, FullAssembleError>;
+    fn to_addr(&self, e: Expr) -> Result<Addr, FullAssembleError>;
+}
+
 pub fn full_assemble_inst(
     inst: PreAssembledInst,
     symbols: &SymbolTable) -> Result<RuntimeInst, FullAssembleError>
 {
+    let expr_asm = StdExprAssembler::from_symbols(symbols);
     match inst {
-        Inst::Add(r1, r2) => Ok(Inst::Add(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Adc(r1, r2) => Ok(Inst::Adc(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Addi(r, l) => Ok(Inst::Addi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
-        Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Subi(r, l) => Ok(Inst::Subi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
-        Inst::Mulw(r1, r2) => Ok(Inst::Mulw(try!(to_areg(r1)), try!(to_areg(r2)))),
-        Inst::And(r1, r2) => Ok(Inst::And(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Or(r1, r2) => Ok(Inst::Or(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Lsl(r1, r2) => Ok(Inst::Lsl(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Not(r) => Ok(Inst::Not(try!(to_reg(r)))),
-        Inst::Comp(r) => Ok(Inst::Comp(try!(to_reg(r)))),
-        Inst::Inc(r) => Ok(Inst::Inc(try!(to_reg(r)))),
-        Inst::Incw(r) => Ok(Inst::Incw(try!(to_areg(r)))),
-        Inst::Dec(r) => Ok(Inst::Dec(try!(to_reg(r)))),
-        Inst::Decw(r) => Ok(Inst::Decw(try!(to_areg(r)))),
+        Inst::Add(r1, r2) => Ok(Inst::Add(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Adc(r1, r2) => Ok(Inst::Adc(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Addi(r, l) => Ok(Inst::Addi(try!(expr_asm.to_reg(r)), try!(expr_asm.to_immediate(l)))),
+        Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Subi(r, l) => Ok(Inst::Subi(try!(expr_asm.to_reg(r)), try!(expr_asm.to_immediate(l)))),
+        Inst::Mulw(r1, r2) => Ok(Inst::Mulw(try!(expr_asm.to_areg(r1)), try!(expr_asm.to_areg(r2)))),
+        Inst::And(r1, r2) => Ok(Inst::And(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Or(r1, r2) => Ok(Inst::Or(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Lsl(r1, r2) => Ok(Inst::Lsl(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Not(r) => Ok(Inst::Not(try!(expr_asm.to_reg(r)))),
+        Inst::Comp(r) => Ok(Inst::Comp(try!(expr_asm.to_reg(r)))),
+        Inst::Inc(r) => Ok(Inst::Inc(try!(expr_asm.to_reg(r)))),
+        Inst::Incw(r) => Ok(Inst::Incw(try!(expr_asm.to_areg(r)))),
+        Inst::Dec(r) => Ok(Inst::Dec(try!(expr_asm.to_reg(r)))),
+        Inst::Decw(r) => Ok(Inst::Decw(try!(expr_asm.to_areg(r)))),
 
-        Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
-        Inst::Ld(r1, r2) => Ok(Inst::Ld(try!(to_reg(r1)), try!(to_areg(r2)))),
-        Inst::St(r1, r2) => Ok(Inst::St(try!(to_areg(r1)), try!(to_reg(r2)))),
-        Inst::Ldd(r1, r2) => Ok(Inst::Ldd(try!(to_reg(r1)), try!(to_addr(r2, symbols)))),
-        Inst::Std(r1, r2) => Ok(Inst::Std(try!(to_addr(r1, symbols)), try!(to_reg(r2)))),
-        Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
-        Inst::Ldsp(r) => Ok(Inst::Ldsp(try!(to_areg(r)))),
-        Inst::Push(r) => Ok(Inst::Push(try!(to_reg(r)))),
-        Inst::Pop(r) => Ok(Inst::Pop(try!(to_reg(r)))),
+        Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Ld(r1, r2) => Ok(Inst::Ld(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_areg(r2)))),
+        Inst::St(r1, r2) => Ok(Inst::St(try!(expr_asm.to_areg(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Ldd(r1, r2) => Ok(Inst::Ldd(try!(expr_asm.to_reg(r1)), try!(expr_asm.to_addr(r2)))),
+        Inst::Std(r1, r2) => Ok(Inst::Std(try!(expr_asm.to_addr(r1)), try!(expr_asm.to_reg(r2)))),
+        Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(expr_asm.to_reg(r)), try!(expr_asm.to_immediate(l)))),
+        Inst::Ldsp(r) => Ok(Inst::Ldsp(try!(expr_asm.to_areg(r)))),
+        Inst::Push(r) => Ok(Inst::Push(try!(expr_asm.to_reg(r)))),
+        Inst::Pop(r) => Ok(Inst::Pop(try!(expr_asm.to_reg(r)))),
 
-        Inst::Ijmp(r) => Ok(Inst::Ijmp(try!(to_areg(r)))),
-        Inst::Icall(r) => Ok(Inst::Icall(try!(to_areg(r)))),
+        Inst::Ijmp(r) => Ok(Inst::Ijmp(try!(expr_asm.to_areg(r)))),
+        Inst::Icall(r) => Ok(Inst::Icall(try!(expr_asm.to_areg(r)))),
         Inst::Ret => Ok(Inst::Ret),
         Inst::Reti => Ok(Inst::Reti),
 
@@ -103,43 +111,56 @@ pub fn full_assemble_inst(
     }
 }
 
-fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
-    match e {
-        Expr::Reg(_, reg) => Ok(reg),
-        e => Err(FullAssembleError::TypeMismatch {
-            loc: e.loc().clone(),
-            expected: "register name".to_string()
-        })
+pub struct StdExprAssembler<'a> {
+    _symbols: &'a SymbolTable,
+}
+
+impl<'a> StdExprAssembler<'a> {
+    fn from_symbols(symbols: &'a SymbolTable) -> Self {
+        StdExprAssembler { _symbols: symbols }
     }
 }
 
-fn to_areg(e: Expr) -> Result<AddrReg, FullAssembleError> {
-    match e {
-        Expr::AddrReg(_, reg) => Ok(reg),
-        e => Err(FullAssembleError::TypeMismatch {
-            loc: e.loc().clone(),
-            expected: "address register name".to_string()
-        })
-    }
-}
+impl<'a> ExprAssembler for StdExprAssembler<'a> {
 
-fn to_immediate(e: Expr, _symbols: &SymbolTable) -> Result<Immediate, FullAssembleError> {
-    match e {
-        Expr::Number(_, n) => Ok(Immediate(n as u8)),
-        e => Err(FullAssembleError::TypeMismatch {
-            loc: e.loc().clone(),
-            expected: "immediate value".to_string()
-        })
+    fn to_reg(&self, e: Expr) -> Result<Reg, FullAssembleError> {
+        match e {
+            Expr::Reg(_, reg) => Ok(reg),
+            e => Err(FullAssembleError::TypeMismatch {
+                loc: e.loc().clone(),
+                expected: "register name".to_string()
+            })
+        }
     }
-}
 
-fn to_addr(e: Expr, _symbols: &SymbolTable) -> Result<Addr, FullAssembleError> {
-    match e {
-        Expr::Number(_, n) => Ok(Addr(n as u16)),
-        e => Err(FullAssembleError::TypeMismatch {
-            loc: e.loc().clone(),
-            expected: "memory address".to_string()
-        })
+    fn to_areg(&self, e: Expr) -> Result<AddrReg, FullAssembleError> {
+        match e {
+            Expr::AddrReg(_, reg) => Ok(reg),
+            e => Err(FullAssembleError::TypeMismatch {
+                loc: e.loc().clone(),
+                expected: "address register name".to_string()
+            })
+        }
+    }
+
+    fn to_immediate(&self, e: Expr) -> Result<Immediate, FullAssembleError> {
+        match e {
+            Expr::Number(_, n) => Ok(Immediate(n as u8)),
+            e => Err(FullAssembleError::TypeMismatch {
+                loc: e.loc().clone(),
+                expected: "immediate value".to_string()
+            })
+        }
+    }
+
+    fn to_addr(&self, e: Expr) -> Result<Addr, FullAssembleError> {
+        match e {
+            Expr::Number(_, n) => Ok(Addr(n as u16)),
+            e => Err(FullAssembleError::TypeMismatch {
+                loc: e.loc().clone(),
+                expected: "memory address".to_string()
+            })
+        }
     }
 }
 
@@ -154,6 +175,66 @@ mod test {
     use asm::pre::*;
 
     use super::*;
+
+    #[test]
+    fn should_asm_expr_to_reg() {
+        let symbols = SymbolTable::new();
+        let asm = StdExprAssembler::from_symbols(&symbols);
+        assert_eq!(
+            asm.to_reg(Expr::reg(1, 1, Reg::R0)),
+            Ok(Reg::R0));
+        assert_eq!(
+            asm.to_reg(Expr::num(1, 1, 100)),
+            Err(FullAssembleError::TypeMismatch {
+                loc: loc!(1, 1, "100"),
+                expected: "register name".to_string()
+            }));
+    }
+
+    #[test]
+    fn should_asm_expr_to_areg() {
+        let symbols = SymbolTable::new();
+        let asm = StdExprAssembler::from_symbols(&symbols);
+        assert_eq!(
+            asm.to_areg(Expr::areg(1, 1, AddrReg::A0)),
+            Ok(AddrReg::A0));
+        assert_eq!(
+            asm.to_areg(Expr::num(1, 1, 100)),
+            Err(FullAssembleError::TypeMismatch {
+                loc: loc!(1, 1, "100"),
+                expected: "address register name".to_string()
+            }));
+    }
+
+    #[test]
+    fn should_asm_expr_to_immediate() {
+        let symbols = SymbolTable::new();
+        let asm = StdExprAssembler::from_symbols(&symbols);
+        assert_eq!(
+            asm.to_immediate(Expr::num(1, 1, 100)),
+            Ok(Immediate(100)));
+        assert_eq!(
+            asm.to_immediate(Expr::reg(1, 1, Reg::R0)),
+            Err(FullAssembleError::TypeMismatch {
+                loc: loc!(1, 1, "R0"),
+                expected: "immediate value".to_string()
+            }));
+    }
+
+    #[test]
+    fn should_asm_expr_to_addr() {
+        let symbols = SymbolTable::new();
+        let asm = StdExprAssembler::from_symbols(&symbols);
+        assert_eq!(
+            asm.to_addr(Expr::num(1, 1, 100)),
+            Ok(Addr(100)));
+        assert_eq!(
+            asm.to_addr(Expr::reg(1, 1, Reg::R0)),
+            Err(FullAssembleError::TypeMismatch {
+                loc: loc!(1, 1, "R0"),
+                expected: "memory address".to_string()
+            }));
+    }
 
     macro_rules! should_assemble_type_mismatch {
         ($i:expr, $e1:expr) => ({
