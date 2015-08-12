@@ -57,7 +57,7 @@ impl fmt::Display for Reg {
 }
 
 /// 16-bits address Regs.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AddrReg { A0, A1, A2, A3 }
 
 impl AddrReg {
@@ -69,6 +69,17 @@ impl AddrReg {
             &AddrReg::A1 => 0x01,
             &AddrReg::A2 => 0x02,
             &AddrReg::A3 => 0x03,
+        }
+    }
+}
+
+impl fmt::Display for AddrReg {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &AddrReg::A0 => write!(fmt, "A0"),
+            &AddrReg::A1 => write!(fmt, "A1"),
+            &AddrReg::A2 => write!(fmt, "A2"),
+            &AddrReg::A3 => write!(fmt, "A3"),
         }
     }
 }

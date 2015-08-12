@@ -10,7 +10,7 @@ use std::fmt;
 use std::iter::IntoIterator;
 use std::ops::Index;
 
-use simproc::inst::{Reg};
+use simproc::inst::{AddrReg, Reg};
 
 use asm::lexer::*;
 
@@ -18,6 +18,7 @@ use asm::lexer::*;
 pub enum Expr {
 	Number { loc: TextLoc, num: i64 },
 	Reg { loc: TextLoc, reg: Reg },
+    AddrReg { loc: TextLoc, reg: AddrReg },
 }
 
 impl Expr {
@@ -27,6 +28,10 @@ impl Expr {
 
     pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
         Expr::Reg { loc: loc!(l, c, format!("{}", r)), reg: r }
+    }
+
+    pub fn areg(l: usize, c: usize, r: AddrReg) -> Expr {
+        Expr::AddrReg { loc: loc!(l, c, format!("{}", r)), reg: r }
     }
 }
 
@@ -41,6 +46,7 @@ impl TextLocate for Expr {
 		match self {
 			&Expr::Number { ref loc, num: _ } => loc,
 			&Expr::Reg { ref loc, reg: _ } => loc,
+            &Expr::AddrReg { ref loc, reg: _ } => loc,
 		}
 	}
 }
@@ -231,6 +237,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
     fn next_expr_from(&mut self, tk: Token) -> Result<Expr, SyntaxError> {
     	match tk {
+            Token::AddrRegister(loc, reg) => Ok(Expr::AddrReg { loc: loc, reg: reg }),
     		Token::Register(loc, reg) => Ok(Expr::Reg { loc: loc, reg: reg }),
     		Token::Number(loc, n) => Ok(Expr::Number { loc: loc, num: n }),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
