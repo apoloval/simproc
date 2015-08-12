@@ -59,13 +59,15 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 
 pub fn full_assemble_inst(
     inst: PreAssembledInst,
-    _symbols: &SymbolTable) -> Result<RuntimeInst, FullAssembleError>
+    symbols: &SymbolTable) -> Result<RuntimeInst, FullAssembleError>
 {
     match inst {
         Inst::Add(r1, r2) => Ok(Inst::Add(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Adc(r1, r2) => Ok(Inst::Adc(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Addi(r, l) => Ok(Inst::Addi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
         Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Subi(r, l) => Ok(Inst::Subi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
         Inst::And(r1, r2) => Ok(Inst::And(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Or(r1, r2) => Ok(Inst::Or(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(to_reg(r1)), try!(to_reg(r2)))),
@@ -73,6 +75,7 @@ pub fn full_assemble_inst(
         Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(to_reg(r1)), try!(to_reg(r2)))),
         Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(to_reg(r1)), try!(to_reg(r2)))),
+        Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(to_reg(r)), try!(to_immediate(l, symbols)))),
         Inst::Nop => Ok(Inst::Nop),
         _ => Err(FullAssembleError::NotImplemented),
     }
@@ -84,6 +87,16 @@ fn to_reg(e: Expr) -> Result<Reg, FullAssembleError> {
         e => Err(FullAssembleError::TypeMismatch {
             loc: e.loc().clone(),
             expected: "register name".to_string()
+        })
+    }
+}
+
+fn to_immediate(e: Expr, _symbols: &SymbolTable) -> Result<Immediate, FullAssembleError> {
+    match e {
+        Expr::Number { loc: _, num: n } => Ok(Immediate(n as u8)),
+        e => Err(FullAssembleError::TypeMismatch {
+            loc: e.loc().clone(),
+            expected: "immediate value".to_string()
         })
     }
 }
@@ -100,6 +113,17 @@ mod test {
 
     use super::*;
 
+    macro_rules! should_assemble_type_mismatch {
+        ($i:expr, $e1:expr, $e2:expr) => ({
+            let symbols = SymbolTable::new();
+            match full_assemble_inst($i($e1, $e2), &symbols) {
+                Err(FullAssembleError::TypeMismatch { loc: _, expected: _ }) =>
+                    TestResult::passed(),
+                r => TestResult::error(format!("unexpected result: {:?}", r)),
+            }
+        })
+    }
+
     macro_rules! should_assemble_reg_reg {
         ($i:expr) => ({
             fn assembles_reg_reg(op1: Expr, op2: Expr) -> TestResult {
@@ -112,14 +136,29 @@ mod test {
                             &symbols);
                         TestResult::from_bool(actual == expected)
                     },
-                    (e1, e2) => {
+                    (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
+                }
+            }
+            quickcheck(assembles_reg_reg as fn(Expr, Expr) -> TestResult);
+        })
+    }
+
+    macro_rules! should_assemble_reg_imm {
+        ($i:path) => ({
+            fn assembles_reg_reg(op1: Expr, op2: Expr) -> TestResult {
+                match (op1, op2) {
+                    (Expr::Reg { loc: l1, reg: r }, Expr::Number { loc: l2, num: n }) => {
                         let symbols = SymbolTable::new();
-                        match full_assemble_inst($i(e1, e2), &symbols) {
-                            Err(FullAssembleError::TypeMismatch { loc: _, expected: _ }) =>
-                                TestResult::passed(),
+                        let pre = $i(
+                            Expr::Reg { loc: l1, reg: r },
+                            Expr::Number { loc: l2, num: n });
+                        match full_assemble_inst(pre, &symbols) {
+                            Ok($i(rr, _)) =>
+                                TestResult::from_bool(r == rr),
                             r => TestResult::error(format!("unexpected result: {:?}", r)),
                         }
                     },
+                    (e1, e2) => { should_assemble_type_mismatch!($i, e1, e2) },
                 }
             }
             quickcheck(assembles_reg_reg as fn(Expr, Expr) -> TestResult);
@@ -159,10 +198,16 @@ mod test {
     fn should_assemble_adc() { should_assemble_reg_reg!(Inst::Adc) }
 
     #[test]
+    fn should_assemble_addi() { should_assemble_reg_imm!(Inst::Addi) }
+
+    #[test]
     fn should_assemble_sub() { should_assemble_reg_reg!(Inst::Sub) }
 
     #[test]
     fn should_assemble_sbc() { should_assemble_reg_reg!(Inst::Sbc) }
+
+    #[test]
+    fn should_assemble_subi() { should_assemble_reg_imm!(Inst::Subi) }
 
     #[test]
     fn should_assemble_and() { should_assemble_reg_reg!(Inst::And) }
@@ -184,6 +229,9 @@ mod test {
 
     #[test]
     fn should_assemble_mov() { should_assemble_reg_reg!(Inst::Mov) }
+
+    #[test]
+    fn should_assemble_ldi() { should_assemble_reg_imm!(Inst::Ldi) }
 
     impl Arbitrary for Expr {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
