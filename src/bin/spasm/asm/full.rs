@@ -21,7 +21,7 @@ pub enum FullAssembled {
 pub enum FullAssembleError {
     // Pre(PreAssembleError),
     TypeMismatch { loc: TextLoc, expected: String },
-    NotImplemented,
+    Undefined { loc: TextLoc, symbol: String },
 }
 
 pub type FullAssemblerInput = PreAssemblerOutput;
@@ -142,12 +142,12 @@ impl<E: ExprAssembler> InstAssembler<E> {
 }
 
 pub struct StdExprAssembler<'a> {
-    _symbols: &'a SymbolTable,
+    symbols: &'a SymbolTable,
 }
 
 impl<'a> StdExprAssembler<'a> {
     fn from_symbols(symbols: &'a SymbolTable) -> Self {
-        StdExprAssembler { _symbols: symbols }
+        StdExprAssembler { symbols: symbols }
     }
 }
 
@@ -176,6 +176,12 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     fn to_immediate(&mut self, e: Expr) -> Result<Immediate, FullAssembleError> {
         match e {
             Expr::Number(_, n) => Ok(Immediate(n as u8)),
+            Expr::Ident(loc, id) => {
+                match self.symbols.get(&id) {
+                    Some(n) => Ok(Immediate(*n as u8)),
+                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                }
+            },
             e => Err(FullAssembleError::TypeMismatch {
                 loc: e.loc().clone(),
                 expected: "immediate value".to_string()
@@ -186,6 +192,12 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     fn to_addr(&mut self, e: Expr) -> Result<Addr, FullAssembleError> {
         match e {
             Expr::Number(_, n) => Ok(Addr(n as u16)),
+            Expr::Ident(loc, id) => {
+                match self.symbols.get(&id) {
+                    Some(n) => Ok(Addr(*n as u16)),
+                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                }
+            },
             e => Err(FullAssembleError::TypeMismatch {
                 loc: e.loc().clone(),
                 expected: "memory address".to_string()
@@ -194,10 +206,14 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     }
 
     fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, FullAssembleError> {
+        let Addr(b) = base;
         match e {
-            Expr::Number(_, n) => {
-                let Addr(b) = base;
-                Ok(RelAddr((n as i16) - (b as i16)))
+            Expr::Number(_, n) => Ok(RelAddr((n as i16) - (b as i16))),
+            Expr::Ident(loc, id) => {
+                match self.symbols.get(&id) {
+                    Some(n) => Ok(RelAddr((*n as i16) - (b as i16))),
+                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                }
             },
             e => Err(FullAssembleError::TypeMismatch {
                 loc: e.loc().clone(),
@@ -252,11 +268,21 @@ mod test {
 
     #[test]
     fn should_asm_expr_to_immediate() {
-        let symbols = SymbolTable::new();
+        let mut symbols = SymbolTable::new();
+        symbols.insert("foobar".to_string(), 100);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_immediate(Expr::num(1, 1, 100)),
             Ok(Immediate(100)));
+        assert_eq!(
+            asm.to_immediate(Expr::id(1, 1, "foobar")),
+            Ok(Immediate(100)));
+        assert_eq!(
+            asm.to_immediate(Expr::id(1, 1, "undefined")),
+            Err(FullAssembleError::Undefined {
+                loc: loc!(1, 1, "undefined"),
+                symbol: "undefined".to_string()
+            }));
         assert_eq!(
             asm.to_immediate(Expr::reg(1, 1, Reg::R0)),
             Err(FullAssembleError::TypeMismatch {
@@ -267,11 +293,21 @@ mod test {
 
     #[test]
     fn should_asm_expr_to_addr() {
-        let symbols = SymbolTable::new();
+        let mut symbols = SymbolTable::new();
+        symbols.insert("foobar".to_string(), 0x1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_addr(Expr::num(1, 1, 100)),
             Ok(Addr(100)));
+        assert_eq!(
+            asm.to_addr(Expr::id(1, 1, "foobar")),
+            Ok(Addr(0x1000)));
+        assert_eq!(
+            asm.to_addr(Expr::id(1, 1, "undefined")),
+            Err(FullAssembleError::Undefined {
+                loc: loc!(1, 1, "undefined"),
+                symbol: "undefined".to_string()
+            }));
         assert_eq!(
             asm.to_addr(Expr::reg(1, 1, Reg::R0)),
             Err(FullAssembleError::TypeMismatch {
@@ -282,11 +318,21 @@ mod test {
 
     #[test]
     fn should_asm_expr_to_raddr() {
-        let symbols = SymbolTable::new();
+        let mut symbols = SymbolTable::new();
+        symbols.insert("foobar".to_string(), 0x1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_raddr(Expr::num(1, 1, 100), Addr(75)),
             Ok(RelAddr(25)));
+        assert_eq!(
+            asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0xf00)),
+            Ok(RelAddr(0x100)));
+        assert_eq!(
+            asm.to_raddr(Expr::id(1, 1, "undefined"), Addr(75)),
+            Err(FullAssembleError::Undefined {
+                loc: loc!(1, 1, "undefined"),
+                symbol: "undefined".to_string()
+            }));
         assert_eq!(
             asm.to_raddr(Expr::reg(1, 1, Reg::R0), Addr(75)),
             Err(FullAssembleError::TypeMismatch {
