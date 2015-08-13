@@ -6,6 +6,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::ops::Range;
+
 use simproc::inst::*;
 
 use asm::lexer::*;
@@ -22,6 +24,8 @@ pub enum FullAssembleError {
     // Pre(PreAssembleError),
     TypeMismatch { loc: TextLoc, expected: String },
     Undefined { loc: TextLoc, symbol: String },
+    TooFar { loc: TextLoc, from: Addr, to: Addr },
+    OutOfRange { loc: TextLoc, range: Range<i64> },
 }
 
 pub type FullAssemblerInput = PreAssemblerOutput;
@@ -206,12 +210,24 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     }
 
     fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, FullAssembleError> {
+        fn validate(loc: TextLoc, from: u16, dest: i64) -> Result<RelAddr, FullAssembleError> {
+            let offset = RelAddr((dest as i16) - (from as i16));
+            if offset.is_valid() { Ok(offset) }
+            else {
+                Err(FullAssembleError::TooFar {
+                    loc: loc,
+                    from: Addr(from),
+                    to: Addr(dest as u16),
+                })
+            }
+        }
+
         let Addr(b) = base;
         match e {
-            Expr::Number(_, n) => Ok(RelAddr((n as i16) - (b as i16))),
+            Expr::Number(loc, n) => validate(loc, b, n),
             Expr::Ident(loc, id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => Ok(RelAddr((*n as i16) - (b as i16))),
+                    Some(n) => validate(loc, b, *n),
                     _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
                 }
             },
@@ -327,6 +343,20 @@ mod test {
         assert_eq!(
             asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0xf00)),
             Ok(RelAddr(0x100)));
+        assert_eq!(
+            asm.to_raddr(Expr::num(1, 1, 1024), Addr(2048)),
+            Err(FullAssembleError::TooFar {
+                loc: loc!(1, 1, "1024"),
+                from: Addr(2048),
+                to: Addr(1024),
+            }));
+        assert_eq!(
+            asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0x2000)),
+            Err(FullAssembleError::TooFar {
+                loc: loc!(1, 1, "foobar"),
+                from: Addr(0x2000),
+                to: Addr(0x1000),
+            }));
         assert_eq!(
             asm.to_raddr(Expr::id(1, 1, "undefined"), Addr(75)),
             Err(FullAssembleError::Undefined {

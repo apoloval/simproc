@@ -20,6 +20,16 @@ pub struct Addr(pub u16);
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RelAddr(pub i16);
 
+const RADDR_MAX: i16 = 511;
+const RADDR_MIN: i16 = -512;
+
+impl RelAddr {
+    pub fn is_valid(&self) -> bool {
+        let &RelAddr(val) = self;
+        val <= RADDR_MAX && val >= RADDR_MIN
+    }
+}
+
 /// General purpose 8-bit Regs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
