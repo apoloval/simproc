@@ -19,6 +19,7 @@ pub enum Expr {
 	Number(TextLoc, i64),
 	Reg(TextLoc, Reg),
     AddrReg(TextLoc, AddrReg),
+    Ident(TextLoc, String),
 }
 
 impl Expr {
@@ -32,6 +33,10 @@ impl Expr {
 
     pub fn areg(l: usize, c: usize, r: AddrReg) -> Expr {
         Expr::AddrReg(loc!(l, c, format!("{}", r)), r)
+    }
+
+    pub fn id(l: usize, c: usize, s: &str) -> Expr {
+        Expr::Ident(loc!(l, c, format!("{}", s)), s.to_string())
     }
 }
 
@@ -47,6 +52,7 @@ impl TextLocate for Expr {
 			&Expr::Number(ref loc, _) => loc,
 			&Expr::Reg(ref loc, _) => loc,
             &Expr::AddrReg(ref loc, _) => loc,
+            &Expr::Ident(ref loc, _) => loc,
 		}
 	}
 }
@@ -240,6 +246,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
             Token::AddrRegister(loc, reg) => Ok(Expr::AddrReg(loc, reg)),
     		Token::Register(loc, reg) => Ok(Expr::Reg(loc, reg)),
     		Token::Number(loc, n) => Ok(Expr::Number(loc, n)),
+            Token::Ident(loc, id) => Ok(Expr::Ident(loc, id)),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
     	}
     }
