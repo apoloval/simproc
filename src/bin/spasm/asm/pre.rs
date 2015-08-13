@@ -35,7 +35,7 @@ pub enum PreAssembled {
     Inst { loc: TextLoc, base_addr: Addr, inst: PreAssembledInst },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PreAssembleError {
     BadArgumentCount(usize, usize),
     DuplicatedLabel(TextLoc, String),

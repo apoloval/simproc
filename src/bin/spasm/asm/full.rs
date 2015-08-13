@@ -21,7 +21,7 @@ pub enum FullAssembled {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FullAssembleError {
-    // Pre(PreAssembleError),
+    Pre(PreAssembleError),
     TypeMismatch { loc: TextLoc, expected: String },
     Undefined { loc: TextLoc, symbol: String },
     TooFar { loc: TextLoc, from: Addr, to: Addr },
@@ -33,7 +33,6 @@ pub type FullAssemblerOutput = Result<FullAssembled, FullAssembleError>;
 
 pub struct FullAssembler<'a, I: Iterator<Item=FullAssemblerInput>> {
     input: I,
-    symbols: &'a SymbolTable,
     inst_asm: StdInstAssembler<'a>,
 }
 
@@ -44,7 +43,6 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> FullAssembler<'a, I> {
     {
         FullAssembler {
             input: pre.into_iter(),
-            symbols: symbols,
             inst_asm: StdInstAssembler::from_expr_asm(
                 StdExprAssembler::from_symbols(symbols)),
         }
@@ -62,7 +60,8 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
                     loc: loc, base_addr: base_addr, inst: i,
                 }))
             },
-            _ => None,
+            Some(Err(e)) => Some(Err(FullAssembleError::Pre(e))),
+            None => None,
         }
     }
 }
@@ -92,55 +91,101 @@ impl<E: ExprAssembler> InstAssembler<E> {
         inst: PreAssembledInst, base: Addr) -> Result<RuntimeInst, FullAssembleError>
     {
         match inst {
-            Inst::Add(r1, r2) => Ok(Inst::Add(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Adc(r1, r2) => Ok(Inst::Adc(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Addi(r, l) => Ok(Inst::Addi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
-            Inst::Sub(r1, r2) => Ok(Inst::Sub(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Sbc(r1, r2) => Ok(Inst::Sbc(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Subi(r, l) => Ok(Inst::Subi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
-            Inst::Mulw(r1, r2) => Ok(Inst::Mulw(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_areg(r2)))),
-            Inst::And(r1, r2) => Ok(Inst::And(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Or(r1, r2) => Ok(Inst::Or(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Xor(r1, r2) => Ok(Inst::Xor(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Lsl(r1, r2) => Ok(Inst::Lsl(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Lsr(r1, r2) => Ok(Inst::Lsr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Asr(r1, r2) => Ok(Inst::Asr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Not(r) => Ok(Inst::Not(try!(self.expr_asm.to_reg(r)))),
-            Inst::Comp(r) => Ok(Inst::Comp(try!(self.expr_asm.to_reg(r)))),
-            Inst::Inc(r) => Ok(Inst::Inc(try!(self.expr_asm.to_reg(r)))),
-            Inst::Incw(r) => Ok(Inst::Incw(try!(self.expr_asm.to_areg(r)))),
-            Inst::Dec(r) => Ok(Inst::Dec(try!(self.expr_asm.to_reg(r)))),
-            Inst::Decw(r) => Ok(Inst::Decw(try!(self.expr_asm.to_areg(r)))),
+            Inst::Add(r1, r2) =>
+                Ok(Inst::Add(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Adc(r1, r2) =>
+                Ok(Inst::Adc(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Addi(r, l) =>
+                Ok(Inst::Addi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
+            Inst::Sub(r1, r2) =>
+                Ok(Inst::Sub(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Sbc(r1, r2) =>
+                Ok(Inst::Sbc(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Subi(r, l) =>
+                Ok(Inst::Subi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
+            Inst::Mulw(r1, r2) =>
+                Ok(Inst::Mulw(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_areg(r2)))),
+            Inst::And(r1, r2) =>
+                Ok(Inst::And(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Or(r1, r2) =>
+                Ok(Inst::Or(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Xor(r1, r2) =>
+                Ok(Inst::Xor(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Lsl(r1, r2) =>
+                Ok(Inst::Lsl(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Lsr(r1, r2) =>
+                Ok(Inst::Lsr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Asr(r1, r2) =>
+                Ok(Inst::Asr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Not(r) =>
+                Ok(Inst::Not(try!(self.expr_asm.to_reg(r)))),
+            Inst::Comp(r) =>
+                Ok(Inst::Comp(try!(self.expr_asm.to_reg(r)))),
+            Inst::Inc(r) =>
+                Ok(Inst::Inc(try!(self.expr_asm.to_reg(r)))),
+            Inst::Incw(r) =>
+                Ok(Inst::Incw(try!(self.expr_asm.to_areg(r)))),
+            Inst::Dec(r) =>
+                Ok(Inst::Dec(try!(self.expr_asm.to_reg(r)))),
+            Inst::Decw(r) =>
+                Ok(Inst::Decw(try!(self.expr_asm.to_areg(r)))),
 
-            Inst::Mov(r1, r2) => Ok(Inst::Mov(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Ld(r1, r2) => Ok(Inst::Ld(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_areg(r2)))),
-            Inst::St(r1, r2) => Ok(Inst::St(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Ldd(r1, r2) => Ok(Inst::Ldd(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_addr(r2)))),
-            Inst::Std(r1, r2) => Ok(Inst::Std(try!(self.expr_asm.to_addr(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Ldi(r, l) => Ok(Inst::Ldi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
-            Inst::Ldsp(r) => Ok(Inst::Ldsp(try!(self.expr_asm.to_areg(r)))),
-            Inst::Push(r) => Ok(Inst::Push(try!(self.expr_asm.to_reg(r)))),
-            Inst::Pop(r) => Ok(Inst::Pop(try!(self.expr_asm.to_reg(r)))),
+            Inst::Mov(r1, r2) =>
+                Ok(Inst::Mov(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Ld(r1, r2) =>
+                Ok(Inst::Ld(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_areg(r2)))),
+            Inst::St(r1, r2) =>
+                Ok(Inst::St(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Ldd(r1, r2) =>
+                Ok(Inst::Ldd(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_addr(r2)))),
+            Inst::Std(r1, r2) =>
+                Ok(Inst::Std(try!(self.expr_asm.to_addr(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Ldi(r, l) =>
+                Ok(Inst::Ldi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
+            Inst::Ldsp(r) =>
+                Ok(Inst::Ldsp(try!(self.expr_asm.to_areg(r)))),
+            Inst::Push(r) =>
+                Ok(Inst::Push(try!(self.expr_asm.to_reg(r)))),
+            Inst::Pop(r) =>
+                Ok(Inst::Pop(try!(self.expr_asm.to_reg(r)))),
 
-            Inst::Je(a) => Ok(Inst::Je(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jne(a) => Ok(Inst::Jne(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jl(a) => Ok(Inst::Jl(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jge(a) => Ok(Inst::Jge(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jcc(a) => Ok(Inst::Jcc(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jcs(a) => Ok(Inst::Jcs(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jvc(a) => Ok(Inst::Jvc(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jvs(a) => Ok(Inst::Jvs(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jmp(a) => Ok(Inst::Jmp(try!(self.expr_asm.to_addr(a)))),
-            Inst::Rjmp(a) => Ok(Inst::Rjmp(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Ijmp(r) => Ok(Inst::Ijmp(try!(self.expr_asm.to_areg(r)))),
-            Inst::Call(a) => Ok(Inst::Call(try!(self.expr_asm.to_addr(a)))),
-            Inst::Rcall(a) => Ok(Inst::Rcall(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Icall(r) => Ok(Inst::Icall(try!(self.expr_asm.to_areg(r)))),
-            Inst::Ret => Ok(Inst::Ret),
-            Inst::Reti => Ok(Inst::Reti),
+            Inst::Je(a) =>
+                Ok(Inst::Je(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jne(a) =>
+                Ok(Inst::Jne(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jl(a) =>
+                Ok(Inst::Jl(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jge(a) =>
+                Ok(Inst::Jge(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jcc(a) =>
+                Ok(Inst::Jcc(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jcs(a) =>
+                Ok(Inst::Jcs(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jvc(a) =>
+                Ok(Inst::Jvc(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jvs(a) =>
+                Ok(Inst::Jvs(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jmp(a) =>
+                Ok(Inst::Jmp(try!(self.expr_asm.to_addr(a)))),
+            Inst::Rjmp(a) =>
+                Ok(Inst::Rjmp(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Ijmp(r) =>
+                Ok(Inst::Ijmp(try!(self.expr_asm.to_areg(r)))),
+            Inst::Call(a) =>
+                Ok(Inst::Call(try!(self.expr_asm.to_addr(a)))),
+            Inst::Rcall(a) =>
+                Ok(Inst::Rcall(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Icall(r) =>
+                Ok(Inst::Icall(try!(self.expr_asm.to_areg(r)))),
+            Inst::Ret =>
+                Ok(Inst::Ret),
+            Inst::Reti =>
+                Ok(Inst::Reti),
 
-            Inst::Nop => Ok(Inst::Nop),
-            Inst::Halt => Ok(Inst::Halt),
+            Inst::Nop =>
+                Ok(Inst::Nop),
+            Inst::Halt =>
+                Ok(Inst::Halt),
         }
     }
 }
@@ -575,13 +620,14 @@ mod test {
     }
 
     #[test]
-    fn should_assemble_inst() {
+    fn should_assemble_non_empty() {
         let input = vec![
             Ok(PreAssembled::Inst {
                 loc: loc!(1, 1, "nop"),
                 base_addr: Addr(0x100),
                 inst: Inst::Nop,
             }),
+            Err(PreAssembleError::UnknownMnemo("foobar".to_string())),
         ];
         let symbols = SymbolTable::new();
         let mut full = FullAssembler::from(input, &symbols);
@@ -590,6 +636,8 @@ mod test {
             base_addr: Addr(0x100),
             inst: Inst::Nop,
         })));
+        assert_eq!(full.next(), Some(Err(FullAssembleError::Pre(
+            PreAssembleError::UnknownMnemo("foobar".to_string())))));
     }
 
     struct MockExprAssembler {
