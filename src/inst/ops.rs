@@ -9,15 +9,15 @@
 use std::fmt;
 
 /// An immediate value that comes after an opcode.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Immediate(pub u8);
 
 /// An address in SP-80 of 16-bits
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Addr(pub u16);
 
 /// A relative address, i.e. a delta respect the current PC.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RelAddr(pub i16);
 
 /// General purpose 8-bit Regs.
