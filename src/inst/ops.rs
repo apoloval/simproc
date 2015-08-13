@@ -8,11 +8,21 @@
 
 use std::fmt;
 use std::ops::{Sub, Range};
+use std::u8;
 use std::u16;
 
 /// An immediate value that comes after an opcode.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Immediate(pub u8);
+
+impl Immediate {
+    pub fn range() -> Range<i64> { u8::MIN as i64 .. u8::MAX as i64 }
+
+    pub fn from_i64(n: i64) -> Option<Immediate> {
+        if n < u8::MIN as i64 || n > u8::MAX as i64 { None }
+        else { Some(Immediate(n as u8)) }
+    }
+}
 
 /// An address in SP-80 of 16-bits
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -178,11 +178,19 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     }
 
     fn to_immediate(&mut self, e: Expr) -> Result<Immediate, FullAssembleError> {
+        fn validate(loc: TextLoc, n: i64) -> Result<Immediate, FullAssembleError> {
+            Immediate::from_i64(n).ok_or(FullAssembleError::OutOfRange {
+                loc: loc,
+                range: Immediate::range(),
+                given: n,
+            })
+        }
+
         match e {
-            Expr::Number(_, n) => Ok(Immediate(n as u8)),
+            Expr::Number(loc, n) => validate(loc, n),
             Expr::Ident(loc, id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => Ok(Immediate(*n as u8)),
+                    Some(n) => validate(loc, *n),
                     _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
                 }
             },
@@ -298,6 +306,7 @@ mod test {
     fn should_asm_expr_to_immediate() {
         let mut symbols = SymbolTable::new();
         symbols.insert("foobar".to_string(), 100);
+        symbols.insert("toobig".to_string(), 1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_immediate(Expr::num(1, 1, 100)),
@@ -305,6 +314,20 @@ mod test {
         assert_eq!(
             asm.to_immediate(Expr::id(1, 1, "foobar")),
             Ok(Immediate(100)));
+        assert_eq!(
+            asm.to_immediate(Expr::num(1, 1, 1000)),
+            Err(FullAssembleError::OutOfRange {
+                loc: loc!(1, 1, "1000"),
+                range: Immediate::range(),
+                given: 1000,
+            }));
+        assert_eq!(
+            asm.to_immediate(Expr::id(1, 1, "toobig")),
+            Err(FullAssembleError::OutOfRange {
+                loc: loc!(1, 1, "toobig"),
+                range: Immediate::range(),
+                given: 1000,
+            }));
         assert_eq!(
             asm.to_immediate(Expr::id(1, 1, "undefined")),
             Err(FullAssembleError::Undefined {
