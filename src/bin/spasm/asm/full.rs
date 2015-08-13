@@ -25,7 +25,7 @@ pub enum FullAssembleError {
     TypeMismatch { loc: TextLoc, expected: String },
     Undefined { loc: TextLoc, symbol: String },
     TooFar { loc: TextLoc, from: Addr, to: Addr },
-    OutOfRange { loc: TextLoc, range: Range<i64> },
+    OutOfRange { loc: TextLoc, range: Range<i64>, given: i64 },
 }
 
 pub type FullAssemblerInput = PreAssemblerOutput;
@@ -194,11 +194,19 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     }
 
     fn to_addr(&mut self, e: Expr) -> Result<Addr, FullAssembleError> {
+        fn validate(loc: TextLoc, dest: i64) -> Result<Addr, FullAssembleError> {
+            Addr::from_i64(dest).ok_or(FullAssembleError::OutOfRange {
+                loc: loc,
+                range: Addr::range(),
+                given: dest,
+            })
+        }
+
         match e {
-            Expr::Number(_, n) => Ok(Addr(n as u16)),
+            Expr::Number(loc, n) => validate(loc, n),
             Expr::Ident(loc, id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => Ok(Addr(*n as u16)),
+                    Some(n) => validate(loc, *n),
                     _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
                 }
             },
@@ -210,24 +218,28 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     }
 
     fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, FullAssembleError> {
-        fn validate(loc: TextLoc, from: u16, dest: i64) -> Result<RelAddr, FullAssembleError> {
-            let offset = RelAddr((dest as i16) - (from as i16));
-            if offset.is_valid() { Ok(offset) }
-            else {
-                Err(FullAssembleError::TooFar {
+        fn validate(loc: TextLoc, from: Addr, dest: i64) -> Result<RelAddr, FullAssembleError> {
+            match Addr::from_i64(dest) {
+                Some(to) => {
+                    (to - from).ok_or(FullAssembleError::TooFar {
+                        loc: loc,
+                        from: from,
+                        to: to,
+                    })
+                },
+                None => Err(FullAssembleError::OutOfRange {
                     loc: loc,
-                    from: Addr(from),
-                    to: Addr(dest as u16),
-                })
+                    range: Addr::range(),
+                    given: dest,
+                }),
             }
         }
 
-        let Addr(b) = base;
         match e {
-            Expr::Number(loc, n) => validate(loc, b, n),
+            Expr::Number(loc, n) => validate(loc, base, n),
             Expr::Ident(loc, id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => validate(loc, b, *n),
+                    Some(n) => validate(loc, base, *n),
                     _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
                 }
             },
@@ -311,6 +323,7 @@ mod test {
     fn should_asm_expr_to_addr() {
         let mut symbols = SymbolTable::new();
         symbols.insert("foobar".to_string(), 0x1000);
+        symbols.insert("toobig".to_string(), 0x100000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_addr(Expr::num(1, 1, 100)),
@@ -318,6 +331,20 @@ mod test {
         assert_eq!(
             asm.to_addr(Expr::id(1, 1, "foobar")),
             Ok(Addr(0x1000)));
+        assert_eq!(
+            asm.to_addr(Expr::num(1, 1, -100)),
+            Err(FullAssembleError::OutOfRange {
+                loc: loc!(1, 1, "-100"),
+                range: Addr::range(),
+                given: -100,
+            }));
+        assert_eq!(
+            asm.to_addr(Expr::id(1, 1, "toobig")),
+            Err(FullAssembleError::OutOfRange {
+                loc: loc!(1, 1, "toobig"),
+                range: Addr::range(),
+                given: 0x100000,
+            }));
         assert_eq!(
             asm.to_addr(Expr::id(1, 1, "undefined")),
             Err(FullAssembleError::Undefined {
@@ -343,6 +370,13 @@ mod test {
         assert_eq!(
             asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0xf00)),
             Ok(RelAddr(0x100)));
+        assert_eq!(
+            asm.to_raddr(Expr::num(1, 1, -10), Addr(0)),
+            Err(FullAssembleError::OutOfRange {
+                loc: loc!(1, 1, "-10"),
+                range: Addr::range(),
+                given: -10,
+            }));
         assert_eq!(
             asm.to_raddr(Expr::num(1, 1, 1024), Addr(2048)),
             Err(FullAssembleError::TooFar {
