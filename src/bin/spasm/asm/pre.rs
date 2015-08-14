@@ -8,6 +8,7 @@
 
 use std::ascii::AsciiExt;
 use std::collections::HashMap;
+use std::fmt;
 use std::iter::FromIterator;
 
 use asm::lexer::TextLoc;
@@ -37,9 +38,23 @@ pub enum PreAssembled {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreAssembleError {
-    BadArgumentCount(usize, usize),
+    BadArgumentCount { loc: TextLoc, expected: usize, given: usize },
     DuplicatedLabel(TextLoc, String),
-    UnknownMnemo(String),
+    UnknownMnemo(TextLoc, String),
+}
+
+impl fmt::Display for PreAssembleError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &PreAssembleError::BadArgumentCount { ref loc, expected, given } =>
+                write!(fmt, "{}: expected {} arguments, {} given \n\t{}",
+                    loc, expected, given, loc.txt),
+            &PreAssembleError::DuplicatedLabel(ref loc, ref label) =>
+                write!(fmt, "{}: label {} is duplicated\n\t{}", loc, label, loc.txt),
+            &PreAssembleError::UnknownMnemo(ref loc, ref mnemo) =>
+                write!(fmt, "{}: unknown mnemo {}\n\t{}", loc, mnemo, loc.txt),
+        }
+    }
 }
 
 
@@ -103,7 +118,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         args: &ExprList,
         memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
     {
-        match pre_assemble_inst(&mnemo, &args) {
+        match pre_assemble_inst(&loc, mnemo, args) {
             Ok(inst) => {
                 let base = Addr(*memptr as u16);
                 *memptr += inst.len();
@@ -115,76 +130,93 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
 }
 
 pub fn pre_assemble_inst(
+    loc: &TextLoc,
     mnemo: &str,
     args: &ExprList) -> Result<PreAssembledInst, PreAssembleError>
 {
     match mnemo.to_ascii_lowercase().trim() {
-        "add" => pre_assemble_binary(args, Inst::Add),
-        "adc" => pre_assemble_binary(args, Inst::Adc),
-        "addi" => pre_assemble_binary(args, Inst::Addi),
-        "sub" => pre_assemble_binary(args, Inst::Sub),
-        "sbc" => pre_assemble_binary(args, Inst::Sbc),
-        "subi" => pre_assemble_binary(args, Inst::Subi),
-        "mulw" => pre_assemble_binary(args, Inst::Mulw),
-        "and" => pre_assemble_binary(args, Inst::And),
-        "or" => pre_assemble_binary(args, Inst::Or),
-        "xor" => pre_assemble_binary(args, Inst::Xor),
-        "lsl" => pre_assemble_binary(args, Inst::Lsl),
-        "lsr" => pre_assemble_binary(args, Inst::Lsr),
-        "asr" => pre_assemble_binary(args, Inst::Asr),
-        "not" => pre_assemble_unary(args, Inst::Not),
-        "comp" => pre_assemble_unary(args, Inst::Comp),
-        "inc" => pre_assemble_unary(args, Inst::Inc),
-        "incw" => pre_assemble_unary(args, Inst::Incw),
-        "dec" => pre_assemble_unary(args, Inst::Dec),
-        "decw" => pre_assemble_unary(args, Inst::Decw),
-        "mov" => pre_assemble_binary(args, Inst::Mov),
-        "ld" => pre_assemble_binary(args, Inst::Ld),
-        "st" => pre_assemble_binary(args, Inst::St),
-        "ldd" => pre_assemble_binary(args, Inst::Ldd),
-        "std" => pre_assemble_binary(args, Inst::Std),
-        "ldi" => pre_assemble_binary(args, Inst::Ldi),
-        "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
-        "push" => pre_assemble_unary(args, Inst::Push),
-        "pop" => pre_assemble_unary(args, Inst::Pop),
-        "je" => pre_assemble_unary(args, Inst::Je),
-        "jne" => pre_assemble_unary(args, Inst::Jne),
-        "jl" => pre_assemble_unary(args, Inst::Jl),
-        "jge" => pre_assemble_unary(args, Inst::Jge),
-        "jcc" => pre_assemble_unary(args, Inst::Jcc),
-        "jcs" => pre_assemble_unary(args, Inst::Jcs),
-        "jvc" => pre_assemble_unary(args, Inst::Jvc),
-        "jvs" => pre_assemble_unary(args, Inst::Jvs),
-        "jmp" => pre_assemble_unary(args, Inst::Jmp),
-        "rjmp" => pre_assemble_unary(args, Inst::Rjmp),
-        "ijmp" => pre_assemble_unary(args, Inst::Ijmp),
-        "call" => pre_assemble_unary(args, Inst::Call),
-        "rcall" => pre_assemble_unary(args, Inst::Rcall),
-        "icall" => pre_assemble_unary(args, Inst::Icall),
-        "ret" => pre_assemble_nullary(args, Inst::Ret),
-        "reti" => pre_assemble_nullary(args, Inst::Reti),
-        "nop" => pre_assemble_nullary(args, Inst::Nop),
-        "halt" => pre_assemble_nullary(args, Inst::Halt),
-        _ => Err(PreAssembleError::UnknownMnemo(mnemo.to_string()))
+        "add" => pre_assemble_binary(loc, args, Inst::Add),
+        "adc" => pre_assemble_binary(loc, args, Inst::Adc),
+        "addi" => pre_assemble_binary(loc, args, Inst::Addi),
+        "sub" => pre_assemble_binary(loc, args, Inst::Sub),
+        "sbc" => pre_assemble_binary(loc, args, Inst::Sbc),
+        "subi" => pre_assemble_binary(loc, args, Inst::Subi),
+        "mulw" => pre_assemble_binary(loc, args, Inst::Mulw),
+        "and" => pre_assemble_binary(loc, args, Inst::And),
+        "or" => pre_assemble_binary(loc, args, Inst::Or),
+        "xor" => pre_assemble_binary(loc, args, Inst::Xor),
+        "lsl" => pre_assemble_binary(loc, args, Inst::Lsl),
+        "lsr" => pre_assemble_binary(loc, args, Inst::Lsr),
+        "asr" => pre_assemble_binary(loc, args, Inst::Asr),
+        "not" => pre_assemble_unary(loc, args, Inst::Not),
+        "comp" => pre_assemble_unary(loc, args, Inst::Comp),
+        "inc" => pre_assemble_unary(loc, args, Inst::Inc),
+        "incw" => pre_assemble_unary(loc, args, Inst::Incw),
+        "dec" => pre_assemble_unary(loc, args, Inst::Dec),
+        "decw" => pre_assemble_unary(loc, args, Inst::Decw),
+        "mov" => pre_assemble_binary(loc, args, Inst::Mov),
+        "ld" => pre_assemble_binary(loc, args, Inst::Ld),
+        "st" => pre_assemble_binary(loc, args, Inst::St),
+        "ldd" => pre_assemble_binary(loc, args, Inst::Ldd),
+        "std" => pre_assemble_binary(loc, args, Inst::Std),
+        "ldi" => pre_assemble_binary(loc, args, Inst::Ldi),
+        "ldsp" => pre_assemble_unary(loc, args, Inst::Ldsp),
+        "push" => pre_assemble_unary(loc, args, Inst::Push),
+        "pop" => pre_assemble_unary(loc, args, Inst::Pop),
+        "je" => pre_assemble_unary(loc, args, Inst::Je),
+        "jne" => pre_assemble_unary(loc, args, Inst::Jne),
+        "jl" => pre_assemble_unary(loc, args, Inst::Jl),
+        "jge" => pre_assemble_unary(loc, args, Inst::Jge),
+        "jcc" => pre_assemble_unary(loc, args, Inst::Jcc),
+        "jcs" => pre_assemble_unary(loc, args, Inst::Jcs),
+        "jvc" => pre_assemble_unary(loc, args, Inst::Jvc),
+        "jvs" => pre_assemble_unary(loc, args, Inst::Jvs),
+        "jmp" => pre_assemble_unary(loc, args, Inst::Jmp),
+        "rjmp" => pre_assemble_unary(loc, args, Inst::Rjmp),
+        "ijmp" => pre_assemble_unary(loc, args, Inst::Ijmp),
+        "call" => pre_assemble_unary(loc, args, Inst::Call),
+        "rcall" => pre_assemble_unary(loc, args, Inst::Rcall),
+        "icall" => pre_assemble_unary(loc, args, Inst::Icall),
+        "ret" => pre_assemble_nullary(loc, args, Inst::Ret),
+        "reti" => pre_assemble_nullary(loc, args, Inst::Reti),
+        "nop" => pre_assemble_nullary(loc, args, Inst::Nop),
+        "halt" => pre_assemble_nullary(loc, args, Inst::Halt),
+        _ => Err(PreAssembleError::UnknownMnemo(loc.clone(), mnemo.to_string()))
     }
 }
 
-fn pre_assemble_nullary(args: &ExprList, inst: PreAssembledInst) -> Result<PreAssembledInst, PreAssembleError> {
-    if args.len() != 0 { Err(PreAssembleError::BadArgumentCount(0, args.len())) }
+fn pre_assemble_nullary(
+    loc: &TextLoc,
+    args: &ExprList,
+    inst: PreAssembledInst) -> Result<PreAssembledInst, PreAssembleError>
+{
+    if args.len() != 0 {
+        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 0, given: args.len() })
+    }
     else { Ok(inst) }
 }
 
-fn pre_assemble_unary<F>(args: &ExprList, inst: F) -> Result<PreAssembledInst, PreAssembleError>
-    where F: FnOnce(Expr) -> PreAssembledInst
+fn pre_assemble_unary<F>(
+    loc: &TextLoc,
+    args: &ExprList,
+    inst: F) -> Result<PreAssembledInst, PreAssembleError> where
+    F: FnOnce(Expr) -> PreAssembledInst
 {
-    if args.len() != 1 { Err(PreAssembleError::BadArgumentCount(1, args.len())) }
+    if args.len() != 1 {
+        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 1, given: args.len() })
+    }
     else { Ok(inst(args[0].clone())) }
 }
 
-fn pre_assemble_binary<F>(args: &ExprList, inst: F) -> Result<PreAssembledInst, PreAssembleError>
-    where F: FnOnce(Expr, Expr) -> PreAssembledInst
+fn pre_assemble_binary<F>(
+    loc: &TextLoc,
+    args: &ExprList,
+    inst: F) -> Result<PreAssembledInst, PreAssembleError> where
+    F: FnOnce(Expr, Expr) -> PreAssembledInst
 {
-    if args.len() != 2 { Err(PreAssembleError::BadArgumentCount(2, args.len())) }
+    if args.len() != 2 {
+        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 2, given: args.len() })
+    }
     else { Ok(inst(args[0].clone(), args[1].clone())) }
 }
 
@@ -426,60 +458,84 @@ mod test {
     #[test]
     fn should_fail_pre_assemble_with_unknown_mnemo() {
         assert_eq!(
-            pre_assemble_inst("foobar", &exprlist!()),
-            Err(PreAssembleError::UnknownMnemo("foobar".to_string())));
+            pre_assemble_inst(&loc!(1, 1, "foo"), "foobar", &exprlist!()),
+            Err(PreAssembleError::UnknownMnemo(loc!(1, 1, "foo"), "foobar".to_string())));
     }
 
     fn should_pre_assemble_nullary_inst(mnemo: &str, inst: PreAssembledInst) {
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!()),
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
             Ok(inst));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0))),
-            Err(PreAssembleError::BadArgumentCount(0, 1)));
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 0,
+                given: 1
+            }));
     }
 
     fn should_pre_assemble_unary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0))),
             Ok(inst(
                 Expr::reg(1, 5, Reg::R0))));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!()),
-            Err(PreAssembleError::BadArgumentCount(1, 0)));
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 1,
+                given: 0
+            }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0),
                 Expr::reg(1, 9, Reg::R1))),
-            Err(PreAssembleError::BadArgumentCount(1, 2)));
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 1,
+                given: 2
+            }));
     }
 
     fn should_pre_assemble_binary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr, Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0),
                 Expr::reg(1, 9, Reg::R1))),
             Ok(inst(
                 Expr::reg(1, 5, Reg::R0),
                 Expr::reg(1, 9, Reg::R1))));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!()),
-            Err(PreAssembleError::BadArgumentCount(2, 0)));
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 2,
+                given: 0
+            }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0))),
-            Err(PreAssembleError::BadArgumentCount(2, 1)));
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 2,
+                given: 1
+            }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &exprlist!(
+            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
                 Expr::reg(1, 5, Reg::R0),
                 Expr::reg(1, 9, Reg::R1),
                 Expr::reg(1, 13, Reg::R2))),
-            Err(PreAssembleError::BadArgumentCount(2, 3)));
+            Err(PreAssembleError::BadArgumentCount {
+                loc: loc!(1, 1, "foo"),
+                expected: 2,
+                given: 3
+            }));
     }
 }

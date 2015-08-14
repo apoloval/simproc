@@ -35,6 +35,11 @@ impl Addr {
         if n < u16::MIN as i64 || n > u16::MAX as i64 { None }
         else { Some(Addr(n as u16)) }
     }
+
+    pub fn to_u16(&self) -> u16 {
+        let &Addr(n) = self;
+        n
+    }
 }
 
 impl Sub for Addr {

@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::fmt;
 use std::ops::Range;
 
 use simproc::inst::*;
@@ -26,6 +27,25 @@ pub enum FullAssembleError {
     Undefined { loc: TextLoc, symbol: String },
     TooFar { loc: TextLoc, from: Addr, to: Addr },
     OutOfRange { loc: TextLoc, range: Range<i64>, given: i64 },
+}
+
+impl fmt::Display for FullAssembleError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &FullAssembleError::Pre(ref error) =>
+                write!(fmt, "{}", error),
+            &FullAssembleError::TypeMismatch { ref loc, ref expected } =>
+                write!(fmt, "{}: type mismatch ({} expected)\n\t{}", loc, expected, loc.txt),
+            &FullAssembleError::Undefined { ref loc, ref symbol } =>
+                write!(fmt, "{}: '{}' is undefined\n\t{}", loc, symbol, loc.txt),
+            &FullAssembleError::TooFar { ref loc, from, to } =>
+                write!(fmt, "{}: '0x{:x}' is too far from base address 0x{:x}\n\t{}",
+                    loc, to.to_u16(), from.to_u16(), loc.txt),
+            &FullAssembleError::OutOfRange { ref loc, ref range, given } =>
+                write!(fmt, "{}: '{}' is out of expected range [{}, {}]\n\t{}",
+                    loc, given, range.start, range.end, loc.txt),
+        }
+    }
 }
 
 pub type FullAssemblerInput = PreAssemblerOutput;
@@ -627,7 +647,7 @@ mod test {
                 base_addr: Addr(0x100),
                 inst: Inst::Nop,
             }),
-            Err(PreAssembleError::UnknownMnemo("foobar".to_string())),
+            Err(PreAssembleError::UnknownMnemo(loc!(1, 1, "foobar"), "foobar".to_string())),
         ];
         let symbols = SymbolTable::new();
         let mut full = FullAssembler::from(input, &symbols);
@@ -637,7 +657,7 @@ mod test {
             inst: Inst::Nop,
         })));
         assert_eq!(full.next(), Some(Err(FullAssembleError::Pre(
-            PreAssembleError::UnknownMnemo("foobar".to_string())))));
+            PreAssembleError::UnknownMnemo(loc!(1, 1, "foobar"), "foobar".to_string())))));
     }
 
     struct MockExprAssembler {
