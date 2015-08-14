@@ -33,6 +33,7 @@ pub type PreAssembledInst = Inst<PreAssembledOperands>;
 
 #[derive(Debug, PartialEq)]
 pub enum PreAssembled {
+    Empty { loc: TextLoc, base_addr: Addr },
     Inst { loc: TextLoc, base_addr: Addr, inst: PreAssembledInst },
 }
 
@@ -82,6 +83,14 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         let mut memptr: usize = 0;
         for entry in self.input {
             match entry {
+                Ok(Statement::Empty(loc, lab)) => {
+                    let lab_decl = Self::decl_label(loc, lab, symbols, memptr);
+                    let empty = |loc| Ok(PreAssembled::Empty {
+                        loc: loc,
+                        base_addr: Addr(memptr as u16)
+                    });
+                    output.push(lab_decl.and_then(empty));
+                },
                 Ok(Statement::Mnemo(loc, lab, mnemo, args)) => {
                     let lab_decl = Self::decl_label(loc, lab, symbols, memptr);
                     let pre_asm = |loc| Self::pre_assemble_inst(loc, &mnemo, &args, &mut memptr);
@@ -285,13 +294,9 @@ mod test {
     }
 
     #[test]
-    fn should_pre_assemble_insts() {
+    fn should_pre_assemble_program() {
         let lines = vec![
-            Ok(Statement::Mnemo(
-                loc!(1, 1, "nop"),
-                None,
-                "nop".to_string(),
-                exprlist![])),
+            Ok(Statement::Empty(loc!(1, 1, ""), None)),
             Ok(Statement::Mnemo(
                 loc!(2, 1, "halt"),
                 None,
@@ -303,16 +308,15 @@ mod test {
         let result: Vec<PreAssemblerOutput> = pre.pre_assemble(&mut symbols);
         assert_eq!(
             result[0],
-            Ok(PreAssembled::Inst {
-                loc: loc!(1, 1, "nop"),
+            Ok(PreAssembled::Empty {
+                loc: loc!(1, 1, ""),
                 base_addr: Addr(0),
-                inst: Inst::Nop
             }));
         assert_eq!(
             result[1],
             Ok(PreAssembled::Inst {
                 loc: loc!(2, 1, "halt"),
-                base_addr: Addr(1),
+                base_addr: Addr(0),
                 inst: Inst::Halt
             }));
     }

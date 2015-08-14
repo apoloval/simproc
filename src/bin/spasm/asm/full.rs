@@ -17,6 +17,7 @@ use asm::pre::*;
 
 #[derive(Debug, PartialEq)]
 pub enum FullAssembled {
+    Empty { loc: TextLoc, base_addr: Addr },
     Inst { loc: TextLoc, base_addr: Addr, inst: RuntimeInst },
 }
 
@@ -75,6 +76,11 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 
     fn next(&mut self) -> Option<FullAssemblerOutput> {
         match self.input.next() {
+            Some(Ok(PreAssembled::Empty { loc, base_addr })) => {
+                Some(Ok(FullAssembled::Empty {
+                    loc: loc, base_addr: base_addr,
+                }))
+            },
             Some(Ok(PreAssembled::Inst { loc, base_addr, inst, .. })) => {
                 Some(self.inst_asm.assemble(inst, base_addr).map(|i| FullAssembled::Inst {
                     loc: loc, base_addr: base_addr, inst: i,
@@ -642,6 +648,10 @@ mod test {
     #[test]
     fn should_assemble_non_empty() {
         let input = vec![
+            Ok(PreAssembled::Empty {
+                loc: loc!(1, 1, ""),
+                base_addr: Addr(0x100),
+            }),
             Ok(PreAssembled::Inst {
                 loc: loc!(1, 1, "nop"),
                 base_addr: Addr(0x100),
@@ -651,6 +661,10 @@ mod test {
         ];
         let symbols = SymbolTable::new();
         let mut full = FullAssembler::from(input, &symbols);
+        assert_eq!(full.next(), Some(Ok(FullAssembled::Empty {
+            loc: loc!(1, 1, ""),
+            base_addr: Addr(0x100),
+        })));
         assert_eq!(full.next(), Some(Ok(FullAssembled::Inst {
             loc: loc!(1, 1, "nop"),
             base_addr: Addr(0x100),

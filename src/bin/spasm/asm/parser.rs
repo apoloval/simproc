@@ -128,9 +128,9 @@ type MnemoArgs = ExprList;
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
+    Empty(TextLoc, Label),
 	Direct(TextLoc, Label, DirectName, DirectArgs),
 	Mnemo(TextLoc, Label, MnemoName, MnemoArgs),
-	Empty(TextLoc, Label),
 }
 
 impl TextLocate for Statement {

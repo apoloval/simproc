@@ -66,6 +66,9 @@ fn write_errors(asm: Assembly) {
 fn write_as_text(asm: Assembly) {
     for c in asm.code() {
         match c {
+            &FullAssembled::Empty { ref loc, ref base_addr } => {
+                println!("0x{:04x} :           {}", base_addr.to_u16(), loc.txt);
+            },
             &FullAssembled::Inst { ref loc, ref base_addr, ref inst } => {
                 let mut buff: Vec<u8> = Vec::new();
                 let nbytes = inst.encode(&mut buff).unwrap();
@@ -92,6 +95,7 @@ fn write_as_bin(asm: Assembly, output_file: &str) {
             &FullAssembled::Inst { loc: _, base_addr: _, ref inst } => {
                 inst.encode(&mut output).ok();
             },
+            _ => {},
         }
     }
 }
