@@ -33,3 +33,5 @@ mod new_parser;
 
 mod full;
 mod pre;
+
+mod new_assembler;
