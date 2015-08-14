@@ -12,7 +12,7 @@ use std::fmt;
 use std::iter::FromIterator;
 
 use asm::lexer::TextLoc;
-use asm::new_parser::*;
+use asm::parser::*;
 
 use simproc::inst::*;
 
@@ -226,7 +226,7 @@ mod test {
     use simproc::inst::*;
 
     use asm::lexer::*;
-    use asm::new_parser::*;
+    use asm::parser::*;
 
     use super::*;
 

@@ -12,7 +12,7 @@ use std::ops::Range;
 use simproc::inst::*;
 
 use asm::lexer::*;
-use asm::new_parser::Expr;
+use asm::parser::Expr;
 use asm::pre::*;
 
 #[derive(Debug, PartialEq)]
@@ -332,7 +332,7 @@ mod test {
     use simproc::inst::*;
 
     use asm::lexer::TextLoc;
-    use asm::new_parser::Expr;
+    use asm::parser::Expr;
     use asm::pre::*;
 
     use super::*;

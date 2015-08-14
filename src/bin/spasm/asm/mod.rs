@@ -10,13 +10,13 @@
 mod lexer;
 
 #[macro_use]
-mod new_parser;
+mod parser;
 
 mod full;
 pub use self::full::*;
 
 mod pre;
 
-mod new_assembler;
-pub use self::new_assembler::*;
+mod assembler;
+pub use self::assembler::*;
 

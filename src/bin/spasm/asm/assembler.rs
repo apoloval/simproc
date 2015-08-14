@@ -11,7 +11,7 @@ use std::slice;
 
 use asm::full::*;
 use asm::lexer::*;
-use asm::new_parser::*;
+use asm::parser::*;
 use asm::pre::*;
 
 pub type AssemblerInput = ScannerInput;
