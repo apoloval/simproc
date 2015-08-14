@@ -19,72 +19,79 @@ extern crate quickcheck;
 mod args;
 mod asm;
 
+use std::char;
 use std::fs::File;
-use std::io::stdout;
+use std::io::Read;
 
-use asm::{AssemblyError, RuntimeAssembly};
-use asm::assembler::Assembler;
+use asm::*;
+
+use simproc::inst::*;
 
 #[allow(dead_code)]
 fn main() {
     let args = args::parse_args();
-    let asm = match args.action() {
-        args::Action::Version => {
-            println!("SimProc Assembler version 0.1.0");
-            println!("Copyright (C) 2015 Alvaro Polo");
-            println!("");
+    if args.action() == args::Action::Version {
+        println!("SimProc Assembler version 0.1.0");
+        println!("Copyright (C) 2015 Alvaro Polo");
+        println!("");
+        return;
+    }
+
+    let filename = &args.input_file();
+    let file = match File::open(filename) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("Error: couldn't read '{}': {}", filename, e);
             return;
         },
-        _ => {
-            match assemble(&args.input_file()) {
-                Some(asm) => asm,
-                None => { return; },
-            }
-        },
     };
-    match args.action() {
-        args::Action::Text => { write_as_text(&asm); },
-        args::Action::Bin => { write_as_bin(&asm, &args.output_file().unwrap()); },
-        _ => {},
+    let chars = file.bytes().map(|b| char::from_u32(b.ok().unwrap() as u32).unwrap());
+    let asm = Assembly::assemble(chars);
+    if asm.has_errors() { write_errors(asm) }
+    else {
+        match args.action() {
+            args::Action::Text => { write_as_text(asm); },
+            args::Action::Bin => { write_as_bin(asm, &args.output_file().unwrap()); },
+            _ => {},
+        }
     }
 }
 
 #[allow(dead_code)]
-fn assemble(input: &String) -> Option<RuntimeAssembly> {
-    let asmblr = Assembler::new();
-    match asmblr.assemble_file(&input) {
-        Ok(asm) => Some(asm),
-        Err(AssemblyError::BadProgram(ref errors)) => {
-            println!("Assembled with {} errors:", errors.len());
-            for e in errors.iter() { println!("\t{}", e); }
-            None
-        },
-        Err(AssemblyError::Io(ref e)) =>  {
-            println!("{}", e);
-            None
-        },
+fn write_errors(asm: Assembly) {
+    for e in asm.errors() { println!("{}", e); }
+}
+
+#[allow(dead_code)]
+fn write_as_text(asm: Assembly) {
+    for c in asm.code() {
+        match c {
+            &FullAssembled::Inst { ref loc, ref base_addr, ref inst } => {
+                let mut buff: Vec<u8> = Vec::new();
+                let nbytes = inst.encode(&mut buff).unwrap();
+                print!("0x{:04x} : ", base_addr.to_u16());
+                for b in buff.iter() { print!("{:02x} ", b); }
+                for _ in 0..(10 - 3*nbytes) { print!(" "); }
+                println!("{}", loc.txt);
+            },
+        }
     }
 }
 
 #[allow(dead_code)]
-fn write_as_text(asm: &RuntimeAssembly) {
-    match asm.write_as_text(&mut stdout()) {
-        Ok(_) => {},
-        Err(e) => { println!("Unexpected error while writing output: {}", e); },
-    };
-}
-
-#[allow(dead_code)]
-fn write_as_bin(asm: &RuntimeAssembly, output_file: &str) {
+fn write_as_bin(asm: Assembly, output_file: &str) {
     let mut output = match File::create(output_file) {
         Ok(f) => f,
         Err(e) => {
-            println!("Unexpected error while opening output: {}", e);
+            println!("Error: couldn't open '{}' for writing: {}", output_file, e);
             return;
         },
     };
-    match asm.write_as_bin(&mut output) {
-        Ok(_) => {},
-        Err(e) => { println!("Unexpected error while writing output: {}", e); },
-    };
+    for c in asm.code() {
+        match c {
+            &FullAssembled::Inst { loc: _, base_addr: _, ref inst } => {
+                inst.encode(&mut output).ok();
+            },
+        }
+    }
 }
