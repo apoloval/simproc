@@ -21,7 +21,7 @@ mod asm;
 
 use std::char;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use asm::*;
 
@@ -67,14 +67,20 @@ fn write_as_text(asm: Assembly) {
     for c in asm.code() {
         match c {
             &FullAssembled::Empty { ref line, ref base_addr } => {
-                println!("0x{:04x} :           {}", base_addr.to_u16(), line.content);
+                println!("0x{:04x} :              {}", base_addr.to_u16(), line.content);
             },
             &FullAssembled::Inst { ref line, ref base_addr, ref inst } => {
                 let mut buff: Vec<u8> = Vec::new();
                 let nbytes = inst.encode(&mut buff).unwrap();
                 print!("0x{:04x} : ", base_addr.to_u16());
                 for b in buff.iter() { print!("{:02x} ", b); }
-                for _ in 0..(10 - 3*nbytes) { print!(" "); }
+                for _ in 0..(13 - 3*nbytes) { print!(" "); }
+                println!("{}", line.content);
+            },
+            &FullAssembled::Data { ref line, ref base_addr, ref data } => {
+                print!("0x{:04x} : ", base_addr.to_u16());
+                for b in data { print!("{:02x} ", b); }
+                for _ in 0..(13 - 3*data.len()) { print!(" "); }
                 println!("{}", line.content);
             },
         }
@@ -94,6 +100,9 @@ fn write_as_bin(asm: Assembly, output_file: &str) {
         match c {
             &FullAssembled::Inst { line: _, base_addr: _, ref inst } => {
                 inst.encode(&mut output).ok();
+            },
+            &FullAssembled::Data { line: _, base_addr: _, ref data } => {
+                output.write(data).ok();
             },
             _ => {},
         }

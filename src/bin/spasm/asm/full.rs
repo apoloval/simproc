@@ -11,6 +11,7 @@ use std::ops::Range;
 
 use simproc::inst::*;
 
+use asm::data::*;
 use asm::lexer::*;
 use asm::parser::Expr;
 use asm::pre::*;
@@ -20,10 +21,12 @@ use asm::symbol::*;
 pub enum FullAssembled {
     Empty { line: Line, base_addr: Addr },
     Inst { line: Line, base_addr: Addr, inst: RuntimeInst },
+    Data { line: Line, base_addr: Addr, data: RuntimeData },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum FullAssembleError {
+    Data { line: Line, error: DataAssemblyError },
     Pre(PreAssembleError),
     Expr { line: Line, error: ExprAssembleError },
 }
@@ -31,6 +34,8 @@ pub enum FullAssembleError {
 impl fmt::Display for FullAssembleError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
+            &FullAssembleError::Data { ref line, ref error } =>
+                write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
             &FullAssembleError::Pre(ref error) => write!(fmt, "{}", error),
             &FullAssembleError::Expr { ref line, ref error } =>
                 write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
@@ -69,6 +74,7 @@ pub type FullAssemblerOutput = Result<FullAssembled, FullAssembleError>;
 pub struct FullAssembler<'a, I: Iterator<Item=FullAssemblerInput>> {
     input: I,
     inst_asm: StdInstAssembler<'a>,
+    symbols: &'a SymbolTable,
 }
 
 impl<'a, I: Iterator<Item=FullAssemblerInput>> FullAssembler<'a, I> {
@@ -80,6 +86,7 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> FullAssembler<'a, I> {
             input: pre.into_iter(),
             inst_asm: StdInstAssembler::from_expr_asm(
                 StdExprAssembler::from_symbols(symbols)),
+            symbols: symbols,
         }
     }
 }
@@ -104,7 +111,16 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
                 })
             },
             Some(Ok(PreAssembled::Data { line, base_addr, data })) => {
-                unimplemented!()
+                match data.full_assemble(self.symbols) {
+                    Ok(rtdata) =>
+                        Some(Ok(FullAssembled::Data {
+                            line: line, base_addr: base_addr, data: rtdata
+                        })),
+                    Err(e) =>
+                        Some(Err(FullAssembleError::Data {
+                            line: line, error: e,
+                        })),
+                }
             },
             Some(Err(e)) => Some(Err(FullAssembleError::Pre(e))),
             None => None,
@@ -343,6 +359,7 @@ mod test {
 
     use simproc::inst::*;
 
+    use asm::data::*;
     use asm::parser::Expr;
     use asm::pre::*;
     use asm::symbol::*;
@@ -634,7 +651,12 @@ mod test {
                 base_addr: Addr(0x100),
                 inst: Inst::Nop,
             }),
-            Err(PreAssembleError::DuplicatedLabel(sline!(3, "foobar"), "foobar".to_string())),
+            Ok(PreAssembled::Data {
+                line: sline!(3, ".db 1, 2"),
+                base_addr: Addr(0x200),
+                data: pdata!(DataSize::Byte, Expr::Number(1), Expr::Number(2)),
+            }),
+            Err(PreAssembleError::DuplicatedLabel(sline!(4, "foobar"), "foobar".to_string())),
         ];
         let symbols = SymbolTable::new();
         let mut full = FullAssembler::from(input, &symbols);
@@ -647,8 +669,13 @@ mod test {
             base_addr: Addr(0x100),
             inst: Inst::Nop,
         })));
+        assert_eq!(full.next(), Some(Ok(FullAssembled::Data {
+            line: sline!(3, ".db 1, 2"),
+            base_addr: Addr(0x200),
+            data: vec![1, 2],
+        })));
         assert_eq!(full.next(), Some(Err(FullAssembleError::Pre(
-            PreAssembleError::DuplicatedLabel(sline!(3, "foobar"), "foobar".to_string())))));
+            PreAssembleError::DuplicatedLabel(sline!(4, "foobar"), "foobar".to_string())))));
     }
 
     struct MockExprAssembler {

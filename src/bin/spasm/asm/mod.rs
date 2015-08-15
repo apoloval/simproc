@@ -15,8 +15,10 @@ mod parser;
 #[macro_use]
 mod symbol; pub use self::symbol::*;
 
-mod assembler; pub use self::assembler::*;
+#[macro_use]
 mod data;
+
+mod assembler; pub use self::assembler::*;
 mod full; pub use self::full::*;
 mod number;
 mod pre;

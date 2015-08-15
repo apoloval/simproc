@@ -6,12 +6,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::fmt;
+
 use asm::number::*;
 use asm::parser::{Expr, ExprList};
 use asm::symbol::*;
 
 #[derive(Debug, PartialEq)]
 pub enum DataSize { Byte }
+
+impl fmt::Display for DataSize {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &DataSize::Byte => write!(fmt, "byte"),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub struct PreAssembledData {
@@ -35,6 +45,19 @@ pub enum DataAssemblyError {
     Overflow { expected: DataSize, given: i64 },
     TypeMismatch { given: Expr },
     Undefined(String),
+}
+
+impl fmt::Display for DataAssemblyError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &DataAssemblyError::Overflow { ref expected, given } =>
+                write!(fmt, "data overflow in {} (expected {} value)", given, expected),
+            &DataAssemblyError::TypeMismatch { ref given } =>
+                write!(fmt, "type mismatch in {:?}", given),
+            &DataAssemblyError::Undefined(ref symbol) =>
+                write!(fmt, "{} is undefined", symbol),
+        }
+    }
 }
 
 impl PreAssembledData {
