@@ -118,8 +118,8 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
     fn next_expr_from(&mut self, tk: Token) -> Result<Expr, SyntaxError> {
     	match tk {
-            Token::AddrRegister(reg) => Ok(Expr::AddrReg(reg)),
-    		Token::Register(reg) => Ok(Expr::Reg(reg)),
+            Token::AddrReg(reg) => Ok(Expr::AddrReg(reg)),
+    		Token::Reg(reg) => Ok(Expr::Reg(reg)),
     		Token::Number(n) => Ok(Expr::Number(n)),
             Token::Ident(id) => Ok(Expr::Ident(id)),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
@@ -180,7 +180,7 @@ mod test {
     fn should_parse_unary_mnemo() {
     	let input = vec![
     		ident!("push"),
-    		Token::Register(Reg::R0),
+    		Token::Reg(Reg::R0),
     		eol!(1, "push R0"),
     	];
     	let mut parser = Parser::parse(input);
@@ -198,9 +198,9 @@ mod test {
     fn should_parse_binary_mnemo() {
     	let input = vec![
     		ident!("add"),
-    		Token::Register(Reg::R0),
+    		Token::Reg(Reg::R0),
     		Token::Comma,
-    		Token::Register(Reg::R1),
+    		Token::Reg(Reg::R1),
     		eol!(1, "add R0, R1"),
     	];
     	let mut parser = Parser::parse(input);

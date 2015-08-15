@@ -37,7 +37,7 @@ impl Line {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    AddrRegister(AddrReg),
+    AddrReg(AddrReg),
     Colon,
     Comma,
     Direct(String),
@@ -45,7 +45,7 @@ pub enum Token {
     Ident(String),
     Minus,
     Number(i64),
-    Register(Reg),
+    Reg(Reg),
     Unknown(String),
 }
 
@@ -204,8 +204,8 @@ impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
             },
             'a' ... 'z' | 'A' ... 'Z' | '_' => {
                 let scanned = self.take_while_id();
-                Self::to_reg(&scanned).map(|r| Token::Register(r))
-                    .or_else(|| Self::to_addr_reg(&scanned).map(|r| Token::AddrRegister(r)))
+                Self::to_reg(&scanned).map(|r| Token::Reg(r))
+                    .or_else(|| Self::to_addr_reg(&scanned).map(|r| Token::AddrReg(r)))
                     .or_else(|| Some(Token::Ident(scanned)))
             },
             '.' => {
@@ -288,8 +288,8 @@ mod test {
     #[test]
     fn should_scan_register() {
         let mut scanner = Scanner::scan("r0 R0".chars());
-        assert_eq!(Some(Token::Register(Reg::R0)), scanner.next());
-        assert_eq!(Some(Token::Register(Reg::R0)), scanner.next());
+        assert_eq!(Some(Token::Reg(Reg::R0)), scanner.next());
+        assert_eq!(Some(Token::Reg(Reg::R0)), scanner.next());
         assert_eq!(Some(Token::Eol(sline!(1, "r0 R0"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
@@ -297,8 +297,8 @@ mod test {
     #[test]
     fn should_scan_addr_register() {
         let mut scanner = Scanner::scan("a0 A0".chars());
-        assert_eq!(Some(Token::AddrRegister(AddrReg::A0)), scanner.next());
-        assert_eq!(Some(Token::AddrRegister(AddrReg::A0)), scanner.next());
+        assert_eq!(Some(Token::AddrReg(AddrReg::A0)), scanner.next());
+        assert_eq!(Some(Token::AddrReg(AddrReg::A0)), scanner.next());
         assert_eq!(Some(Token::Eol(sline!(1, "a0 A0"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
