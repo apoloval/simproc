@@ -13,6 +13,7 @@ use asm::full::*;
 use asm::lexer::*;
 use asm::parser::*;
 use asm::pre::*;
+use asm::symbol::*;
 
 pub type AssemblerInput = ScannerInput;
 pub type AssemblerOutput = FullAssemblerOutput;

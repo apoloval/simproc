@@ -7,16 +7,15 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
-use std::collections::HashMap;
 use std::fmt;
 use std::iter::FromIterator;
 
+use asm::data::*;
 use asm::lexer::Line;
 use asm::parser::*;
+use asm::symbol::*;
 
 use simproc::inst::*;
-
-pub type SymbolTable = HashMap<String, i64>;
 
 #[derive(Debug, PartialEq)]
 pub struct PreAssembledOperands;
@@ -35,15 +34,6 @@ pub type PreAssembledInst = Inst<PreAssembledOperands>;
 pub enum Direct {
     Org(Addr),
     Db(ExprList),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DataSize { Byte }
-
-#[derive(Debug, PartialEq)]
-pub struct PreAssembledData {
-    size: DataSize,
-    content: ExprList,
 }
 
 #[derive(Debug, PartialEq)]
@@ -356,7 +346,9 @@ mod test {
 
     use simproc::inst::*;
 
+    use asm::data::*;
     use asm::parser::*;
+    use asm::symbol::*;
 
     use super::*;
 

@@ -6,17 +6,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#[macro_use]
-mod lexer;
+use std::collections::HashMap;
 
-#[macro_use]
-mod parser;
+pub type SymbolTable = HashMap<String, i64>;
 
-#[macro_use]
-mod symbol; pub use self::symbol::*;
-
-mod assembler; pub use self::assembler::*;
-mod data;
-mod full; pub use self::full::*;
-mod number;
-mod pre;
+macro_rules! symbols {
+	($($k:expr => $v:expr),*) => ({
+		let mut symbols = $crate::asm::symbol::SymbolTable::new();
+		$(
+			symbols.insert($k.to_string(), $v);
+		)*
+		symbols
+	});
+}

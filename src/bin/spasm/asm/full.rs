@@ -14,6 +14,7 @@ use simproc::inst::*;
 use asm::lexer::*;
 use asm::parser::Expr;
 use asm::pre::*;
+use asm::symbol::*;
 
 #[derive(Debug, PartialEq)]
 pub enum FullAssembled {
@@ -344,6 +345,7 @@ mod test {
 
     use asm::parser::Expr;
     use asm::pre::*;
+    use asm::symbol::*;
 
     use super::*;
 
