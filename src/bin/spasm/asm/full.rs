@@ -17,34 +17,47 @@ use asm::pre::*;
 
 #[derive(Debug, PartialEq)]
 pub enum FullAssembled {
-    Empty { loc: TextLoc, base_addr: Addr },
-    Inst { loc: TextLoc, base_addr: Addr, inst: RuntimeInst },
+    Empty { line: Line, base_addr: Addr },
+    Inst { line: Line, base_addr: Addr, inst: RuntimeInst },
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FullAssembleError {
     Pre(PreAssembleError),
-    TypeMismatch { loc: TextLoc, expected: String },
-    Undefined { loc: TextLoc, symbol: String },
-    TooFar { loc: TextLoc, from: Addr, to: Addr },
-    OutOfRange { loc: TextLoc, range: Range<i64>, given: i64 },
+    Expr { line: Line, error: ExprAssembleError },
 }
 
 impl fmt::Display for FullAssembleError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &FullAssembleError::Pre(ref error) =>
-                write!(fmt, "{}", error),
-            &FullAssembleError::TypeMismatch { ref loc, ref expected } =>
-                write!(fmt, "{}: type mismatch ({} expected)\n\t{}", loc, expected, loc.txt),
-            &FullAssembleError::Undefined { ref loc, ref symbol } =>
-                write!(fmt, "{}: '{}' is undefined\n\t{}", loc, symbol, loc.txt),
-            &FullAssembleError::TooFar { ref loc, from, to } =>
-                write!(fmt, "{}: '0x{:x}' is too far from base address 0x{:x}\n\t{}",
-                    loc, to.to_u16(), from.to_u16(), loc.txt),
-            &FullAssembleError::OutOfRange { ref loc, ref range, given } =>
-                write!(fmt, "{}: '{}' is out of expected range [{}, {}]\n\t{}",
-                    loc, given, range.start, range.end, loc.txt),
+            &FullAssembleError::Pre(ref error) => write!(fmt, "{}", error),
+            &FullAssembleError::Expr { ref line, ref error } =>
+                write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExprAssembleError {
+    TypeMismatch { expected: String },
+    Undefined { symbol: String },
+    TooFar { from: Addr, to: Addr },
+    OutOfRange { range: Range<i64>, given: i64 },
+}
+
+impl fmt::Display for ExprAssembleError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &ExprAssembleError::TypeMismatch { ref expected } =>
+                write!(fmt, "type mismatch ({} expected)", expected),
+            &ExprAssembleError::Undefined { ref symbol } =>
+                write!(fmt, "'{}' is undefined", symbol),
+            &ExprAssembleError::TooFar { from, to } =>
+                write!(fmt, "'0x{:x}' is too far from base address 0x{:x}",
+                    to.to_u16(), from.to_u16()),
+            &ExprAssembleError::OutOfRange { ref range, given } =>
+                write!(fmt, "'{}' is out of expected range [{}, {}]",
+                    given, range.start, range.end),
         }
     }
 }
@@ -76,15 +89,18 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 
     fn next(&mut self) -> Option<FullAssemblerOutput> {
         match self.input.next() {
-            Some(Ok(PreAssembled::Empty { loc, base_addr })) => {
+            Some(Ok(PreAssembled::Empty { line, base_addr })) => {
                 Some(Ok(FullAssembled::Empty {
-                    loc: loc, base_addr: base_addr,
+                    line: line, base_addr: base_addr,
                 }))
             },
-            Some(Ok(PreAssembled::Inst { loc, base_addr, inst, .. })) => {
-                Some(self.inst_asm.assemble(inst, base_addr).map(|i| FullAssembled::Inst {
-                    loc: loc, base_addr: base_addr, inst: i,
-                }))
+            Some(Ok(PreAssembled::Inst { line, base_addr, inst, .. })) => {
+                Some(match self.inst_asm.assemble(inst, base_addr) {
+                    Ok(inst) => Ok(FullAssembled::Inst {
+                        line: line, base_addr: base_addr, inst: inst
+                    }),
+                    Err(e) => Err(FullAssembleError::Expr { line: line, error: e }),
+                })
             },
             Some(Err(e)) => Some(Err(FullAssembleError::Pre(e))),
             None => None,
@@ -93,11 +109,11 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 }
 
 pub trait ExprAssembler {
-    fn to_reg(&mut self, e: Expr) -> Result<Reg, FullAssembleError>;
-    fn to_areg(&mut self, e: Expr) -> Result<AddrReg, FullAssembleError>;
-    fn to_immediate(&mut self, e: Expr) -> Result<Immediate, FullAssembleError>;
-    fn to_addr(&mut self, e: Expr) -> Result<Addr, FullAssembleError>;
-    fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, FullAssembleError>;
+    fn to_reg(&mut self, e: Expr) -> Result<Reg, ExprAssembleError>;
+    fn to_areg(&mut self, e: Expr) -> Result<AddrReg, ExprAssembleError>;
+    fn to_immediate(&mut self, e: Expr) -> Result<Immediate, ExprAssembleError>;
+    fn to_addr(&mut self, e: Expr) -> Result<Addr, ExprAssembleError>;
+    fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, ExprAssembleError>;
 }
 
 pub struct InstAssembler<E: ExprAssembler> {
@@ -114,7 +130,7 @@ impl<E: ExprAssembler> InstAssembler<E> {
 
     pub fn assemble(
         &mut self,
-        inst: PreAssembledInst, base: Addr) -> Result<RuntimeInst, FullAssembleError>
+        inst: PreAssembledInst, base: Addr) -> Result<RuntimeInst, ExprAssembleError>
     {
         match inst {
             Inst::Add(r1, r2) =>
@@ -228,86 +244,75 @@ impl<'a> StdExprAssembler<'a> {
 
 impl<'a> ExprAssembler for StdExprAssembler<'a> {
 
-    fn to_reg(&mut self, e: Expr) -> Result<Reg, FullAssembleError> {
+    fn to_reg(&mut self, e: Expr) -> Result<Reg, ExprAssembleError> {
         match e {
-            Expr::Reg(_, reg) => Ok(reg),
-            e => Err(FullAssembleError::TypeMismatch {
-                loc: e.loc().clone(),
+            Expr::Reg(reg) => Ok(reg),
+            _ => Err(ExprAssembleError::TypeMismatch {
                 expected: "register name".to_string()
             })
         }
     }
 
-    fn to_areg(&mut self, e: Expr) -> Result<AddrReg, FullAssembleError> {
+    fn to_areg(&mut self, e: Expr) -> Result<AddrReg, ExprAssembleError> {
         match e {
-            Expr::AddrReg(_, reg) => Ok(reg),
-            e => Err(FullAssembleError::TypeMismatch {
-                loc: e.loc().clone(),
+            Expr::AddrReg(reg) => Ok(reg),
+            _ => Err(ExprAssembleError::TypeMismatch {
                 expected: "address register name".to_string()
             })
         }
     }
 
-    fn to_immediate(&mut self, e: Expr) -> Result<Immediate, FullAssembleError> {
-        fn validate(loc: TextLoc, n: i64) -> Result<Immediate, FullAssembleError> {
-            Immediate::from_i64(n).ok_or(FullAssembleError::OutOfRange {
-                loc: loc,
+    fn to_immediate(&mut self, e: Expr) -> Result<Immediate, ExprAssembleError> {
+        fn validate(n: i64) -> Result<Immediate, ExprAssembleError> {
+            Immediate::from_i64(n).ok_or(ExprAssembleError::OutOfRange {
                 range: Immediate::range(),
                 given: n,
             })
         }
 
         match e {
-            Expr::Number(loc, n) => validate(loc, n),
-            Expr::Ident(loc, id) => {
+            Expr::Number(n) => validate(n),
+            Expr::Ident(id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => validate(loc, *n),
-                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                    Some(n) => validate(*n),
+                    _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            e => Err(FullAssembleError::TypeMismatch {
-                loc: e.loc().clone(),
+            _ => Err(ExprAssembleError::TypeMismatch {
                 expected: "immediate value".to_string()
             })
         }
     }
 
-    fn to_addr(&mut self, e: Expr) -> Result<Addr, FullAssembleError> {
-        fn validate(loc: TextLoc, dest: i64) -> Result<Addr, FullAssembleError> {
-            Addr::from_i64(dest).ok_or(FullAssembleError::OutOfRange {
-                loc: loc,
+    fn to_addr(&mut self, e: Expr) -> Result<Addr, ExprAssembleError> {
+        fn validate(dest: i64) -> Result<Addr, ExprAssembleError> {
+            Addr::from_i64(dest).ok_or(ExprAssembleError::OutOfRange {
                 range: Addr::range(),
                 given: dest,
             })
         }
 
         match e {
-            Expr::Number(loc, n) => validate(loc, n),
-            Expr::Ident(loc, id) => {
+            Expr::Number(n) => validate(n),
+            Expr::Ident(id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => validate(loc, *n),
-                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                    Some(n) => validate(*n),
+                    _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            e => Err(FullAssembleError::TypeMismatch {
-                loc: e.loc().clone(),
+            _ => Err(ExprAssembleError::TypeMismatch {
                 expected: "memory address".to_string()
             })
         }
     }
 
-    fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, FullAssembleError> {
-        fn validate(loc: TextLoc, from: Addr, dest: i64) -> Result<RelAddr, FullAssembleError> {
+    fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, ExprAssembleError> {
+        fn validate(from: Addr, dest: i64) -> Result<RelAddr, ExprAssembleError> {
             match Addr::from_i64(dest) {
                 Some(to) => {
-                    (to - from).ok_or(FullAssembleError::TooFar {
-                        loc: loc,
-                        from: from,
-                        to: to,
-                    })
+                    (to - from).ok_or(ExprAssembleError::TooFar { from: from, to: to, })
                 },
-                None => Err(FullAssembleError::OutOfRange {
-                    loc: loc,
+                None => Err(ExprAssembleError::OutOfRange {
                     range: Addr::range(),
                     given: dest,
                 }),
@@ -315,17 +320,14 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
         }
 
         match e {
-            Expr::Number(loc, n) => validate(loc, base, n),
-            Expr::Ident(loc, id) => {
+            Expr::Number(n) => validate(base, n),
+            Expr::Ident(id) => {
                 match self.symbols.get(&id) {
-                    Some(n) => validate(loc, base, *n),
-                    _ => Err(FullAssembleError::Undefined { loc: loc, symbol: id }),
+                    Some(n) => validate(base, *n),
+                    _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            e => Err(FullAssembleError::TypeMismatch {
-                loc: e.loc().clone(),
-                expected: "memory address".to_string()
-            })
+            _ => Err(ExprAssembleError::TypeMismatch { expected: "memory address".to_string() })
         }
     }
 }
@@ -337,7 +339,6 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::lexer::TextLoc;
     use asm::parser::Expr;
     use asm::pre::*;
 
@@ -348,14 +349,11 @@ mod test {
         let symbols = SymbolTable::new();
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_reg(Expr::reg(1, 1, Reg::R0)),
+            asm.to_reg(Expr::Reg(Reg::R0)),
             Ok(Reg::R0));
         assert_eq!(
-            asm.to_reg(Expr::num(1, 1, 100)),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 1, "100"),
-                expected: "register name".to_string()
-            }));
+            asm.to_reg(Expr::Number(100)),
+            Err(ExprAssembleError::TypeMismatch { expected: "register name".to_string() }));
     }
 
     #[test]
@@ -363,14 +361,11 @@ mod test {
         let symbols = SymbolTable::new();
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_areg(Expr::areg(1, 1, AddrReg::A0)),
+            asm.to_areg(Expr::AddrReg(AddrReg::A0)),
             Ok(AddrReg::A0));
         assert_eq!(
-            asm.to_areg(Expr::num(1, 1, 100)),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 1, "100"),
-                expected: "address register name".to_string()
-            }));
+            asm.to_areg(Expr::Number(100)),
+            Err(ExprAssembleError::TypeMismatch { expected: "address register name".to_string() }));
     }
 
     #[test]
@@ -380,35 +375,31 @@ mod test {
         symbols.insert("toobig".to_string(), 1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_immediate(Expr::num(1, 1, 100)),
+            asm.to_immediate(Expr::Number(100)),
             Ok(Immediate(100)));
         assert_eq!(
-            asm.to_immediate(Expr::id(1, 1, "foobar")),
+            asm.to_immediate(Expr::id("foobar")),
             Ok(Immediate(100)));
         assert_eq!(
-            asm.to_immediate(Expr::num(1, 1, 1000)),
-            Err(FullAssembleError::OutOfRange {
-                loc: loc!(1, 1, "1000"),
+            asm.to_immediate(Expr::Number(1000)),
+            Err(ExprAssembleError::OutOfRange {
                 range: Immediate::range(),
                 given: 1000,
             }));
         assert_eq!(
-            asm.to_immediate(Expr::id(1, 1, "toobig")),
-            Err(FullAssembleError::OutOfRange {
-                loc: loc!(1, 1, "toobig"),
+            asm.to_immediate(Expr::id("toobig")),
+            Err(ExprAssembleError::OutOfRange {
                 range: Immediate::range(),
                 given: 1000,
             }));
         assert_eq!(
-            asm.to_immediate(Expr::id(1, 1, "undefined")),
-            Err(FullAssembleError::Undefined {
-                loc: loc!(1, 1, "undefined"),
+            asm.to_immediate(Expr::id("undefined")),
+            Err(ExprAssembleError::Undefined {
                 symbol: "undefined".to_string()
             }));
         assert_eq!(
-            asm.to_immediate(Expr::reg(1, 1, Reg::R0)),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 1, "R0"),
+            asm.to_immediate(Expr::Reg(Reg::R0)),
+            Err(ExprAssembleError::TypeMismatch {
                 expected: "immediate value".to_string()
             }));
     }
@@ -420,37 +411,23 @@ mod test {
         symbols.insert("toobig".to_string(), 0x100000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_addr(Expr::num(1, 1, 100)),
+            asm.to_addr(Expr::Number(100)),
             Ok(Addr(100)));
         assert_eq!(
-            asm.to_addr(Expr::id(1, 1, "foobar")),
+            asm.to_addr(Expr::id("foobar")),
             Ok(Addr(0x1000)));
         assert_eq!(
-            asm.to_addr(Expr::num(1, 1, -100)),
-            Err(FullAssembleError::OutOfRange {
-                loc: loc!(1, 1, "-100"),
-                range: Addr::range(),
-                given: -100,
-            }));
+            asm.to_addr(Expr::Number(-100)),
+            Err(ExprAssembleError::OutOfRange { range: Addr::range(), given: -100, }));
         assert_eq!(
-            asm.to_addr(Expr::id(1, 1, "toobig")),
-            Err(FullAssembleError::OutOfRange {
-                loc: loc!(1, 1, "toobig"),
-                range: Addr::range(),
-                given: 0x100000,
-            }));
+            asm.to_addr(Expr::id("toobig")),
+            Err(ExprAssembleError::OutOfRange { range: Addr::range(), given: 0x100000, }));
         assert_eq!(
-            asm.to_addr(Expr::id(1, 1, "undefined")),
-            Err(FullAssembleError::Undefined {
-                loc: loc!(1, 1, "undefined"),
-                symbol: "undefined".to_string()
-            }));
+            asm.to_addr(Expr::id("undefined")),
+            Err(ExprAssembleError::Undefined { symbol: "undefined".to_string() }));
         assert_eq!(
-            asm.to_addr(Expr::reg(1, 1, Reg::R0)),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 1, "R0"),
-                expected: "memory address".to_string()
-            }));
+            asm.to_addr(Expr::Reg(Reg::R0)),
+            Err(ExprAssembleError::TypeMismatch { expected: "memory address".to_string() }));
     }
 
     #[test]
@@ -459,42 +436,37 @@ mod test {
         symbols.insert("foobar".to_string(), 0x1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_raddr(Expr::num(1, 1, 100), Addr(75)),
+            asm.to_raddr(Expr::Number(100), Addr(75)),
             Ok(RelAddr(25)));
         assert_eq!(
-            asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0xf00)),
+            asm.to_raddr(Expr::id("foobar"), Addr(0xf00)),
             Ok(RelAddr(0x100)));
         assert_eq!(
-            asm.to_raddr(Expr::num(1, 1, -10), Addr(0)),
-            Err(FullAssembleError::OutOfRange {
-                loc: loc!(1, 1, "-10"),
+            asm.to_raddr(Expr::Number(-10), Addr(0)),
+            Err(ExprAssembleError::OutOfRange {
                 range: Addr::range(),
                 given: -10,
             }));
         assert_eq!(
-            asm.to_raddr(Expr::num(1, 1, 1024), Addr(2048)),
-            Err(FullAssembleError::TooFar {
-                loc: loc!(1, 1, "1024"),
+            asm.to_raddr(Expr::Number(1024), Addr(2048)),
+            Err(ExprAssembleError::TooFar {
                 from: Addr(2048),
                 to: Addr(1024),
             }));
         assert_eq!(
-            asm.to_raddr(Expr::id(1, 1, "foobar"), Addr(0x2000)),
-            Err(FullAssembleError::TooFar {
-                loc: loc!(1, 1, "foobar"),
+            asm.to_raddr(Expr::id("foobar"), Addr(0x2000)),
+            Err(ExprAssembleError::TooFar {
                 from: Addr(0x2000),
                 to: Addr(0x1000),
             }));
         assert_eq!(
-            asm.to_raddr(Expr::id(1, 1, "undefined"), Addr(75)),
-            Err(FullAssembleError::Undefined {
-                loc: loc!(1, 1, "undefined"),
+            asm.to_raddr(Expr::id("undefined"), Addr(75)),
+            Err(ExprAssembleError::Undefined {
                 symbol: "undefined".to_string()
             }));
         assert_eq!(
-            asm.to_raddr(Expr::reg(1, 1, Reg::R0), Addr(75)),
-            Err(FullAssembleError::TypeMismatch {
-                loc: loc!(1, 1, "R0"),
+            asm.to_raddr(Expr::Reg(Reg::R0), Addr(75)),
+            Err(ExprAssembleError::TypeMismatch {
                 expected: "memory address".to_string()
             }));
     }
@@ -649,37 +621,37 @@ mod test {
     fn should_assemble_non_empty() {
         let input = vec![
             Ok(PreAssembled::Empty {
-                loc: loc!(1, 1, ""),
+                line: sline!(1, ""),
                 base_addr: Addr(0x100),
             }),
             Ok(PreAssembled::Inst {
-                loc: loc!(1, 1, "nop"),
+                line: sline!(2, "nop"),
                 base_addr: Addr(0x100),
                 inst: Inst::Nop,
             }),
-            Err(PreAssembleError::UnknownMnemo(loc!(1, 1, "foobar"), "foobar".to_string())),
+            Err(PreAssembleError::DuplicatedLabel(sline!(3, "foobar"), "foobar".to_string())),
         ];
         let symbols = SymbolTable::new();
         let mut full = FullAssembler::from(input, &symbols);
         assert_eq!(full.next(), Some(Ok(FullAssembled::Empty {
-            loc: loc!(1, 1, ""),
+            line: sline!(1, ""),
             base_addr: Addr(0x100),
         })));
         assert_eq!(full.next(), Some(Ok(FullAssembled::Inst {
-            loc: loc!(1, 1, "nop"),
+            line: sline!(2, "nop"),
             base_addr: Addr(0x100),
             inst: Inst::Nop,
         })));
         assert_eq!(full.next(), Some(Err(FullAssembleError::Pre(
-            PreAssembleError::UnknownMnemo(loc!(1, 1, "foobar"), "foobar".to_string())))));
+            PreAssembleError::DuplicatedLabel(sline!(3, "foobar"), "foobar".to_string())))));
     }
 
     struct MockExprAssembler {
-        next_reg: VecDeque<Result<Reg, FullAssembleError>>,
-        next_areg: VecDeque<Result<AddrReg, FullAssembleError>>,
-        next_imm: VecDeque<Result<Immediate, FullAssembleError>>,
-        next_addr: VecDeque<Result<Addr, FullAssembleError>>,
-        next_raddr: VecDeque<Result<RelAddr, FullAssembleError>>,
+        next_reg: VecDeque<Result<Reg, ExprAssembleError>>,
+        next_areg: VecDeque<Result<AddrReg, ExprAssembleError>>,
+        next_imm: VecDeque<Result<Immediate, ExprAssembleError>>,
+        next_addr: VecDeque<Result<Addr, ExprAssembleError>>,
+        next_raddr: VecDeque<Result<RelAddr, ExprAssembleError>>,
     }
 
     impl MockExprAssembler {
@@ -693,41 +665,41 @@ mod test {
             }
         }
 
-        fn with_reg(&mut self, reg: Result<Reg, FullAssembleError>) {
+        fn with_reg(&mut self, reg: Result<Reg, ExprAssembleError>) {
             self.next_reg.push_back(reg);
         }
 
-        fn with_areg(&mut self, areg: Result<AddrReg, FullAssembleError>) {
+        fn with_areg(&mut self, areg: Result<AddrReg, ExprAssembleError>) {
             self.next_areg.push_back(areg);
         }
 
-        fn with_imm(&mut self, imm: Result<Immediate, FullAssembleError>) {
+        fn with_imm(&mut self, imm: Result<Immediate, ExprAssembleError>) {
             self.next_imm.push_back(imm);
         }
 
-        fn with_addr(&mut self, addr: Result<Addr, FullAssembleError>) {
+        fn with_addr(&mut self, addr: Result<Addr, ExprAssembleError>) {
             self.next_addr.push_back(addr);
         }
 
-        fn with_raddr(&mut self, raddr: Result<RelAddr, FullAssembleError>) {
+        fn with_raddr(&mut self, raddr: Result<RelAddr, ExprAssembleError>) {
             self.next_raddr.push_back(raddr);
         }
     }
 
     impl ExprAssembler for MockExprAssembler {
-        fn to_reg(&mut self, _e: Expr) -> Result<Reg, FullAssembleError> {
+        fn to_reg(&mut self, _e: Expr) -> Result<Reg, ExprAssembleError> {
             self.next_reg.pop_front().unwrap()
         }
-        fn to_areg(&mut self, _e: Expr) -> Result<AddrReg, FullAssembleError> {
+        fn to_areg(&mut self, _e: Expr) -> Result<AddrReg, ExprAssembleError> {
             self.next_areg.pop_front().unwrap()
         }
-        fn to_immediate(&mut self, _e: Expr) -> Result<Immediate, FullAssembleError> {
+        fn to_immediate(&mut self, _e: Expr) -> Result<Immediate, ExprAssembleError> {
             self.next_imm.pop_front().unwrap()
         }
-        fn to_addr(&mut self, _e: Expr) -> Result<Addr, FullAssembleError> {
+        fn to_addr(&mut self, _e: Expr) -> Result<Addr, ExprAssembleError> {
             self.next_addr.pop_front().unwrap()
         }
-        fn to_raddr(&mut self, _e: Expr, _base: Addr) -> Result<RelAddr, FullAssembleError> {
+        fn to_raddr(&mut self, _e: Expr, _base: Addr) -> Result<RelAddr, ExprAssembleError> {
             self.next_raddr.pop_front().unwrap()
         }
     }
@@ -742,21 +714,18 @@ mod test {
         I1: Fn(Expr) -> PreAssembledInst,
         I2: Fn(O1) -> RuntimeInst,
         O1: Clone,
-        M1: Fn(&mut MockExprAssembler, Result<O1, FullAssembleError>),
+        M1: Fn(&mut MockExprAssembler, Result<O1, ExprAssembleError>),
     {
-        let err = FullAssembleError::TypeMismatch {
-            loc: loc!(1, 1, "1"),
-            expected: "foobar".to_string(),
-        };
+        let err = ExprAssembleError::TypeMismatch { expected: "foobar".to_string() };
         let mut expr = MockExprAssembler::new();
         m1(&mut expr, Ok(o1.clone()));
         m1(&mut expr, Err(err.clone()));
         let mut asm = InstAssembler::from_expr_asm(expr);
         assert_eq!(
-            asm.assemble(pre(Expr::num(1, 1, 1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1)), Addr(1000)),
             Ok(full(o1)));
         assert_eq!(
-            asm.assemble(pre(Expr::num(1, 1, 1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1)), Addr(1000)),
             Err(err.clone()));
     }
 
@@ -765,13 +734,10 @@ mod test {
         I2: Fn(O1, O2) -> RuntimeInst,
         O1: Clone,
         O2: Clone,
-        M1: Fn(&mut MockExprAssembler, Result<O1, FullAssembleError>),
-        M2: Fn(&mut MockExprAssembler, Result<O2, FullAssembleError>),
+        M1: Fn(&mut MockExprAssembler, Result<O1, ExprAssembleError>),
+        M2: Fn(&mut MockExprAssembler, Result<O2, ExprAssembleError>),
     {
-        let err = FullAssembleError::TypeMismatch {
-            loc: loc!(1, 1, "1"),
-            expected: "foobar".to_string(),
-        };
+        let err = ExprAssembleError::TypeMismatch { expected: "foobar".to_string() };
         let mut expr = MockExprAssembler::new();
         m1(&mut expr, Ok(o1.clone()));
         m2(&mut expr, Ok(o2.clone()));
@@ -781,13 +747,13 @@ mod test {
         m2(&mut expr, Ok(o2.clone()));
         let mut asm = InstAssembler::from_expr_asm(expr);
         assert_eq!(
-            asm.assemble(pre(Expr::num(1, 1, 1), Expr::num(1, 1, 1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
             Ok(full(o1, o2)));
         assert_eq!(
-            asm.assemble(pre(Expr::num(1, 1, 1), Expr::num(1, 1, 1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
             Err(err.clone()));
         assert_eq!(
-            asm.assemble(pre(Expr::num(1, 1, 1), Expr::num(1, 1, 1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
             Err(err.clone()));
     }
 

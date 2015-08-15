@@ -7,9 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
-use std::fmt;
 use std::iter::{IntoIterator, Peekable};
-use std::ops::Add;
 use std::str::FromStr;
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -17,132 +15,87 @@ use rustc_serialize::hex::FromHex;
 use simproc::inst::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextLoc {
-    pub line: usize,
-    pub col: usize,
-    pub txt: String,
+pub struct Line {
+    pub row: usize,
+    pub content: String,
 }
 
-impl fmt::Display for TextLoc {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(fmt, "in line {}, column {}", self.line, self.col)
-    }
+macro_rules! sline {
+    ($r:expr, $c:expr) => ($crate::asm::lexer::Line { row: $r, content: $c.to_string() });
 }
 
-macro_rules! loc {
-    ($l:expr, $c:expr, $t:expr) => (TextLoc { line: $l, col: $c, txt: $t.to_string() });
-    () => (TextLoc::undef());
-}
+impl Line {
+    pub fn new() -> Self { Line { row: 1, content: String::with_capacity(1024) }}
 
-impl TextLoc {
-    pub fn undef() -> TextLoc {
-        TextLoc { line: 0, col: 0, txt: "".to_string() }
-    }
+    fn append(&mut self, s: &str) { self.content.push_str(s); }
 
-    pub fn is_undef(&self) -> bool {
-        self.line == 0 && self.col == 0 && self.txt == ""
-    }
-}
-
-impl<'a> Add<&'a TextLoc> for TextLoc {
-
-    type Output = Self;
-
-    fn add(self, rhs: &TextLoc) -> Self {
-        if rhs.is_undef() { return self }
-        let ns = rhs.col - (self.col + self.txt.len());
-        let spaces: String = (0..ns).map(|_| ' ').collect();
-        let ntext = self.txt + &spaces + &rhs.txt;
-        TextLoc {
-            line: self.line,
-            col: self.col,
-            txt: ntext,
-        }
-    }
-}
-
-pub trait TextLocate {
-    fn loc(&self) -> &TextLoc;
+    fn next(&self) -> Self { Line {
+        row: self.row + 1,
+        content: String::with_capacity(1024),
+    }}
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    AddrRegister(TextLoc, AddrReg),
-    Colon(TextLoc),
-    Comma(TextLoc),
-    Direct(TextLoc, String),
-    Eol(TextLoc),
-    Ident(TextLoc, String),
-    Minus(TextLoc),
-    Number(TextLoc, i64),
-    Register(TextLoc, Reg),
-    Unknown(TextLoc),
+    AddrRegister(AddrReg),
+    Colon,
+    Comma,
+    Direct(String),
+    Eol(Line),
+    Ident(String),
+    Minus,
+    Number(i64),
+    Register(Reg),
+    Unknown(String),
 }
 
-impl TextLocate for Token {
-    fn loc(&self) -> &TextLoc {
-        match self {
-            &Token::AddrRegister(ref loc, _) => loc,
-            &Token::Colon(ref loc) => loc,
-            &Token::Comma(ref loc) => loc,
-            &Token::Direct(ref loc, _) => loc,
-            &Token::Eol(ref loc) => loc,
-            &Token::Ident(ref loc, _) => loc,
-            &Token::Minus(ref loc) => loc,
-            &Token::Number(ref loc, _) => loc,
-            &Token::Register(ref loc, _) => loc,
-            &Token::Unknown(ref loc) => loc,
-        }
-    }
-}
-
-macro_rules! colon { ($l:expr, $c:expr) => (Token::Colon(loc!($l, $c, ":"))) }
-macro_rules! comma { ($l:expr, $c:expr) => (Token::Comma(loc!($l, $c, ","))) }
-macro_rules! direct {
-    ($l:expr, $c:expr, $i:expr) => (Token::Direct(loc!($l, $c, format!(".{}", $i)), $i.to_string()))
-}
-macro_rules! eol { ($l:expr, $c:expr) => (Token::Eol(loc!($l, $c, "\n"))) }
-macro_rules! ident {
-    ($l:expr, $c:expr, $i:expr) => (Token::Ident(loc!($l, $c, $i), $i.to_string()))
-}
-macro_rules! number {
-    ($l:expr, $c:expr, $n:expr) => (Token::Number(loc!($l, $c, format!("{}", $n)), $n))
-}
-macro_rules! reg {
-    ($l:expr, $c:expr, $r:expr) => (Token::Register(loc!($l, $c, format!("{}", $r)), $r))
-}
+macro_rules! direct { ($i:expr) => (Token::Direct($i.to_string())) }
+macro_rules! eol { ($r:expr, $l:expr) => (Token::Eol(sline!($r, $l))) }
+macro_rules! ident { ($i:expr) => (Token::Ident($i.to_string())) }
 
 pub type ScannerInput = char;
 pub type ScannerOutput = Token;
 
 pub struct Scanner<I : Iterator<Item=ScannerInput>> {
     input: Peekable<I>,
-    line: usize,
-    col: usize,
+    line: Line,
+    exhausted: bool,
 }
 
 impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
 
     pub fn scan<T>(input: T) -> Self where T: IntoIterator<Item=ScannerInput, IntoIter=I> { Scanner {
         input: input.into_iter().peekable(),
-        line: 1,
-        col: 1,
+        line: Line::new(),
+        exhausted: false,
     }}
 
-    fn new_line(&mut self) { self.line += 1; self.col = 1; }
+    fn new_line(&mut self) -> Line {
+        let next = self.line.next();
+        let prev = self.line.clone();
+        self.line = next;
+        prev
+    }
 
-    fn new_col(&mut self) { self.col += 1; }
+    fn line_append(&mut self, s: String) -> String {
+        self.line.append(&s);
+        s
+    }
 
     fn next_char(&mut self) -> Option<ScannerInput> {
         self.input.peek().cloned()
     }
 
-    fn take(&mut self, n: usize) -> TextLoc {
-        let txt = self.input.by_ref().take(n).collect();
-        self.loc_from(txt)
+    fn consume(&mut self, n: usize) -> String {
+        self.input.by_ref().take(n).collect()
     }
 
-    fn take_while<F>(&mut self, f: F) -> TextLoc where F: FnMut(&ScannerInput) -> bool {
+    fn take(&mut self, n: usize) -> String {
+        let taken = self.consume(n);
+        self.line_append(taken)
+    }
+
+    fn take_while<F>(&mut self, f: F) -> String where F: FnMut(&ScannerInput) -> bool {
         let mut pred = f;
         let mut txt = String::with_capacity(256);
         loop {
@@ -152,28 +105,15 @@ impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
                         txt.push(next);
                         self.input.next();
                     }
-                    else { return self.loc_from(txt) }
+                    else { return self.line_append(txt) }
                 },
-                None => return self.loc_from(txt),
+                None => return self.line_append(txt),
             }
         }
     }
 
-    fn take_while_id(&mut self) -> TextLoc {
+    fn take_while_id(&mut self) -> String {
         self.take_while(|c| c.is_alphanumeric() || *c == '_')
-    }
-
-    fn loc_from(&mut self, txt: String) -> TextLoc {
-        let result = TextLoc {
-            line: self.line,
-            col: self.col,
-            txt: txt,
-        };
-        for s in result.txt.chars() {
-            if s == '\n' { self.new_line() }
-            else { self.new_col() }
-        }
-        result
     }
 
     fn skip_whitespaces(&mut self) {
@@ -232,52 +172,53 @@ impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
         match self.next_char().unwrap_or('\x1a') {
             ';' => {
                 self.take_while(|c| *c != '\n');
-                self.next()
+                match self.next_char() {
+                    Some('\n') => { self.consume(1); },
+                    Some(_) => unreachable!(),
+                    None => { self.exhausted = true; },
+                }
+                Some(Token::Eol(self.new_line()))
             },
-            '\n' => { Some(Token::Eol(self.take(1))) },
-            ':' => { Some(Token::Colon(self.take(1))) },
-            ',' => { Some(Token::Comma(self.take(1))) },
-            '-' => { Some(Token::Minus(self.take(1))) },
+            '\n' => { self.consume(1); Some(Token::Eol(self.new_line())) },
+            ':' => { self.take(1); Some(Token::Colon) },
+            ',' => { self.take(1); Some(Token::Comma) },
+            '-' => { self.take(1); Some(Token::Minus) },
             '0' => {
                 let zero = self.take(1);
-                let (loc, num) = match self.next_char() {
+                let num = match self.next_char() {
                     Some('x') | Some('X') => {
-                        let loc = zero + &self.take(1) + &self.take_while(|c| c.is_digit(16));
-                        let num = Self::decode_hex(&loc.txt);
-                        (loc, num)
+                        let scanned = zero + &self.take(1) + &self.take_while(|c| c.is_digit(16));
+                        Self::decode_hex(&scanned)
                     },
                     _ => {
-                        let loc = zero + &self.take_while(|c| c.is_digit(10));
-                        let num = Self::decode_dec(&loc.txt);
-                        (loc, num)
+                        let scanned = zero + &self.take_while(|c| c.is_digit(10));
+                        Self::decode_dec(&scanned)
                     },
                 };
-                Some(Token::Number(loc, num))
+                Some(Token::Number(num))
             },
             '1' ... '9' => {
-                let loc = self.take_while(|c| c.is_digit(10));
-                let num = Self::decode_dec(&loc.txt);
-                Some(Token::Number(loc, num))
+                let scanned = self.take_while(|c| c.is_digit(10));
+                let num = Self::decode_dec(&scanned);
+                Some(Token::Number(num))
             },
             'a' ... 'z' | 'A' ... 'Z' | '_' => {
-                let loc = self.take_while_id();
-                Self::to_reg(&loc.txt).map(|r| Token::Register(loc.clone(), r))
-                    .or_else(|| Self::to_addr_reg(&loc.txt).map(|r| Token::AddrRegister(loc.clone(), r)))
-                    .or_else(|| {
-                        let id = loc.txt.clone();
-                        Some(Token::Ident(loc, id))
-                    })
+                let scanned = self.take_while_id();
+                Self::to_reg(&scanned).map(|r| Token::Register(r))
+                    .or_else(|| Self::to_addr_reg(&scanned).map(|r| Token::AddrRegister(r)))
+                    .or_else(|| Some(Token::Ident(scanned)))
             },
             '.' => {
                 let dot = self.take(1);
                 let dirname = self.take_while_id();
-                if dirname.txt.is_empty() { Some(Token::Unknown(dot)) }
-                else {
-                    let dir = dirname.txt.clone();
-                    Some(Token::Direct(dot + &dirname, dir))
-                }
+                if dirname.is_empty() { Some(Token::Unknown(dot)) }
+                else { Some(Token::Direct(dirname)) }
             },
-            '\x1a' => None,
+            '\x1a' if !self.exhausted => {
+                self.exhausted = true;
+                Some(Token::Eol(self.new_line()))
+            },
+            '\x1a' if self.exhausted => None,
             _ => Some(Token::Unknown(self.take(1))),
         }
     }
@@ -291,151 +232,154 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_add_locs() {
-        assert_eq!(
-            loc!(1, 1, "a") + &loc!(1, 2, "b"),
-            loc!(1, 1, "ab"));
-    }
-
-    #[test]
-    fn should_add_locs_considering_spaces() {
-        assert_eq!(
-            loc!(1, 1, "a") + &loc!(1, 3, "b"),
-            loc!(1, 1, "a b"));
-    }
-
-    #[test]
-    fn should_add_undefined_locs() {
-        assert_eq!(
-            loc!(1, 1, "a") + &TextLoc::undef(),
-            loc!(1, 1, "a"));
-    }
-
-    #[test]
     fn should_scan_empty() {
         let mut scanner = Scanner::scan("".chars());
+        assert_eq!(Some(Token::Eol(sline!(1, ""))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_comment() {
         let mut scanner = Scanner::scan("; this is a comment".chars());
+        assert_eq!(Some(Token::Eol(sline!(1, "; this is a comment"))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_comment_with_eol() {
+        let mut scanner = Scanner::scan("; this is a comment\n".chars());
+        assert_eq!(Some(Token::Eol(sline!(1, "; this is a comment"))), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(2, ""))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_eol() {
         let mut scanner = Scanner::scan("\n".chars());
-        assert_eq!(Some(Token::Eol(loc!(1, 1, "\n"))), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ""))), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(2, ""))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_colon() {
         let mut scanner = Scanner::scan(":".chars());
-        assert_eq!(Some(Token::Colon(loc!(1, 1, ":"))), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ":"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_comma() {
         let mut scanner = Scanner::scan(",".chars());
-        assert_eq!(Some(Token::Comma(loc!(1, 1, ","))), scanner.next());
+        assert_eq!(Some(Token::Comma), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ","))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_minus() {
         let mut scanner = Scanner::scan("-".chars());
-        assert_eq!(Some(Token::Minus(loc!(1, 1, "-"))), scanner.next());
+        assert_eq!(Some(Token::Minus), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "-"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_register() {
         let mut scanner = Scanner::scan("r0 R0".chars());
-        assert_eq!(Some(Token::Register(loc!(1, 1, "r0"), Reg::R0)), scanner.next());
-        assert_eq!(Some(Token::Register(loc!(1, 4, "R0"), Reg::R0)), scanner.next());
+        assert_eq!(Some(Token::Register(Reg::R0)), scanner.next());
+        assert_eq!(Some(Token::Register(Reg::R0)), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "r0 R0"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_addr_register() {
         let mut scanner = Scanner::scan("a0 A0".chars());
-        assert_eq!(Some(Token::AddrRegister(loc!(1, 1, "a0"), AddrReg::A0)), scanner.next());
-        assert_eq!(Some(Token::AddrRegister(loc!(1, 4, "A0"), AddrReg::A0)), scanner.next());
+        assert_eq!(Some(Token::AddrRegister(AddrReg::A0)), scanner.next());
+        assert_eq!(Some(Token::AddrRegister(AddrReg::A0)), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "a0 A0"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_decimal() {
         let mut scanner = Scanner::scan("0 00 1234 01234".chars());
-        assert_eq!(Some(Token::Number(loc!(1, 1, "0"), 0)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 3, "00"), 0)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 6, "1234"), 1234)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 11, "01234"), 1234)), scanner.next());
+        assert_eq!(Some(Token::Number(0)), scanner.next());
+        assert_eq!(Some(Token::Number(0)), scanner.next());
+        assert_eq!(Some(Token::Number(1234)), scanner.next());
+        assert_eq!(Some(Token::Number(1234)), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "0 00 1234 01234"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_hexadecimal() {
         let mut scanner = Scanner::scan("0x 0x0 0x00 0x12ab 0x12AB 0x0012ab".chars());
-        assert_eq!(Some(Token::Number(loc!(1, 1, "0x"), 0)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 4, "0x0"), 0)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 8, "0x00"), 0)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 13, "0x12ab"), 4779)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 20, "0x12AB"), 4779)), scanner.next());
-        assert_eq!(Some(Token::Number(loc!(1, 27, "0x0012ab"), 4779)), scanner.next());
+        assert_eq!(Some(Token::Number(0)), scanner.next());
+        assert_eq!(Some(Token::Number(0)), scanner.next());
+        assert_eq!(Some(Token::Number(0)), scanner.next());
+        assert_eq!(Some(Token::Number(4779)), scanner.next());
+        assert_eq!(Some(Token::Number(4779)), scanner.next());
+        assert_eq!(Some(Token::Number(4779)), scanner.next());
+        assert_eq!(
+            Some(Token::Eol(sline!(1, "0x 0x0 0x00 0x12ab 0x12AB 0x0012ab"))),
+            scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_ident() {
         let mut scanner = Scanner::scan("x abc v0 _ _1 r r8 r10".chars());
-        assert_eq!(Some(Token::Ident(loc!(1, 1, "x"), "x".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 3, "abc"), "abc".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 7, "v0"), "v0".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 10, "_"), "_".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 12, "_1"), "_1".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 15, "r"), "r".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 17, "r8"), "r8".to_string())), scanner.next());
-        assert_eq!(Some(Token::Ident(loc!(1, 20, "r10"), "r10".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("x".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("abc".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("v0".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("_".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("_1".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("r".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("r8".to_string())), scanner.next());
+        assert_eq!(Some(Token::Ident("r10".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "x abc v0 _ _1 r r8 r10"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_scan_directive() {
         let mut scanner = Scanner::scan(".x .abc .v0 ._ ._1 .r .r8 .r10 .".chars());
-        assert_eq!(Some(Token::Direct(loc!(1, 1, ".x"), "x".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 4, ".abc"), "abc".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 9, ".v0"), "v0".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 13, "._"), "_".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 16, "._1"), "_1".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 20, ".r"), "r".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 23, ".r8"), "r8".to_string())), scanner.next());
-        assert_eq!(Some(Token::Direct(loc!(1, 27, ".r10"), "r10".to_string())), scanner.next());
-        assert_eq!(Some(Token::Unknown(loc!(1, 32, "."))), scanner.next());
+        assert_eq!(Some(Token::Direct("x".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("abc".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("v0".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("_".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("_1".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("r".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("r8".to_string())), scanner.next());
+        assert_eq!(Some(Token::Direct("r10".to_string())), scanner.next());
+        assert_eq!(Some(Token::Unknown(".".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ".x .abc .v0 ._ ._1 .r .r8 .r10 ."))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_ignore_blanks() {
         let mut scanner = Scanner::scan(":\t:\r:".chars());
-        assert_eq!(Some(Token::Colon(loc!(1, 1, ":"))), scanner.next());
-        assert_eq!(Some(Token::Colon(loc!(1, 3, ":"))), scanner.next());
-        assert_eq!(Some(Token::Colon(loc!(1, 5, ":"))), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ":\t:\r:"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
     #[test]
     fn should_compute_line_numbers() {
         let mut scanner = Scanner::scan(":\n :\n  :\n".chars());
-        assert_eq!(Some(Token::Colon(loc!(1, 1, ":"))), scanner.next());
-        assert_eq!(Some(Token::Eol(loc!(1, 2, "\n"))), scanner.next());
-        assert_eq!(Some(Token::Colon(loc!(2, 2, ":"))), scanner.next());
-        assert_eq!(Some(Token::Eol(loc!(2, 3, "\n"))), scanner.next());
-        assert_eq!(Some(Token::Colon(loc!(3, 3, ":"))), scanner.next());
-        assert_eq!(Some(Token::Eol(loc!(3, 4, "\n"))), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, ":"))), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(2, " :"))), scanner.next());
+        assert_eq!(Some(Token::Colon), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(3, "  :"))), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(4, ""))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 }

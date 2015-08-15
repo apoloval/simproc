@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::iter::FromIterator;
 
-use asm::lexer::TextLoc;
+use asm::lexer::Line;
 use asm::parser::*;
 
 use simproc::inst::*;
@@ -33,31 +33,43 @@ pub type PreAssembledInst = Inst<PreAssembledOperands>;
 
 #[derive(Debug, PartialEq)]
 pub enum PreAssembled {
-    Empty { loc: TextLoc, base_addr: Addr },
-    Inst { loc: TextLoc, base_addr: Addr, inst: PreAssembledInst },
+    Empty { line: Line, base_addr: Addr },
+    Inst { line: Line, base_addr: Addr, inst: PreAssembledInst },
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreAssembleError {
-    BadArgumentCount { loc: TextLoc, expected: usize, given: usize },
-    DuplicatedLabel(TextLoc, String),
-    UnknownMnemo(TextLoc, String),
+    DuplicatedLabel(Line, String),
+    Mnemo(Line, MnemoAssembleError),
 }
 
 impl fmt::Display for PreAssembleError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &PreAssembleError::BadArgumentCount { ref loc, expected, given } =>
-                write!(fmt, "{}: expected {} arguments, {} given \n\t{}",
-                    loc, expected, given, loc.txt),
-            &PreAssembleError::DuplicatedLabel(ref loc, ref label) =>
-                write!(fmt, "{}: label {} is duplicated\n\t{}", loc, label, loc.txt),
-            &PreAssembleError::UnknownMnemo(ref loc, ref mnemo) =>
-                write!(fmt, "{}: unknown mnemo {}\n\t{}", loc, mnemo, loc.txt),
+            &PreAssembleError::DuplicatedLabel(ref line, ref label) =>
+                write!(fmt, "in {}: label {} is duplicated\n\t{}", line.row, label, line.content),
+            &PreAssembleError::Mnemo(ref line, ref error) =>
+                write!(fmt, "in {}: {}\n\t{}", line.row, error, line.content),
         }
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum MnemoAssembleError {
+    BadArgumentCount { expected: usize, given: usize },
+    UnknownMnemo(String),
+}
+
+impl fmt::Display for MnemoAssembleError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &MnemoAssembleError::BadArgumentCount { expected, given } =>
+                write!(fmt, "expected {} arguments, {} given", expected, given),
+            &MnemoAssembleError::UnknownMnemo(ref mnemo) =>
+                write!(fmt, "unknown mnemo {}", mnemo),
+        }
+    }
+}
 
 pub type PreAssemblerInput = ParserOutput;
 pub type PreAssemblerOutput = Result<PreAssembled, PreAssembleError>;
@@ -83,17 +95,17 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         let mut memptr: usize = 0;
         for entry in self.input {
             match entry {
-                Ok(Statement::Empty(loc, lab)) => {
-                    let lab_decl = Self::decl_label(loc, lab, symbols, memptr);
-                    let empty = |loc| Ok(PreAssembled::Empty {
-                        loc: loc,
+                Ok(Statement::Empty(line, lab)) => {
+                    let lab_decl = Self::decl_label(line, lab, symbols, memptr);
+                    let empty = |line| Ok(PreAssembled::Empty {
+                        line: line,
                         base_addr: Addr(memptr as u16)
                     });
                     output.push(lab_decl.and_then(empty));
                 },
-                Ok(Statement::Mnemo(loc, lab, mnemo, args)) => {
-                    let lab_decl = Self::decl_label(loc, lab, symbols, memptr);
-                    let pre_asm = |loc| Self::pre_assemble_inst(loc, &mnemo, &args, &mut memptr);
+                Ok(Statement::Mnemo(line, lab, mnemo, args)) => {
+                    let lab_decl = Self::decl_label(line, lab, symbols, memptr);
+                    let pre_asm = |line| Self::pre_assemble_inst(line, &mnemo, &args, &mut memptr);
                     output.push(lab_decl.and_then(pre_asm));
                 },
                 _ => {},
@@ -102,129 +114,125 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         T::from_iter(output)
     }
 
-    /// Declare `label` if defined, returning `loc` if not used to generate a
+    /// Declare `label` if defined, returning `line` if not used to generate a
     /// `PreAssembleError::DuplicatedLabel` on error.
     fn decl_label(
-        loc: TextLoc,
+        line: Line,
         label: Option<String>,
         symbols: &mut SymbolTable,
-        memptr: usize) -> Result<TextLoc, PreAssembleError>
+        memptr: usize) -> Result<Line, PreAssembleError>
     {
         if let Some(l) = label {
             if symbols.contains_key(&l) {
-                return Err(PreAssembleError::DuplicatedLabel(loc.clone(), l));
+                return Err(PreAssembleError::DuplicatedLabel(line.clone(), l));
             }
             symbols.insert(l, memptr as i64);
         }
-        Ok(loc)
+        Ok(line)
     }
 
     /// Pre-assemble the instruction represented by the given mnemo.
     /// It also updates `memptr` by adding the pre assembled instruction length in memory.
     pub fn pre_assemble_inst(
-        loc: TextLoc,
+        line: Line,
         mnemo: &str,
         args: &ExprList,
         memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
     {
-        match pre_assemble_inst(&loc, mnemo, args) {
+        match pre_assemble_inst(mnemo, args) {
             Ok(inst) => {
                 let base = Addr(*memptr as u16);
                 *memptr += inst.len();
-                Ok(PreAssembled::Inst { loc: loc, base_addr: base, inst: inst })
+                Ok(PreAssembled::Inst { line: line, base_addr: base, inst: inst })
             },
-            Err(e) => Err(e),
+            Err(e) => Err(PreAssembleError::Mnemo(line, e)),
         }
     }
 }
 
 pub fn pre_assemble_inst(
-    loc: &TextLoc,
     mnemo: &str,
-    args: &ExprList) -> Result<PreAssembledInst, PreAssembleError>
+    args: &ExprList) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     match mnemo.to_ascii_lowercase().trim() {
-        "add" => pre_assemble_binary(loc, args, Inst::Add),
-        "adc" => pre_assemble_binary(loc, args, Inst::Adc),
-        "addi" => pre_assemble_binary(loc, args, Inst::Addi),
-        "sub" => pre_assemble_binary(loc, args, Inst::Sub),
-        "sbc" => pre_assemble_binary(loc, args, Inst::Sbc),
-        "subi" => pre_assemble_binary(loc, args, Inst::Subi),
-        "mulw" => pre_assemble_binary(loc, args, Inst::Mulw),
-        "and" => pre_assemble_binary(loc, args, Inst::And),
-        "or" => pre_assemble_binary(loc, args, Inst::Or),
-        "xor" => pre_assemble_binary(loc, args, Inst::Xor),
-        "lsl" => pre_assemble_binary(loc, args, Inst::Lsl),
-        "lsr" => pre_assemble_binary(loc, args, Inst::Lsr),
-        "asr" => pre_assemble_binary(loc, args, Inst::Asr),
-        "not" => pre_assemble_unary(loc, args, Inst::Not),
-        "comp" => pre_assemble_unary(loc, args, Inst::Comp),
-        "inc" => pre_assemble_unary(loc, args, Inst::Inc),
-        "incw" => pre_assemble_unary(loc, args, Inst::Incw),
-        "dec" => pre_assemble_unary(loc, args, Inst::Dec),
-        "decw" => pre_assemble_unary(loc, args, Inst::Decw),
-        "mov" => pre_assemble_binary(loc, args, Inst::Mov),
-        "ld" => pre_assemble_binary(loc, args, Inst::Ld),
-        "st" => pre_assemble_binary(loc, args, Inst::St),
-        "ldd" => pre_assemble_binary(loc, args, Inst::Ldd),
-        "std" => pre_assemble_binary(loc, args, Inst::Std),
-        "ldi" => pre_assemble_binary(loc, args, Inst::Ldi),
-        "ldsp" => pre_assemble_unary(loc, args, Inst::Ldsp),
-        "push" => pre_assemble_unary(loc, args, Inst::Push),
-        "pop" => pre_assemble_unary(loc, args, Inst::Pop),
-        "je" => pre_assemble_unary(loc, args, Inst::Je),
-        "jne" => pre_assemble_unary(loc, args, Inst::Jne),
-        "jl" => pre_assemble_unary(loc, args, Inst::Jl),
-        "jge" => pre_assemble_unary(loc, args, Inst::Jge),
-        "jcc" => pre_assemble_unary(loc, args, Inst::Jcc),
-        "jcs" => pre_assemble_unary(loc, args, Inst::Jcs),
-        "jvc" => pre_assemble_unary(loc, args, Inst::Jvc),
-        "jvs" => pre_assemble_unary(loc, args, Inst::Jvs),
-        "jmp" => pre_assemble_unary(loc, args, Inst::Jmp),
-        "rjmp" => pre_assemble_unary(loc, args, Inst::Rjmp),
-        "ijmp" => pre_assemble_unary(loc, args, Inst::Ijmp),
-        "call" => pre_assemble_unary(loc, args, Inst::Call),
-        "rcall" => pre_assemble_unary(loc, args, Inst::Rcall),
-        "icall" => pre_assemble_unary(loc, args, Inst::Icall),
-        "ret" => pre_assemble_nullary(loc, args, Inst::Ret),
-        "reti" => pre_assemble_nullary(loc, args, Inst::Reti),
-        "nop" => pre_assemble_nullary(loc, args, Inst::Nop),
-        "halt" => pre_assemble_nullary(loc, args, Inst::Halt),
-        _ => Err(PreAssembleError::UnknownMnemo(loc.clone(), mnemo.to_string()))
+        "add" => pre_assemble_binary(args, Inst::Add),
+        "adc" => pre_assemble_binary(args, Inst::Adc),
+        "addi" => pre_assemble_binary(args, Inst::Addi),
+        "sub" => pre_assemble_binary(args, Inst::Sub),
+        "sbc" => pre_assemble_binary(args, Inst::Sbc),
+        "subi" => pre_assemble_binary(args, Inst::Subi),
+        "mulw" => pre_assemble_binary(args, Inst::Mulw),
+        "and" => pre_assemble_binary(args, Inst::And),
+        "or" => pre_assemble_binary(args, Inst::Or),
+        "xor" => pre_assemble_binary(args, Inst::Xor),
+        "lsl" => pre_assemble_binary(args, Inst::Lsl),
+        "lsr" => pre_assemble_binary(args, Inst::Lsr),
+        "asr" => pre_assemble_binary(args, Inst::Asr),
+        "not" => pre_assemble_unary(args, Inst::Not),
+        "comp" => pre_assemble_unary(args, Inst::Comp),
+        "inc" => pre_assemble_unary(args, Inst::Inc),
+        "incw" => pre_assemble_unary(args, Inst::Incw),
+        "dec" => pre_assemble_unary(args, Inst::Dec),
+        "decw" => pre_assemble_unary(args, Inst::Decw),
+        "mov" => pre_assemble_binary(args, Inst::Mov),
+        "ld" => pre_assemble_binary(args, Inst::Ld),
+        "st" => pre_assemble_binary(args, Inst::St),
+        "ldd" => pre_assemble_binary(args, Inst::Ldd),
+        "std" => pre_assemble_binary(args, Inst::Std),
+        "ldi" => pre_assemble_binary(args, Inst::Ldi),
+        "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
+        "push" => pre_assemble_unary(args, Inst::Push),
+        "pop" => pre_assemble_unary(args, Inst::Pop),
+        "je" => pre_assemble_unary(args, Inst::Je),
+        "jne" => pre_assemble_unary(args, Inst::Jne),
+        "jl" => pre_assemble_unary(args, Inst::Jl),
+        "jge" => pre_assemble_unary(args, Inst::Jge),
+        "jcc" => pre_assemble_unary(args, Inst::Jcc),
+        "jcs" => pre_assemble_unary(args, Inst::Jcs),
+        "jvc" => pre_assemble_unary(args, Inst::Jvc),
+        "jvs" => pre_assemble_unary(args, Inst::Jvs),
+        "jmp" => pre_assemble_unary(args, Inst::Jmp),
+        "rjmp" => pre_assemble_unary(args, Inst::Rjmp),
+        "ijmp" => pre_assemble_unary(args, Inst::Ijmp),
+        "call" => pre_assemble_unary(args, Inst::Call),
+        "rcall" => pre_assemble_unary(args, Inst::Rcall),
+        "icall" => pre_assemble_unary(args, Inst::Icall),
+        "ret" => pre_assemble_nullary(args, Inst::Ret),
+        "reti" => pre_assemble_nullary(args, Inst::Reti),
+        "nop" => pre_assemble_nullary(args, Inst::Nop),
+        "halt" => pre_assemble_nullary(args, Inst::Halt),
+        _ => Err(MnemoAssembleError::UnknownMnemo(mnemo.to_string()))
     }
 }
 
 fn pre_assemble_nullary(
-    loc: &TextLoc,
     args: &ExprList,
-    inst: PreAssembledInst) -> Result<PreAssembledInst, PreAssembleError>
+    inst: PreAssembledInst) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     if args.len() != 0 {
-        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 0, given: args.len() })
+        Err(MnemoAssembleError::BadArgumentCount { expected: 0, given: args.len() })
     }
     else { Ok(inst) }
 }
 
 fn pre_assemble_unary<F>(
-    loc: &TextLoc,
     args: &ExprList,
-    inst: F) -> Result<PreAssembledInst, PreAssembleError> where
+    inst: F) -> Result<PreAssembledInst, MnemoAssembleError> where
     F: FnOnce(Expr) -> PreAssembledInst
 {
     if args.len() != 1 {
-        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 1, given: args.len() })
+        Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: args.len() })
     }
     else { Ok(inst(args[0].clone())) }
 }
 
 fn pre_assemble_binary<F>(
-    loc: &TextLoc,
     args: &ExprList,
-    inst: F) -> Result<PreAssembledInst, PreAssembleError> where
+    inst: F) -> Result<PreAssembledInst, MnemoAssembleError> where
     F: FnOnce(Expr, Expr) -> PreAssembledInst
 {
     if args.len() != 2 {
-        Err(PreAssembleError::BadArgumentCount { loc: loc.clone(), expected: 2, given: args.len() })
+        Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: args.len() })
     }
     else { Ok(inst(args[0].clone(), args[1].clone())) }
 }
@@ -234,7 +242,6 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::lexer::*;
     use asm::parser::*;
 
     use super::*;
@@ -252,15 +259,15 @@ mod test {
     fn should_pre_assemble_declaring_inst_labels() {
         let lines = vec![
             Ok(Statement::Mnemo(
-                loc!(1, 1, "lab1: nop"),
+                sline!(1, "lab1: nop"),
                 Some("lab1".to_string()),
                 "nop".to_string(),
-                exprlist![])),
+                vec![])),
             Ok(Statement::Mnemo(
-                loc!(2, 1, "lab2: nop"),
+                sline!(2, "lab2: nop"),
                 Some("lab2".to_string()),
                 "nop".to_string(),
-                exprlist![])),
+                vec![])),
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
@@ -273,15 +280,15 @@ mod test {
     fn should_pre_assemble_dup_inst_label_as_error() {
         let lines = vec![
             Ok(Statement::Mnemo(
-                loc!(1, 1, "lab1: nop"),
+                sline!(1, "lab1: nop"),
                 Some("lab1".to_string()),
                 "nop".to_string(),
-                exprlist![])),
+                vec![])),
             Ok(Statement::Mnemo(
-                loc!(2, 1, "lab1: nop"),
+                sline!(2, "lab1: nop"),
                 Some("lab1".to_string()),
                 "nop".to_string(),
-                exprlist![])),
+                vec![])),
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
@@ -290,18 +297,18 @@ mod test {
         assert!(!symbols.contains_key("lab2"));
         assert_eq!(
             result[1],
-            Err(PreAssembleError::DuplicatedLabel(loc!(2, 1, "lab1: nop"), "lab1".to_string())));
+            Err(PreAssembleError::DuplicatedLabel(sline!(2, "lab1: nop"), "lab1".to_string())));
     }
 
     #[test]
     fn should_pre_assemble_program() {
         let lines = vec![
-            Ok(Statement::Empty(loc!(1, 1, ""), None)),
+            Ok(Statement::Empty(sline!(1, ""), None)),
             Ok(Statement::Mnemo(
-                loc!(2, 1, "halt"),
+                sline!(2, "halt"),
                 None,
                 "halt".to_string(),
-                exprlist![])),
+                vec![])),
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
@@ -309,13 +316,13 @@ mod test {
         assert_eq!(
             result[0],
             Ok(PreAssembled::Empty {
-                loc: loc!(1, 1, ""),
+                line: sline!(1, ""),
                 base_addr: Addr(0),
             }));
         assert_eq!(
             result[1],
             Ok(PreAssembled::Inst {
-                loc: loc!(2, 1, "halt"),
+                line: sline!(2, "halt"),
                 base_addr: Addr(0),
                 inst: Inst::Halt
             }));
@@ -462,84 +469,50 @@ mod test {
     #[test]
     fn should_fail_pre_assemble_with_unknown_mnemo() {
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), "foobar", &exprlist!()),
-            Err(PreAssembleError::UnknownMnemo(loc!(1, 1, "foo"), "foobar".to_string())));
+            pre_assemble_inst("foobar", &vec![]),
+            Err(MnemoAssembleError::UnknownMnemo("foobar".to_string())));
     }
 
     fn should_pre_assemble_nullary_inst(mnemo: &str, inst: PreAssembledInst) {
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
+            pre_assemble_inst(mnemo, &vec![]),
             Ok(inst));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0))),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 0,
-                given: 1
-            }));
+            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 0, given: 1 }));
     }
 
     fn should_pre_assemble_unary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0))),
-            Ok(inst(
-                Expr::reg(1, 5, Reg::R0))));
+            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            Ok(inst(Expr::Reg(Reg::R0))));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 1,
-                given: 0
-            }));
+            pre_assemble_inst(mnemo, &vec![]),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 0 }));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0),
-                Expr::reg(1, 9, Reg::R1))),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 1,
-                given: 2
-            }));
+            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 2 }));
     }
 
     fn should_pre_assemble_binary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr, Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0),
-                Expr::reg(1, 9, Reg::R1))),
-            Ok(inst(
-                Expr::reg(1, 5, Reg::R0),
-                Expr::reg(1, 9, Reg::R1))));
+            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
+            Ok(inst(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!()),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 2,
-                given: 0
-            }));
+            pre_assemble_inst(mnemo, &vec![]),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 0 }));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0))),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 2,
-                given: 1
-            }));
+            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 1 }));
         assert_eq!(
-            pre_assemble_inst(&loc!(1, 1, "foo"), mnemo, &exprlist!(
-                Expr::reg(1, 5, Reg::R0),
-                Expr::reg(1, 9, Reg::R1),
-                Expr::reg(1, 13, Reg::R2))),
-            Err(PreAssembleError::BadArgumentCount {
-                loc: loc!(1, 1, "foo"),
-                expected: 2,
-                given: 3
-            }));
+            pre_assemble_inst(mnemo, &vec!(
+                Expr::Reg(Reg::R0),
+                Expr::Reg(Reg::R1),
+                Expr::Reg(Reg::R2))),
+            Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 3 }));
     }
 }

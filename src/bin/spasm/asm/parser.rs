@@ -8,7 +8,6 @@
 
 use std::fmt;
 use std::iter::IntoIterator;
-use std::ops::Index;
 
 use simproc::inst::{AddrReg, Reg};
 
@@ -16,109 +15,17 @@ use asm::lexer::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
-	Number(TextLoc, i64),
-	Reg(TextLoc, Reg),
-    AddrReg(TextLoc, AddrReg),
-    Ident(TextLoc, String),
+	Number(i64),
+	Reg(Reg),
+    AddrReg(AddrReg),
+    Ident(String),
 }
 
 impl Expr {
-    pub fn num(l: usize, c: usize, n: i64) -> Expr {
-        Expr::Number(loc!(l, c, format!("{}", n)), n)
-    }
-
-    pub fn reg(l: usize, c: usize, r: Reg) -> Expr {
-        Expr::Reg(loc!(l, c, format!("{}", r)), r)
-    }
-
-    pub fn areg(l: usize, c: usize, r: AddrReg) -> Expr {
-        Expr::AddrReg(loc!(l, c, format!("{}", r)), r)
-    }
-
-    pub fn id(l: usize, c: usize, s: &str) -> Expr {
-        Expr::Ident(loc!(l, c, format!("{}", s)), s.to_string())
-    }
+    pub fn id(s: &str) -> Self { Expr::Ident(s.to_string()) }
 }
 
-impl fmt::Display for Expr {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-    	write!(fmt, "{}", self.loc().txt)
-    }
-}
-
-impl TextLocate for Expr {
-	fn loc(&self) -> &TextLoc {
-		match self {
-			&Expr::Number(ref loc, _) => loc,
-			&Expr::Reg(ref loc, _) => loc,
-            &Expr::AddrReg(ref loc, _) => loc,
-            &Expr::Ident(ref loc, _) => loc,
-		}
-	}
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ExprList {
-	loc: TextLoc,
-	list: Vec<Expr>,
-}
-
-impl ExprList {
-	pub fn empty() -> ExprList {
-		ExprList {
-			loc: TextLoc::undef(),
-			list: Vec::new(),
-		}
-	}
-
-	pub fn from_expr(e: Expr) -> ExprList {
-		ExprList {
-			loc: e.loc().clone(),
-			list: vec![e],
-		}
-	}
-
-	pub fn append(&mut self, comma_loc: TextLoc, e: Expr) {
-		self.loc = if self.loc.is_undef() { e.loc().clone() }
-            else { self.loc.clone() + &comma_loc + e.loc() };
-		self.list.push(e);
-	}
-
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
-
-	pub fn len(&self) -> usize { self.list.len() }
-}
-
-impl Index<usize> for ExprList {
-	type Output = Expr;
-
-    fn index<'a>(&self, i: usize) -> &Expr {
-        &self.list[i]
-    }
-}
-
-impl TextLocate for ExprList {
-	fn loc(&self) -> &TextLoc { &self.loc }
-}
-
-macro_rules! exprlist {
-    () => (ExprList::empty());
-    ($( $e:expr ),+) => ({
-        let mut list = ExprList::empty();
-        $(
-            if list.is_empty() { list = ExprList::from_expr($e) }
-            else {
-                let e = $e;
-                let cl = {
-                    let el = e.loc();
-                    loc!(el.line, el.col - 2, ",")
-                };
-                list.append(cl, e);
-            }
-        )*
-        list
-    });
-}
+pub type ExprList = Vec<Expr>;
 
 type Label = Option<String>;
 type DirectName = String;
@@ -128,19 +35,9 @@ type MnemoArgs = ExprList;
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
-    Empty(TextLoc, Label),
-	Direct(TextLoc, Label, DirectName, DirectArgs),
-	Mnemo(TextLoc, Label, MnemoName, MnemoArgs),
-}
-
-impl TextLocate for Statement {
-	fn loc(&self) -> &TextLoc {
-		match self {
-			&Statement::Direct(ref loc, _, _, _) => loc,
-			&Statement::Mnemo(ref loc, _, _, _) => loc,
-			&Statement::Empty(ref loc, _) => loc,
-		}
-	}
+    Empty(Line, Label),
+	Direct(Line, Label, DirectName, DirectArgs),
+	Mnemo(Line, Label, MnemoName, MnemoArgs),
 }
 
 #[derive(Debug, PartialEq)]
@@ -153,7 +50,7 @@ impl fmt::Display for SyntaxError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     	match self {
     		&SyntaxError::UnexpectedToken(ref tok) =>
-    			write!(fmt, "unexpected token {}", tok.loc().txt),
+    			write!(fmt, "unexpected token {:?}", tok),
     		&SyntaxError::UnexpectedEof =>
     			write!(fmt, "unexpected end of file"),
     	}
@@ -175,62 +72,58 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
 	fn next_statement(&mut self, allow_label: bool) -> Option<Result<Statement, SyntaxError>> {
 		match self.input.next() {
-			Some(Token::Ident(loc, id)) => self.next_statement_from_id(loc, id, allow_label),
-			Some(Token::Direct(loc, dir)) => self.direct_from(loc, dir),
-			Some(Token::Eol(loc)) => Some(Ok(Statement::Empty(loc!(loc.line, 1, ""), None))),
+			Some(Token::Ident(id)) => self.next_statement_from_id(id, allow_label),
+			Some(Token::Direct(dir)) => self.direct_from(dir),
+			Some(Token::Eol(line)) => Some(Ok(Statement::Empty(line, None))),
 			Some(other) => Some(Err(SyntaxError::UnexpectedToken(other))),
 			None => None,
 		}
 	}
 
     fn next_statement_from_id(
-    	&mut self,
-    	id_loc: TextLoc,
-    	id: String,
-    	allow_label: bool) -> Option<Result<Statement, SyntaxError>>
+        &mut self,
+        id: String,
+        allow_label: bool) -> Option<Result<Statement, SyntaxError>>
     {
     	match self.input.next() {
-    		Some(Token::Colon(c_loc)) =>
-    			if allow_label { self.next_with_label(id_loc + &c_loc, id) }
-    			else { Some(Err(SyntaxError::UnexpectedToken(Token::Colon(c_loc)))) },
-    		Some(Token::Eol(_)) | None =>
-    			Some(Ok(Statement::Mnemo(id_loc, None, id, ExprList::empty()))),
+    		Some(Token::Colon) =>
+    			if allow_label { self.next_with_label(id) }
+    			else { Some(Err(SyntaxError::UnexpectedToken(Token::Colon))) },
+    		Some(Token::Eol(line)) =>
+    			Some(Ok(Statement::Mnemo(line, None, id, vec![]))),
     		Some(other) => {
     			match self.next_expr_list_from(other) {
-    				Ok(list) =>
-    					Some(Ok(Statement::Mnemo(id_loc + list.loc(), None, id, list))),
+    				Ok((list, line)) => Some(Ok(Statement::Mnemo(line, None, id, list))),
     				Err(e) => Some(Err(e)),
     			}
     		},
+            None => Some(Err(SyntaxError::UnexpectedEof)),
     	}
     }
 
-    fn next_with_label(
-    	&mut self, loc: TextLoc, label: String) -> Option<Result<Statement, SyntaxError>>
-    {
+    fn next_with_label(&mut self, label: String) -> Option<Result<Statement, SyntaxError>> {
     	match self.next_statement(false) {
     		Some(Ok(Statement::Direct(l, _, i, a))) =>
-    			Some(Ok(Statement::Direct(loc + &l, Some(label), i, a))),
+    			Some(Ok(Statement::Direct(l, Some(label), i, a))),
     		Some(Ok(Statement::Mnemo(l, _, i, a))) =>
-    			Some(Ok(Statement::Mnemo(loc + &l, Some(label), i, a))),
-    		Some(Ok(Statement::Empty(_, _))) =>
-    			Some(Ok(Statement::Empty(loc, Some(label)))),
+    			Some(Ok(Statement::Mnemo(l, Some(label), i, a))),
+    		Some(Ok(Statement::Empty(l, _))) =>
+    			Some(Ok(Statement::Empty(l, Some(label)))),
 			other => other,
     	}
     }
 
-    fn direct_from(&mut self,
-    			   dir_loc: TextLoc,
-    			   dir: String) -> Option<Result<Statement, SyntaxError>> {
+    fn direct_from(&mut self, dir: String) -> Option<Result<Statement, SyntaxError>> {
     	match self.input.next() {
-    		Some(Token::Eol(_)) | None =>
-    			Some(Ok(Statement::Direct(dir_loc, None, dir, ExprList::empty()))),
+    		Some(Token::Eol(line)) =>
+    			Some(Ok(Statement::Direct(line, None, dir, vec![]))),
     		Some(other) => {
     			match self.next_expr_list_from(other) {
-    				Ok(list) => Some(Ok(Statement::Direct(dir_loc + list.loc(), None, dir, list))),
+    				Ok((list, line)) => Some(Ok(Statement::Direct(line, None, dir, list))),
     				Err(e) => Some(Err(e)),
     			}
     		},
+            None => Some(Err(SyntaxError::UnexpectedEof)),
     	}
     }
 
@@ -243,22 +136,23 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 
     fn next_expr_from(&mut self, tk: Token) -> Result<Expr, SyntaxError> {
     	match tk {
-            Token::AddrRegister(loc, reg) => Ok(Expr::AddrReg(loc, reg)),
-    		Token::Register(loc, reg) => Ok(Expr::Reg(loc, reg)),
-    		Token::Number(loc, n) => Ok(Expr::Number(loc, n)),
-            Token::Ident(loc, id) => Ok(Expr::Ident(loc, id)),
+            Token::AddrRegister(reg) => Ok(Expr::AddrReg(reg)),
+    		Token::Register(reg) => Ok(Expr::Reg(reg)),
+    		Token::Number(n) => Ok(Expr::Number(n)),
+            Token::Ident(id) => Ok(Expr::Ident(id)),
     		other => return Err(SyntaxError::UnexpectedToken(other)),
     	}
     }
 
-    fn next_expr_list_from(&mut self, tk: Token) -> Result<ExprList, SyntaxError> {
+    fn next_expr_list_from(&mut self, tk: Token) -> Result<(ExprList, Line), SyntaxError> {
     	let head = try!(self.next_expr_from(tk));
-    	let mut list = ExprList::from_expr(head);
+    	let mut list = vec!(head);
     	loop {
 	    	match self.input.next() {
-	    		Some(Token::Comma(loc)) => { list.append(loc, try!(self.next_expr())) },
-	    		Some(Token::Eol(_)) | None => return Ok(list),
+	    		Some(Token::Comma) => { list.push(try!(self.next_expr())); },
+	    		Some(Token::Eol(line)) => return Ok((list, line)),
 	    		Some(other) => return Err(SyntaxError::UnexpectedToken(other)),
+                None => return Err(SyntaxError::UnexpectedEof),
 	    	}
     	}
     }
@@ -284,16 +178,16 @@ mod test {
     #[test]
     fn should_parse_nullary_mnemo() {
     	let input = vec![
-    		ident!(1, 1, "nop"),
-    		eol!(1, 6),
+    		ident!("nop"),
+    		eol!(1, "nop"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
-    			loc!(1, 1, "nop"),
+    			sline!(1, "nop"),
     			None,
     			"nop".to_string(),
-    			ExprList::empty()))),
+    			vec![]))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -301,17 +195,17 @@ mod test {
     #[test]
     fn should_parse_unary_mnemo() {
     	let input = vec![
-    		ident!(1, 1, "push"),
-    		reg!(1, 6, Reg::R0),
-    		eol!(1, 9),
+    		ident!("push"),
+    		Token::Register(Reg::R0),
+    		eol!(1, "push R0"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
-    			loc!(1, 1, "push R0"),
+    			sline!(1, "push R0"),
 	    		None,
     			"push".to_string(),
-    			ExprList::from_expr(Expr::reg(1, 6, Reg::R0))))),
+    			vec!(Expr::Reg(Reg::R0))))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -319,24 +213,20 @@ mod test {
     #[test]
     fn should_parse_binary_mnemo() {
     	let input = vec![
-    		ident!(1, 1, "add"),
-    		reg!(1, 5, Reg::R0),
-    		comma!(1, 7),
-    		reg!(1, 9, Reg::R1),
-    		eol!(1, 12),
+    		ident!("add"),
+    		Token::Register(Reg::R0),
+    		Token::Comma,
+    		Token::Register(Reg::R1),
+    		eol!(1, "add R0, R1"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
-    			loc!(1, 1, "add R0, R1"),
+    			sline!(1, "add R0, R1"),
     			None,
     			"add".to_string(),
-    			ExprList {
-    				loc: loc!(1, 5, "R0, R1"),
-    				list: vec![
-    				Expr::reg(1, 5, Reg::R0),
-    				Expr::reg(1, 9, Reg::R1)]
-    			}))),
+    			vec![Expr::Reg(Reg::R0), Expr::Reg(Reg::R1)]
+    			))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -344,18 +234,18 @@ mod test {
     #[test]
     fn should_parse_labeled_mnemo() {
     	let input = vec![
-    		ident!(1, 1, "foo"),
-    		colon!(1, 4),
-    		ident!(1, 6, "nop"),
-    		eol!(1, 6),
+    		ident!("foo"),
+    		Token::Colon,
+    		ident!("nop"),
+    		eol!(1, "foo: nop"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Mnemo(
-    			loc!(1, 1, "foo: nop"),
+    			sline!(1, "foo: nop"),
     			Some("foo".to_string()),
     			"nop".to_string(),
-    			ExprList::empty()))),
+    			vec![]))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -363,16 +253,16 @@ mod test {
     #[test]
     fn should_parse_nullary_directive() {
     	let input = vec![
-    		direct!(1, 1, "dir"),
-    		eol!(1, 5),
+    		direct!("dir"),
+    		eol!(1, ".dir"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Direct(
-    			loc![1, 1, ".dir"],
+    			sline!(1, ".dir"),
     			None,
     			"dir".to_string(),
-    			ExprList::empty()))),
+    			vec![]))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -380,30 +270,23 @@ mod test {
     #[test]
     fn should_parse_parameterized_directive() {
     	let input = vec![
-    		direct!(1, 1, "dir"),
-    		number!(1, 6, 1),
-    		comma!(1, 7),
-    		number!(1, 9, 2),
-    		comma!(1, 10),
-    		number!(1, 12, 3),
-    		comma!(1, 13),
-    		number!(1, 15, 4),
-    		eol!(1, 16),
+    		direct!("dir"),
+    		Token::Number(1),
+    		Token::Comma,
+    		Token::Number(2),
+    		Token::Comma,
+    		Token::Number(3),
+    		Token::Comma,
+    		Token::Number(4),
+    		eol!(1, ".dir 1, 2, 3, 4"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Direct(
-    			loc![1, 1, ".dir 1, 2, 3, 4"],
+    			sline!(1, ".dir 1, 2, 3, 4"),
     			None,
     			"dir".to_string(),
-    			ExprList {
-    				loc: loc!(1, 6, "1, 2, 3, 4"),
-    				list: vec![
-	    				Expr::num(1, 6, 1),
-	    				Expr::num(1, 9, 2),
-	    				Expr::num(1, 12, 3),
-	    				Expr::num(1, 15, 4)]
-    			}))),
+    			vec![Expr::Number(1), Expr::Number(2), Expr::Number(3), Expr::Number(4)]))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -411,30 +294,28 @@ mod test {
     #[test]
     fn should_parse_labeled_directive() {
     	let input = vec![
-    		ident!(1, 1, "foo"),
-    		colon!(1, 4),
-    		direct!(1, 6, "dir"),
-    		eol!(1, 9),
+    		ident!("foo"),
+    		Token::Colon,
+    		direct!("dir"),
+    		eol!(1, "foo: .dir"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Direct(
-    			loc![1, 1, "foo: .dir"],
+    			sline!(1, "foo: .dir"),
     			Some("foo".to_string()),
     			"dir".to_string(),
-    			ExprList::empty()))),
+    			vec![]))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
 
     #[test]
     fn should_parse_empty() {
-    	let input = vec![
-    		eol!(1, 6),
-    	];
+    	let input = vec![eol!(1, "")];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
-    		Some(Ok(Statement::Empty(loc!(1, 1, ""), None))),
+    		Some(Ok(Statement::Empty(sline!(1, ""), None))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }
@@ -442,14 +323,14 @@ mod test {
     #[test]
     fn should_parse_labeled_empty() {
     	let input = vec![
-    		ident!(1, 1, "foo"),
-    		colon!(1, 4),
-    		eol!(1, 5),
+    		ident!("foo"),
+    		Token::Colon,
+    		eol!(1, "foo:"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
     		Some(Ok(Statement::Empty(
-    			loc!(1, 1, "foo:"),
+    			sline!(1, "foo:"),
     			Some("foo".to_string())))),
     		parser.next());
     	assert_eq!(None, parser.next());
@@ -458,18 +339,18 @@ mod test {
     #[test]
     fn should_fail_parse_two_consecutive_labels() {
     	let input = vec![
-    		ident!(1, 1, "foo"),
-    		colon!(1, 4),
-    		ident!(1, 6, "bar"),
-    		colon!(1, 9),
-    		eol!(1, 10),
+    		ident!("foo"),
+    		Token::Colon,
+    		ident!("bar"),
+    		Token::Colon,
+    		eol!(1, "foo: bar:"),
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
-    		Some(Err(SyntaxError::UnexpectedToken(colon!(1, 9)))),
+    		Some(Err(SyntaxError::UnexpectedToken(Token::Colon))),
     		parser.next());
     	assert_eq!(
-    		Some(Ok(Statement::Empty(loc!(1, 1, ""), None))),
+    		Some(Ok(Statement::Empty(sline!(1, "foo: bar:"), None))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }

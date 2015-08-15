@@ -102,11 +102,11 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_() {
+    fn should_assemble() {
         let prog = "\
-            begin: nop \n\
-                   noop ; this is an error \n\
-                   nop \n\
+            begin: nop\n\
+                   noop ; this is an error\n\
+                   nop\
         ";
         let asm = Assembly::assemble(prog.chars());
         assert!(asm.has_errors());
