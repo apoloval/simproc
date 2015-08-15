@@ -94,7 +94,7 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
                     line: line, base_addr: base_addr,
                 }))
             },
-            Some(Ok(PreAssembled::Inst { line, base_addr, inst, .. })) => {
+            Some(Ok(PreAssembled::Inst { line, base_addr, inst })) => {
                 Some(match self.inst_asm.assemble(inst, base_addr) {
                     Ok(inst) => Ok(FullAssembled::Inst {
                         line: line, base_addr: base_addr, inst: inst

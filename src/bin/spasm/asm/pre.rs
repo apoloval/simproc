@@ -32,6 +32,11 @@ impl Operands for PreAssembledOperands {
 pub type PreAssembledInst = Inst<PreAssembledOperands>;
 
 #[derive(Debug, PartialEq)]
+pub enum Direct {
+    Org(Addr),
+}
+
+#[derive(Debug, PartialEq)]
 pub enum PreAssembled {
     Empty { line: Line, base_addr: Addr },
     Inst { line: Line, base_addr: Addr, inst: PreAssembledInst },
@@ -39,6 +44,7 @@ pub enum PreAssembled {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreAssembleError {
+    Direct(Line, DirectAssembleError),
     DuplicatedLabel(Line, String),
     Mnemo(Line, MnemoAssembleError),
 }
@@ -46,10 +52,13 @@ pub enum PreAssembleError {
 impl fmt::Display for PreAssembleError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
+            &PreAssembleError::Direct(ref line, ref error) =>
+                write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
             &PreAssembleError::DuplicatedLabel(ref line, ref label) =>
-                write!(fmt, "in {}: label {} is duplicated\n\t{}", line.row, label, line.content),
+                write!(fmt, "in line {}: label {} is duplicated\n\t{}",
+                    line.row, label, line.content),
             &PreAssembleError::Mnemo(ref line, ref error) =>
-                write!(fmt, "in {}: {}\n\t{}", line.row, error, line.content),
+                write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
         }
     }
 }
@@ -67,6 +76,29 @@ impl fmt::Display for MnemoAssembleError {
                 write!(fmt, "expected {} arguments, {} given", expected, given),
             &MnemoAssembleError::UnknownMnemo(ref mnemo) =>
                 write!(fmt, "unknown mnemo {}", mnemo),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DirectAssembleError {
+    BadArgumentCount { expected: usize, given: usize },
+    InvalidAddress(i64),
+    TypeMismatch { expected: String },
+    UnknownDirect(String),
+}
+
+impl fmt::Display for DirectAssembleError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &DirectAssembleError::BadArgumentCount { expected, given } =>
+                write!(fmt, "expected {} arguments, {} given", expected, given),
+            &DirectAssembleError::InvalidAddress(addr) =>
+                write!(fmt, "value {} is not a valid address", addr),
+            &DirectAssembleError::TypeMismatch { ref expected } =>
+                write!(fmt, "type mismatch ({} expected)", expected),
+            &DirectAssembleError::UnknownDirect(ref direct) =>
+                write!(fmt, "unknown directive .{}", direct),
         }
     }
 }
@@ -108,6 +140,11 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
                     let pre_asm = |line| Self::pre_assemble_inst(line, &mnemo, &args, &mut memptr);
                     output.push(lab_decl.and_then(pre_asm));
                 },
+                Ok(Statement::Direct(line, lab, direct, args)) => {
+                    let lab_decl = Self::decl_label(line, lab, symbols, memptr);
+                    let pre_asm = |line| Self::pre_assemble_direct(line, &direct, &args, &mut memptr);
+                    output.push(lab_decl.and_then(pre_asm));
+                },
                 _ => {},
             }
         }
@@ -146,6 +183,23 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
                 Ok(PreAssembled::Inst { line: line, base_addr: base, inst: inst })
             },
             Err(e) => Err(PreAssembleError::Mnemo(line, e)),
+        }
+    }
+
+    /// Pre-assemble the directive represented by the given mnemo.
+    /// It also updates `memptr` according to what the directive represents.
+    pub fn pre_assemble_direct(
+        line: Line,
+        direct: &str,
+        args: &ExprList,
+        memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
+    {
+        match pre_assemble_direct(direct, args) {
+            Ok(Direct::Org(Addr(addr))) => {
+                *memptr = addr as usize;
+                Ok(PreAssembled::Empty { line: line, base_addr: Addr(addr), })
+            },
+            Err(e) => Err(PreAssembleError::Direct(line, e)),
         }
     }
 }
@@ -237,6 +291,37 @@ fn pre_assemble_binary<F>(
     else { Ok(inst(args[0].clone(), args[1].clone())) }
 }
 
+pub fn pre_assemble_direct(
+    direct: &str,
+    args: &ExprList) -> Result<Direct, DirectAssembleError>
+{
+    match direct.to_ascii_lowercase().trim() {
+        "org" => pre_assemble_org(args),
+        _ => Err(DirectAssembleError::UnknownDirect(direct.to_string())),
+    }
+}
+
+fn pre_assemble_org(args: &ExprList) -> Result<Direct, DirectAssembleError> {
+    let argc = args.len();
+    if argc != 1 {
+        return Err(DirectAssembleError::BadArgumentCount {
+            expected: 1,
+            given: argc,
+        });
+    }
+    match args[0] {
+        Expr::Number(n) => {
+            Addr::from_i64(n)
+                .ok_or(DirectAssembleError::InvalidAddress(n))
+                .and_then(|addr| Ok(Direct::Org(addr)))
+        },
+        _ => Err(DirectAssembleError::TypeMismatch {
+            expected: "literal memory address".to_string()
+        }),
+    }
+}
+
+
 #[cfg(test)]
 mod test {
 
@@ -309,6 +394,11 @@ mod test {
                 None,
                 "halt".to_string(),
                 vec![])),
+            Ok(Statement::Direct(
+                sline!(3, ".org 0x1000"),
+                None,
+                "org".to_string(),
+                vec![Expr::Number(0x1000)])),
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
@@ -325,6 +415,12 @@ mod test {
                 line: sline!(2, "halt"),
                 base_addr: Addr(0),
                 inst: Inst::Halt
+            }));
+        assert_eq!(
+            result[2],
+            Ok(PreAssembled::Empty {
+                line: sline!(3, ".org 0x1000"),
+                base_addr: Addr(0x1000),
             }));
     }
 
@@ -471,6 +567,28 @@ mod test {
         assert_eq!(
             pre_assemble_inst("foobar", &vec![]),
             Err(MnemoAssembleError::UnknownMnemo("foobar".to_string())));
+    }
+
+    #[test]
+    fn should_preassemble_org() {
+        assert_eq!(
+            pre_assemble_direct("org", &vec![Expr::Number(0x1000)]),
+            Ok(Direct::Org(Addr(0x1000))));
+        assert_eq!(
+            pre_assemble_direct("org", &vec![Expr::Number(0x100000)]),
+            Err(DirectAssembleError::InvalidAddress(0x100000)));
+        assert_eq!(
+            pre_assemble_direct("org", &vec![Expr::id("foobar")]),
+            Err(DirectAssembleError::TypeMismatch {
+                expected: "literal memory address".to_string(),
+            }));
+    }
+
+    #[test]
+    fn should_preassemble_unknown_direct() {
+        assert_eq!(
+            pre_assemble_direct("foobar", &vec![]),
+            Err(DirectAssembleError::UnknownDirect("foobar".to_string())));
     }
 
     fn should_pre_assemble_nullary_inst(mnemo: &str, inst: PreAssembledInst) {
