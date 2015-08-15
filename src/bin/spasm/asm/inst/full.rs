@@ -347,7 +347,7 @@ mod test {
         O1: Clone,
         M1: Fn(&mut MockExprAssembler, Result<O1, ExprAssembleError>),
     {
-        let err = ExprAssembleError::TypeMismatch { expected: "foobar".to_string() };
+        let err = ExprAssembleError::Undefined { symbol: "foobar".to_string() };
         let mut expr = MockExprAssembler::new();
         m1(&mut expr, Ok(o1.clone()));
         m1(&mut expr, Err(err.clone()));
@@ -368,7 +368,7 @@ mod test {
         M1: Fn(&mut MockExprAssembler, Result<O1, ExprAssembleError>),
         M2: Fn(&mut MockExprAssembler, Result<O2, ExprAssembleError>),
     {
-        let err = ExprAssembleError::TypeMismatch { expected: "foobar".to_string() };
+        let err = ExprAssembleError::Undefined { symbol: "foobar".to_string() };
         let mut expr = MockExprAssembler::new();
         m1(&mut expr, Ok(o1.clone()));
         m2(&mut expr, Ok(o2.clone()));

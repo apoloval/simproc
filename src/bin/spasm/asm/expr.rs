@@ -30,7 +30,7 @@ pub type ExprList = Vec<Expr>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprAssembleError {
-    TypeMismatch { expected: String },
+    TypeMismatch { expected: String, given: Expr },
     Undefined { symbol: String },
     TooFar { from: Addr, to: Addr },
     OutOfRange { range: Range<i64>, given: i64 },
@@ -39,8 +39,8 @@ pub enum ExprAssembleError {
 impl fmt::Display for ExprAssembleError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            &ExprAssembleError::TypeMismatch { ref expected } =>
-                write!(fmt, "type mismatch ({} expected)", expected),
+            &ExprAssembleError::TypeMismatch { ref expected, ref given } =>
+                write!(fmt, "type mismatch in {:?} ({} expected)", given, expected),
             &ExprAssembleError::Undefined { ref symbol } =>
                 write!(fmt, "'{}' is undefined", symbol),
             &ExprAssembleError::TooFar { from, to } =>
@@ -76,8 +76,9 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     fn to_reg(&mut self, e: Expr) -> Result<Reg, ExprAssembleError> {
         match e {
             Expr::Reg(reg) => Ok(reg),
-            _ => Err(ExprAssembleError::TypeMismatch {
-                expected: "register name".to_string()
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "register name".to_string(),
+                given: other,
             })
         }
     }
@@ -85,8 +86,9 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
     fn to_areg(&mut self, e: Expr) -> Result<AddrReg, ExprAssembleError> {
         match e {
             Expr::AddrReg(reg) => Ok(reg),
-            _ => Err(ExprAssembleError::TypeMismatch {
-                expected: "address register name".to_string()
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "address register name".to_string(),
+                given: other,
             })
         }
     }
@@ -107,8 +109,9 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
                     _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            _ => Err(ExprAssembleError::TypeMismatch {
-                expected: "immediate value".to_string()
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "immediate value".to_string(),
+                given: other,
             })
         }
     }
@@ -129,8 +132,9 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
                     _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            _ => Err(ExprAssembleError::TypeMismatch {
-                expected: "memory address".to_string()
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "memory address".to_string(),
+                given: other,
             })
         }
     }
@@ -156,7 +160,10 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
                     _ => Err(ExprAssembleError::Undefined { symbol: id }),
                 }
             },
-            _ => Err(ExprAssembleError::TypeMismatch { expected: "memory address".to_string() })
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "memory address".to_string(),
+                given: other,
+            })
         }
     }
 }
@@ -179,7 +186,10 @@ mod test {
             Ok(Reg::R0));
         assert_eq!(
             asm.to_reg(Expr::Number(100)),
-            Err(ExprAssembleError::TypeMismatch { expected: "register name".to_string() }));
+            Err(ExprAssembleError::TypeMismatch {
+                expected: "register name".to_string(),
+                given: Expr::Number(100),
+            }));
     }
 
     #[test]
@@ -191,7 +201,10 @@ mod test {
             Ok(AddrReg::A0));
         assert_eq!(
             asm.to_areg(Expr::Number(100)),
-            Err(ExprAssembleError::TypeMismatch { expected: "address register name".to_string() }));
+            Err(ExprAssembleError::TypeMismatch {
+                expected: "address register name".to_string(),
+                given: Expr::Number(100),
+            }));
     }
 
     #[test]
@@ -226,7 +239,8 @@ mod test {
         assert_eq!(
             asm.to_immediate(Expr::Reg(Reg::R0)),
             Err(ExprAssembleError::TypeMismatch {
-                expected: "immediate value".to_string()
+                expected: "immediate value".to_string(),
+                given: Expr::Reg(Reg::R0),
             }));
     }
 
@@ -253,7 +267,10 @@ mod test {
             Err(ExprAssembleError::Undefined { symbol: "undefined".to_string() }));
         assert_eq!(
             asm.to_addr(Expr::Reg(Reg::R0)),
-            Err(ExprAssembleError::TypeMismatch { expected: "memory address".to_string() }));
+            Err(ExprAssembleError::TypeMismatch {
+                expected: "memory address".to_string(),
+                given: Expr::Reg(Reg::R0),
+            }));
     }
 
     #[test]
@@ -293,7 +310,8 @@ mod test {
         assert_eq!(
             asm.to_raddr(Expr::Reg(Reg::R0), Addr(75)),
             Err(ExprAssembleError::TypeMismatch {
-                expected: "memory address".to_string()
+                expected: "memory address".to_string(),
+                given: Expr::Reg(Reg::R0),
             }));
     }
 }
