@@ -102,6 +102,9 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
                     Err(e) => Err(FullAssembleError::Expr { line: line, error: e }),
                 })
             },
+            Some(Ok(PreAssembled::Data { line, base_addr, data })) => {
+                unimplemented!()
+            },
             Some(Err(e)) => Some(Err(FullAssembleError::Pre(e))),
             None => None,
         }

@@ -34,12 +34,23 @@ pub type PreAssembledInst = Inst<PreAssembledOperands>;
 #[derive(Debug, PartialEq)]
 pub enum Direct {
     Org(Addr),
+    Db(ExprList),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DataSize { Byte }
+
+#[derive(Debug, PartialEq)]
+pub struct PreAssembledData {
+    size: DataSize,
+    content: ExprList,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum PreAssembled {
     Empty { line: Line, base_addr: Addr },
     Inst { line: Line, base_addr: Addr, inst: PreAssembledInst },
+    Data { line: Line, base_addr: Addr, data: PreAssembledData },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -137,12 +148,12 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
                 },
                 Ok(Statement::Mnemo(line, lab, mnemo, args)) => {
                     let lab_decl = Self::decl_label(line, lab, symbols, memptr);
-                    let pre_asm = |line| Self::pre_assemble_inst(line, &mnemo, &args, &mut memptr);
+                    let pre_asm = |line| Self::pre_assemble_inst(line, &mnemo, args, &mut memptr);
                     output.push(lab_decl.and_then(pre_asm));
                 },
                 Ok(Statement::Direct(line, lab, direct, args)) => {
                     let lab_decl = Self::decl_label(line, lab, symbols, memptr);
-                    let pre_asm = |line| Self::pre_assemble_direct(line, &direct, &args, &mut memptr);
+                    let pre_asm = |line| Self::pre_assemble_direct(line, &direct, args, &mut memptr);
                     output.push(lab_decl.and_then(pre_asm));
                 },
                 _ => {},
@@ -173,7 +184,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
     pub fn pre_assemble_inst(
         line: Line,
         mnemo: &str,
-        args: &ExprList,
+        args: ExprList,
         memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
     {
         match pre_assemble_inst(mnemo, args) {
@@ -191,13 +202,22 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
     pub fn pre_assemble_direct(
         line: Line,
         direct: &str,
-        args: &ExprList,
+        args: ExprList,
         memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
     {
         match pre_assemble_direct(direct, args) {
             Ok(Direct::Org(Addr(addr))) => {
                 *memptr = addr as usize;
                 Ok(PreAssembled::Empty { line: line, base_addr: Addr(addr), })
+            },
+            Ok(Direct::Db(args)) => {
+                let base = Addr(*memptr as u16);
+                *memptr += args.len();
+                Ok(PreAssembled::Data {
+                    line: line,
+                    base_addr: base,
+                    data: PreAssembledData { size: DataSize::Byte, content: args },
+                })
             },
             Err(e) => Err(PreAssembleError::Direct(line, e)),
         }
@@ -206,7 +226,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
 
 pub fn pre_assemble_inst(
     mnemo: &str,
-    args: &ExprList) -> Result<PreAssembledInst, MnemoAssembleError>
+    args: ExprList) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     match mnemo.to_ascii_lowercase().trim() {
         "add" => pre_assemble_binary(args, Inst::Add),
@@ -260,7 +280,7 @@ pub fn pre_assemble_inst(
 }
 
 fn pre_assemble_nullary(
-    args: &ExprList,
+    args: ExprList,
     inst: PreAssembledInst) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     if args.len() != 0 {
@@ -270,38 +290,48 @@ fn pre_assemble_nullary(
 }
 
 fn pre_assemble_unary<F>(
-    args: &ExprList,
+    args: ExprList,
     inst: F) -> Result<PreAssembledInst, MnemoAssembleError> where
     F: FnOnce(Expr) -> PreAssembledInst
 {
     if args.len() != 1 {
         Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: args.len() })
     }
-    else { Ok(inst(args[0].clone())) }
+    else {
+        let mut params = args;
+        let p0 = params.pop().unwrap();
+        Ok(inst(p0))
+    }
 }
 
 fn pre_assemble_binary<F>(
-    args: &ExprList,
+    args: ExprList,
     inst: F) -> Result<PreAssembledInst, MnemoAssembleError> where
     F: FnOnce(Expr, Expr) -> PreAssembledInst
 {
     if args.len() != 2 {
         Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: args.len() })
     }
-    else { Ok(inst(args[0].clone(), args[1].clone())) }
+    else {
+        let mut params = args;
+        let p1 = params.pop().unwrap();
+        let p0 = params.pop().unwrap();
+        Ok(inst(p0, p1))
+    }
 }
 
 pub fn pre_assemble_direct(
     direct: &str,
-    args: &ExprList) -> Result<Direct, DirectAssembleError>
+    args: ExprList) -> Result<Direct, DirectAssembleError>
 {
     match direct.to_ascii_lowercase().trim() {
         "org" => pre_assemble_org(args),
+        "db" => Ok(Direct::Db(args)),
         _ => Err(DirectAssembleError::UnknownDirect(direct.to_string())),
     }
 }
 
-fn pre_assemble_org(args: &ExprList) -> Result<Direct, DirectAssembleError> {
+fn pre_assemble_org(args: ExprList) -> Result<Direct, DirectAssembleError> {
     let argc = args.len();
     if argc != 1 {
         return Err(DirectAssembleError::BadArgumentCount {
@@ -320,7 +350,6 @@ fn pre_assemble_org(args: &ExprList) -> Result<Direct, DirectAssembleError> {
         }),
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -399,6 +428,11 @@ mod test {
                 None,
                 "org".to_string(),
                 vec![Expr::Number(0x1000)])),
+            Ok(Statement::Direct(
+                sline!(4, ".db 1, foobar"),
+                None,
+                "db".to_string(),
+                vec![Expr::Number(1), Expr::id("foobar")])),
         ];
         let mut symbols = SymbolTable::new();
         let pre = PreAssembler::from_parser(lines);
@@ -421,6 +455,16 @@ mod test {
             Ok(PreAssembled::Empty {
                 line: sline!(3, ".org 0x1000"),
                 base_addr: Addr(0x1000),
+            }));
+        assert_eq!(
+            result[3],
+            Ok(PreAssembled::Data {
+                line: sline!(4, ".db 1, foobar"),
+                base_addr: Addr(0x1000),
+                data: PreAssembledData {
+                    size: DataSize::Byte,
+                    content: vec![Expr::Number(1), Expr::id("foobar")]
+                },
             }));
     }
 
@@ -565,38 +609,51 @@ mod test {
     #[test]
     fn should_fail_pre_assemble_with_unknown_mnemo() {
         assert_eq!(
-            pre_assemble_inst("foobar", &vec![]),
+            pre_assemble_inst("foobar", vec![]),
             Err(MnemoAssembleError::UnknownMnemo("foobar".to_string())));
     }
 
     #[test]
     fn should_preassemble_org() {
         assert_eq!(
-            pre_assemble_direct("org", &vec![Expr::Number(0x1000)]),
+            pre_assemble_direct("org", vec![Expr::Number(0x1000)]),
             Ok(Direct::Org(Addr(0x1000))));
         assert_eq!(
-            pre_assemble_direct("org", &vec![Expr::Number(0x100000)]),
+            pre_assemble_direct("org", vec![Expr::Number(0x100000)]),
             Err(DirectAssembleError::InvalidAddress(0x100000)));
         assert_eq!(
-            pre_assemble_direct("org", &vec![Expr::id("foobar")]),
+            pre_assemble_direct("org", vec![Expr::id("foobar")]),
             Err(DirectAssembleError::TypeMismatch {
                 expected: "literal memory address".to_string(),
             }));
     }
 
     #[test]
+    fn should_preassemble_db() {
+        assert_eq!(
+            pre_assemble_direct("db", vec![]),
+            Ok(Direct::Db(vec![])));
+        assert_eq!(
+            pre_assemble_direct("db", vec![Expr::Number(1)]),
+            Ok(Direct::Db(vec![Expr::Number(1)])));
+        assert_eq!(
+            pre_assemble_direct("db", vec![Expr::Number(1), Expr::id("foobar")]),
+            Ok(Direct::Db(vec![Expr::Number(1), Expr::id("foobar")])));
+    }
+
+    #[test]
     fn should_preassemble_unknown_direct() {
         assert_eq!(
-            pre_assemble_direct("foobar", &vec![]),
+            pre_assemble_direct("foobar", vec![]),
             Err(DirectAssembleError::UnknownDirect("foobar".to_string())));
     }
 
     fn should_pre_assemble_nullary_inst(mnemo: &str, inst: PreAssembledInst) {
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec![]),
+            pre_assemble_inst(mnemo, vec![]),
             Ok(inst));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0))),
             Err(MnemoAssembleError::BadArgumentCount { expected: 0, given: 1 }));
     }
 
@@ -604,13 +661,13 @@ mod test {
         where F: FnOnce(Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0))),
             Ok(inst(Expr::Reg(Reg::R0))));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec![]),
+            pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 0 }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
+            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
             Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 2 }));
     }
 
@@ -618,16 +675,16 @@ mod test {
         where F: FnOnce(Expr, Expr) -> PreAssembledInst
     {
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
+            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
             Ok(inst(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec![]),
+            pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 0 }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(Expr::Reg(Reg::R0))),
+            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0))),
             Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 1 }));
         assert_eq!(
-            pre_assemble_inst(mnemo, &vec!(
+            pre_assemble_inst(mnemo, vec!(
                 Expr::Reg(Reg::R0),
                 Expr::Reg(Reg::R1),
                 Expr::Reg(Reg::R2))),
