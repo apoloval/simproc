@@ -28,7 +28,6 @@ pub enum Statement {
 #[derive(Debug, PartialEq)]
 pub enum SyntaxError {
 	UnexpectedToken(Token),
-	UnexpectedEof,
 }
 
 impl fmt::Display for SyntaxError {
@@ -36,8 +35,6 @@ impl fmt::Display for SyntaxError {
     	match self {
     		&SyntaxError::UnexpectedToken(ref tok) =>
     			write!(fmt, "unexpected token {:?}", tok),
-    		&SyntaxError::UnexpectedEof =>
-    			write!(fmt, "unexpected end of file"),
     	}
     }
 }
@@ -82,7 +79,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
     				Err(e) => Some(Err(e)),
     			}
     		},
-            None => Some(Err(SyntaxError::UnexpectedEof)),
+            None => unreachable!(),
     	}
     }
 
@@ -108,14 +105,14 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
     				Err(e) => Some(Err(e)),
     			}
     		},
-            None => Some(Err(SyntaxError::UnexpectedEof)),
+            None => unreachable!(),
     	}
     }
 
     fn next_expr(&mut self) -> Result<Expr, SyntaxError> {
     	match self.input.next() {
     		Some(tk) => self.next_expr_from(tk),
-    		None => Err(SyntaxError::UnexpectedEof),
+    		None => unreachable!(),
     	}
     }
 
@@ -137,7 +134,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 	    		Some(Token::Comma) => { list.push(try!(self.next_expr())); },
 	    		Some(Token::Eol(line)) => return Ok((list, line)),
 	    		Some(other) => return Err(SyntaxError::UnexpectedToken(other)),
-                None => return Err(SyntaxError::UnexpectedEof),
+                None => unreachable!(),
 	    	}
     	}
     }
