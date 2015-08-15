@@ -11,7 +11,7 @@ use std::fmt;
 use simproc::inst::*;
 
 use asm::data::*;
-use asm::inst::*;
+use asm::inst::full::*;
 use asm::lexer::*;
 use asm::expr::*;
 use asm::pre::*;

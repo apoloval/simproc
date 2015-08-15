@@ -12,7 +12,7 @@ use std::iter::FromIterator;
 
 use asm::data::*;
 use asm::expr::*;
-use asm::inst::*;
+use asm::inst::pre::*;
 use asm::lexer::Line;
 use asm::parser::*;
 use asm::symbol::*;
