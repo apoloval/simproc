@@ -19,6 +19,7 @@ mod symbol; pub use self::symbol::*;
 mod data;
 
 mod assembler; pub use self::assembler::*;
+mod expr;
 mod full; pub use self::full::*;
 mod inst;
 mod number;

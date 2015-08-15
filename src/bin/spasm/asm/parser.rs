@@ -9,24 +9,8 @@
 use std::fmt;
 use std::iter::IntoIterator;
 
-use simproc::inst::{AddrReg, Reg};
-
+use asm::expr::*;
 use asm::lexer::*;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Expr {
-	Number(i64),
-	Reg(Reg),
-    AddrReg(AddrReg),
-    Ident(String),
-}
-
-impl Expr {
-    #[cfg(test)]
-    pub fn id(s: &str) -> Self { Expr::Ident(s.to_string()) }
-}
-
-pub type ExprList = Vec<Expr>;
 
 type Label = Option<String>;
 type DirectName = String;
@@ -172,6 +156,8 @@ impl<I: Iterator<Item=ParserInput>> Iterator for Parser<I> {
 mod test {
 
 	use simproc::inst::*;
+
+    use asm::expr::*;
 	use asm::lexer::*;
 
     use super::*;

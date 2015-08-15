@@ -11,7 +11,7 @@ use std::fmt;
 
 use simproc::inst::*;
 
-use asm::parser::{Expr, ExprList};
+use asm::expr::*;
 
 #[derive(Debug, PartialEq)]
 pub struct PreAssembledOperands;
@@ -144,7 +144,7 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::parser::*;
+    use asm::expr::*;
 
     use super::*;
 

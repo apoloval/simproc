@@ -11,6 +11,7 @@ use std::fmt;
 use std::iter::FromIterator;
 
 use asm::data::*;
+use asm::expr::*;
 use asm::inst::*;
 use asm::lexer::Line;
 use asm::parser::*;
@@ -222,6 +223,7 @@ mod test {
     use simproc::inst::*;
 
     use asm::data::*;
+    use asm::expr::*;
     use asm::parser::*;
     use asm::symbol::*;
 

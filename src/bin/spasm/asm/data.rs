@@ -9,7 +9,7 @@
 use std::fmt;
 
 use asm::number::*;
-use asm::parser::{Expr, ExprList};
+use asm::expr::*;
 use asm::symbol::*;
 
 #[derive(Debug, PartialEq)]
@@ -101,7 +101,7 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::parser::*;
+    use asm::expr::*;
     use asm::symbol::*;
 
     use super::*;
