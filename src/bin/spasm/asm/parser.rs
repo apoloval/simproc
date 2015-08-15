@@ -22,6 +22,7 @@ pub enum Expr {
 }
 
 impl Expr {
+    #[cfg(test)]
     pub fn id(s: &str) -> Self { Expr::Ident(s.to_string()) }
 }
 

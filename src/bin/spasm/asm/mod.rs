@@ -20,5 +20,6 @@ mod data;
 
 mod assembler; pub use self::assembler::*;
 mod full; pub use self::full::*;
+mod inst;
 mod number;
 mod pre;
