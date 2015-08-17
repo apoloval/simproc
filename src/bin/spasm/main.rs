@@ -96,15 +96,7 @@ fn write_as_bin(asm: Assembly, output_file: &str) {
             return;
         },
     };
-    for c in asm.code() {
-        match c {
-            &FullAssembled::Inst { line: _, base_addr: _, ref inst } => {
-                inst.encode(&mut output).ok();
-            },
-            &FullAssembled::Data { line: _, base_addr: _, ref data } => {
-                output.write(data).ok();
-            },
-            _ => {},
-        }
+    if let Err(e) = asm.write(&mut output) {
+        println!("Error: couldn't write '{}': {}", output_file, e);
     }
 }

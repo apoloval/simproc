@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::io;
 use std::iter::FromIterator;
 use std::slice;
 
@@ -58,6 +59,21 @@ impl Assembly {
 
     pub fn errors<'a>(&'a self) -> Errors<'a> {
         Errors { results: self.results.iter() }
+    }
+
+    pub fn write<W: io::Write>(&self, output: &mut W) -> Result<(), io::Error> {
+        for c in self.code() {
+            match c {
+                &FullAssembled::Inst { line: _, base_addr: _, ref inst } => {
+                    try!(inst.encode(output));
+                },
+                &FullAssembled::Data { line: _, base_addr: _, ref data } => {
+                    try!(output.write(data));
+                },
+                _ => {},
+            }
+        }
+        Ok(())
     }
 }
 
@@ -114,5 +130,19 @@ mod test {
         assert_eq!(asm.code().count(), 2);
         assert_eq!(asm.errors().count(), 1);
         assert_eq!(asm.symbols().keys().count(), 1);
+    }
+
+    #[test]
+    fn should_write_assembly() {
+        let prog = "\
+            begin: nop\n\
+                   jmp begin\
+        ";
+        let asm = Assembly::assemble(prog.chars());
+        let mut output = Vec::new();
+        assert!(asm.write(&mut output).is_ok());
+        assert_eq!(
+            output,
+            vec![0x00, 0xa0, 0x00, 0x00]);
     }
 }
