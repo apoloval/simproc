@@ -10,6 +10,8 @@ use std::io;
 use std::iter::FromIterator;
 use std::slice;
 
+use simproc::mem::Addr;
+
 use asm::full::*;
 use asm::lexer::*;
 use asm::parser::*;
@@ -80,26 +82,39 @@ impl Assembly {
         for c in self.code() {
             match c {
                 &FullAssembled::Empty { ref line, ref base_addr } => {
-                    try!(write!(output, "0x{:04x} :              {}\n",
-                        base_addr.to_u16(), line.content));
+                    try!(Self::dump_text_line(base_addr, &[], line, output));
                 },
                 &FullAssembled::Inst { ref line, ref base_addr, ref inst } => {
                     let mut buff: Vec<u8> = Vec::new();
-                    let nbytes = inst.encode(&mut buff).unwrap();
-                    try!(write!(output, "0x{:04x} : ", base_addr.to_u16()));
-                    for b in buff.iter() { print!("{:02x} ", b); }
-                    for _ in 0..(13 - 3*nbytes) { print!(" "); }
-                    try!(write!(output, "{}\n", line.content));
+                    try!(inst.encode(&mut buff));
+                    try!(Self::dump_text_line(base_addr, &buff, line, output));
                 },
                 &FullAssembled::Data { ref line, ref base_addr, ref data } => {
-                    try!(write!(output, "0x{:04x} : ", base_addr.to_u16()));
-                    for b in data { print!("{:02x} ", b); }
-                    for _ in 0..(13 - 3*data.len()) { try!(write!(output, " ")); }
-                    try!(write!(output, "{}\n", line.content));
+                    try!(Self::dump_text_line(base_addr, data, line, output));
                 },
             }
         }
         Ok(())
+    }
+
+    fn dump_text_line<W: io::Write>(
+        addr: &Addr,
+        bytes: &[u8],
+        line: &Line,
+        output: &mut W) -> Result<(), io::Error>
+    {
+        let nbytes = bytes.len();
+        try!(write!(output, "0x{:04x} : ", addr));
+        for b in bytes {
+            try!(write!(output, "{:02x} ", b));
+        }
+        if nbytes <= 4 {
+            for _ in nbytes..4 { try!(write!(output, "   ")); }
+        } else {
+            try!(write!(output, "\n         "));
+            for _ in 0..4 { try!(write!(output, "   ")); }
+        }
+        write!(output, "{}\n", line.content)
     }
 }
 
