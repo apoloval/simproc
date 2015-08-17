@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use byteorder::{BigEndian, ReadBytesExt};
 use rustc_serialize::hex::FromHex;
-use simproc::inst::*;
+use simproc::cpu::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
@@ -227,7 +227,7 @@ impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
 #[cfg(test)]
 mod test {
 
-    use simproc::inst::*;
+    use simproc::cpu::*;
 
     use super::*;
 

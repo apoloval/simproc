@@ -133,6 +133,7 @@ mod test {
 
     use std::collections::VecDeque;
 
+    use simproc::cpu::*;
     use simproc::inst::*;
     use simproc::mem::*;
 

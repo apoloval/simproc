@@ -8,6 +8,7 @@
 
 use std::io;
 
+use cpu::*;
 use inst::ops::*;
 use mem::*;
 
@@ -70,7 +71,6 @@ pub enum Inst<O: Operands> {
     Halt,
 }
 
-pub type SymbolicInst = Inst<SymbolicOperands>;
 pub type RuntimeInst = Inst<RuntimeOperands>;
 
 /// A macro to pack bits using the opcode coding of SP-80.
@@ -223,6 +223,7 @@ impl RuntimeInst {
 #[cfg(test)]
 mod test {
 
+    use cpu::*;
     use inst::ops::*;
     use mem::*;
 

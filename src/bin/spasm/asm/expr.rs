@@ -9,6 +9,7 @@
 use std::fmt;
 use std::ops::Range;
 
+use simproc::cpu::*;
 use simproc::inst::*;
 use simproc::mem::*;
 
@@ -172,6 +173,7 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
 #[cfg(test)]
 mod test {
 
+    use simproc::cpu::*;
     use simproc::inst::*;
     use simproc::mem::*;
 

@@ -152,7 +152,7 @@ impl<I: Iterator<Item=ParserInput>> Iterator for Parser<I> {
 #[cfg(test)]
 mod test {
 
-	use simproc::inst::*;
+    use simproc::cpu::*;
 
     use asm::expr::*;
 	use asm::lexer::*;
