@@ -9,6 +9,7 @@
 use std::fmt;
 
 use simproc::inst::*;
+use simproc::mem::*;
 
 use asm::data::*;
 use asm::inst::full::*;
@@ -107,6 +108,7 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 mod test {
 
     use simproc::inst::*;
+    use simproc::mem::*;
 
     use asm::data::*;
     use asm::expr::*;

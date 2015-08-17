@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use simproc::inst::*;
+use simproc::mem::*;
 
 use asm::expr::*;
 use asm::inst::pre::*;
@@ -133,6 +134,7 @@ mod test {
     use std::collections::VecDeque;
 
     use simproc::inst::*;
+    use simproc::mem::*;
 
     use asm::expr::*;
     use asm::inst::pre::*;

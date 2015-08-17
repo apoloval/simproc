@@ -10,6 +10,7 @@ use std::fmt;
 use std::ops::Range;
 
 use simproc::inst::*;
+use simproc::mem::*;
 
 use asm::symbol::*;
 
@@ -172,6 +173,7 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
 mod test {
 
     use simproc::inst::*;
+    use simproc::mem::*;
 
     use asm::symbol::*;
 

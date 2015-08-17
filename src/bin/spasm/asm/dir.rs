@@ -9,7 +9,7 @@
 use std::ascii::AsciiExt;
 use std::fmt;
 
-use simproc::inst::*;
+use simproc::mem::*;
 
 use asm::expr::*;
 
@@ -76,7 +76,7 @@ fn pre_assemble_org(args: ExprList) -> Result<Direct, DirectAssembleError> {
 #[cfg(test)]
 mod test {
 
-    use simproc::inst::*;
+    use simproc::mem::*;
 
     use asm::expr::*;
 

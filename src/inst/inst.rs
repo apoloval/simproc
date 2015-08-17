@@ -9,6 +9,7 @@
 use std::io;
 
 use inst::ops::*;
+use mem::*;
 
 /// A SP-80 instruction
 #[derive(Debug, PartialEq)]
@@ -223,6 +224,7 @@ impl RuntimeInst {
 mod test {
 
     use inst::ops::*;
+    use mem::*;
 
     use super::*;
 

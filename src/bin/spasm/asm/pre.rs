@@ -9,6 +9,9 @@
 use std::fmt;
 use std::iter::FromIterator;
 
+use simproc::inst::*;
+use simproc::mem::*;
+
 use asm::data::*;
 use asm::dir::*;
 use asm::expr::*;
@@ -16,8 +19,6 @@ use asm::inst::pre::*;
 use asm::lexer::Line;
 use asm::parser::*;
 use asm::symbol::*;
-
-use simproc::inst::*;
 
 #[derive(Debug, PartialEq)]
 pub enum PreAssembled {
@@ -161,6 +162,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
 mod test {
 
     use simproc::inst::*;
+    use simproc::mem::*;
 
     use asm::data::*;
     use asm::expr::*;
