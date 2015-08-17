@@ -31,6 +31,7 @@ pub enum PreAssembled {
 pub enum PreAssembleError {
     Direct(Line, DirectAssembleError),
     DuplicatedLabel(Line, String),
+    MemoryOverflow(Line, Addr, usize),
     Mnemo(Line, MnemoAssembleError),
 }
 
@@ -42,6 +43,9 @@ impl fmt::Display for PreAssembleError {
             &PreAssembleError::DuplicatedLabel(ref line, ref label) =>
                 write!(fmt, "in line {}: label {} is duplicated\n\t{}",
                     line.row, label, line.content),
+            &PreAssembleError::MemoryOverflow(ref line, ref addr, ref offset) =>
+                write!(fmt, "in line {}: cannot assemble in memory address 0x{:x}+{}\n\t{}",
+                    line.row, addr, offset, line.content),
             &PreAssembleError::Mnemo(ref line, ref error) =>
                 write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
         }
@@ -69,14 +73,14 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         where T: FromIterator<PreAssemblerOutput>
     {
         let mut output = Vec::with_capacity(65536);
-        let mut memptr: usize = 0;
+        let mut memptr = Addr(0);
         for entry in self.input {
             match entry {
                 Ok(Statement::Empty(line, lab)) => {
                     let lab_decl = Self::decl_label(line, lab, symbols, memptr);
                     let empty = |line| Ok(PreAssembled::Empty {
                         line: line,
-                        base_addr: Addr(memptr as u16)
+                        base_addr: memptr
                     });
                     output.push(lab_decl.and_then(empty));
                 },
@@ -102,13 +106,13 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         line: Line,
         label: Option<String>,
         symbols: &mut SymbolTable,
-        memptr: usize) -> Result<Line, PreAssembleError>
+        memptr: Addr) -> Result<Line, PreAssembleError>
     {
         if let Some(l) = label {
             if symbols.contains_key(&l) {
                 return Err(PreAssembleError::DuplicatedLabel(line.clone(), l));
             }
-            symbols.insert(l, memptr as i64);
+            symbols.insert(l, memptr.to_i64());
         }
         Ok(line)
     }
@@ -119,13 +123,19 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         line: Line,
         mnemo: &str,
         args: ExprList,
-        memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
+        memptr: &mut Addr) -> Result<PreAssembled, PreAssembleError>
     {
         match pre_assemble_inst(mnemo, args) {
             Ok(inst) => {
-                let base = Addr(*memptr as u16);
-                *memptr += inst.len();
-                Ok(PreAssembled::Inst { line: line, base_addr: base, inst: inst })
+                let base = *memptr;
+                let nbytes = inst.len();
+                match *memptr + nbytes {
+                    Some(newaddr) => {
+                        *memptr = newaddr;
+                        Ok(PreAssembled::Inst { line: line, base_addr: base, inst: inst })
+                    },
+                    None => Err(PreAssembleError::MemoryOverflow(line, base, nbytes)),
+                }
             },
             Err(e) => Err(PreAssembleError::Mnemo(line, e)),
         }
@@ -137,21 +147,27 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         line: Line,
         direct: &str,
         args: ExprList,
-        memptr: &mut usize) -> Result<PreAssembled, PreAssembleError>
+        memptr: &mut Addr) -> Result<PreAssembled, PreAssembleError>
     {
         match pre_assemble_direct(direct, args) {
-            Ok(Direct::Org(Addr(addr))) => {
-                *memptr = addr as usize;
-                Ok(PreAssembled::Empty { line: line, base_addr: Addr(addr), })
+            Ok(Direct::Org(addr)) => {
+                *memptr = addr;
+                Ok(PreAssembled::Empty { line: line, base_addr: addr, })
             },
             Ok(Direct::Db(args)) => {
-                let base = Addr(*memptr as u16);
-                *memptr += args.len();
-                Ok(PreAssembled::Data {
-                    line: line,
-                    base_addr: base,
-                    data: PreAssembledData { size: DataSize::Byte, content: args },
-                })
+                let base = *memptr;
+                let nbytes = args.len();
+                match *memptr + nbytes {
+                    Some(newaddr) => {
+                        *memptr = newaddr;
+                        Ok(PreAssembled::Data {
+                            line: line,
+                            base_addr: base,
+                            data: PreAssembledData { size: DataSize::Byte, content: args },
+                        })
+                    },
+                    None => Err(PreAssembleError::MemoryOverflow(line, base, nbytes)),
+                }
             },
             Err(e) => Err(PreAssembleError::Direct(line, e)),
         }
