@@ -21,11 +21,9 @@ mod asm;
 
 use std::char;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, stdout};
 
 use asm::*;
-
-use simproc::inst::*;
 
 #[allow(dead_code)]
 fn main() {
@@ -64,26 +62,8 @@ fn write_errors(asm: Assembly) {
 
 #[allow(dead_code)]
 fn write_as_text(asm: Assembly) {
-    for c in asm.code() {
-        match c {
-            &FullAssembled::Empty { ref line, ref base_addr } => {
-                println!("0x{:04x} :              {}", base_addr.to_u16(), line.content);
-            },
-            &FullAssembled::Inst { ref line, ref base_addr, ref inst } => {
-                let mut buff: Vec<u8> = Vec::new();
-                let nbytes = inst.encode(&mut buff).unwrap();
-                print!("0x{:04x} : ", base_addr.to_u16());
-                for b in buff.iter() { print!("{:02x} ", b); }
-                for _ in 0..(13 - 3*nbytes) { print!(" "); }
-                println!("{}", line.content);
-            },
-            &FullAssembled::Data { ref line, ref base_addr, ref data } => {
-                print!("0x{:04x} : ", base_addr.to_u16());
-                for b in data { print!("{:02x} ", b); }
-                for _ in 0..(13 - 3*data.len()) { print!(" "); }
-                println!("{}", line.content);
-            },
-        }
+    if let Err(e) = asm.dump_text(&mut stdout()) {
+        println!("Error: cannot write to stdout: {}", e);
     }
 }
 

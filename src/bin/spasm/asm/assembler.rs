@@ -75,6 +75,32 @@ impl Assembly {
         }
         Ok(())
     }
+
+    pub fn dump_text<W: io::Write>(&self, output: &mut W) -> Result<(), io::Error> {
+        for c in self.code() {
+            match c {
+                &FullAssembled::Empty { ref line, ref base_addr } => {
+                    try!(write!(output, "0x{:04x} :              {}\n",
+                        base_addr.to_u16(), line.content));
+                },
+                &FullAssembled::Inst { ref line, ref base_addr, ref inst } => {
+                    let mut buff: Vec<u8> = Vec::new();
+                    let nbytes = inst.encode(&mut buff).unwrap();
+                    try!(write!(output, "0x{:04x} : ", base_addr.to_u16()));
+                    for b in buff.iter() { print!("{:02x} ", b); }
+                    for _ in 0..(13 - 3*nbytes) { print!(" "); }
+                    try!(write!(output, "{}\n", line.content));
+                },
+                &FullAssembled::Data { ref line, ref base_addr, ref data } => {
+                    try!(write!(output, "0x{:04x} : ", base_addr.to_u16()));
+                    for b in data { print!("{:02x} ", b); }
+                    for _ in 0..(13 - 3*data.len()) { try!(write!(output, " ")); }
+                    try!(write!(output, "{}\n", line.content));
+                },
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct Code<'a> {
