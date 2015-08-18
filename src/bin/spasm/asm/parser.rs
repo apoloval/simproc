@@ -27,14 +27,14 @@ pub enum Statement {
 
 #[derive(Debug, PartialEq)]
 pub enum SyntaxError {
-	UnexpectedToken(Token),
+	UnexpectedToken(Line, Token),
 }
 
 impl fmt::Display for SyntaxError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     	match self {
-    		&SyntaxError::UnexpectedToken(ref tok) =>
-    			write!(fmt, "unexpected token {:?}", tok),
+    		&SyntaxError::UnexpectedToken(ref line, ref tok) =>
+    			write!(fmt, "in line {}: unexpected token {:?}\n\t{}", line.row, tok, line.content),
     	}
     }
 }
@@ -57,7 +57,8 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 			Some(Token::Ident(id)) => self.next_statement_from_id(id, allow_label),
 			Some(Token::Direct(dir)) => self.direct_from(dir),
 			Some(Token::Eol(line)) => Some(Ok(Statement::Empty(line, None))),
-			Some(other) => Some(Err(SyntaxError::UnexpectedToken(other))),
+			Some(other) =>
+                Some(Err(SyntaxError::UnexpectedToken(self.discard_until_eol(), other))),
 			None => None,
 		}
 	}
@@ -70,7 +71,10 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
     	match self.input.next() {
     		Some(Token::Colon) =>
     			if allow_label { self.next_with_label(id) }
-    			else { Some(Err(SyntaxError::UnexpectedToken(Token::Colon))) },
+    			else {
+                    Some(Err(SyntaxError::UnexpectedToken(
+                        self.discard_until_eol(), Token::Colon)))
+                },
     		Some(Token::Eol(line)) =>
     			Some(Ok(Statement::Mnemo(line, None, id, vec![]))),
     		Some(other) => {
@@ -122,7 +126,8 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
     		Token::Reg(reg) => Ok(Expr::Reg(reg)),
     		Token::Number(n) => Ok(Expr::Number(n)),
             Token::Ident(id) => Ok(Expr::Ident(id)),
-    		other => return Err(SyntaxError::UnexpectedToken(other)),
+            Token::Eol(line) => Err(SyntaxError::UnexpectedToken(line.clone(), Token::Eol(line))),
+    		other => Err(SyntaxError::UnexpectedToken(self.discard_until_eol(), other)),
     	}
     }
 
@@ -133,11 +138,22 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
 	    	match self.input.next() {
 	    		Some(Token::Comma) => { list.push(try!(self.next_expr())); },
 	    		Some(Token::Eol(line)) => return Ok((list, line)),
-	    		Some(other) => return Err(SyntaxError::UnexpectedToken(other)),
+	    		Some(other) =>
+                    return Err(SyntaxError::UnexpectedToken(self.discard_until_eol(), other)),
                 None => unreachable!(),
 	    	}
     	}
     }
+
+    fn discard_until_eol(&mut self) -> Line {
+        loop {
+            match self.input.next() {
+                Some(Token::Eol(line)) => return line,
+                None => unreachable!(),
+                _ => {},
+            }
+        }
+    }    
 }
 
 impl<I: Iterator<Item=ParserInput>> Iterator for Parser<I> {
@@ -331,10 +347,7 @@ mod test {
     	];
     	let mut parser = Parser::parse(input);
     	assert_eq!(
-    		Some(Err(SyntaxError::UnexpectedToken(Token::Colon))),
-    		parser.next());
-    	assert_eq!(
-    		Some(Ok(Statement::Empty(sline!(1, "foo: bar:"), None))),
+    		Some(Err(SyntaxError::UnexpectedToken(sline!(1, "foo: bar:"), Token::Colon))),
     		parser.next());
     	assert_eq!(None, parser.next());
     }

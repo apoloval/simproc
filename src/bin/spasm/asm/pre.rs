@@ -27,12 +27,13 @@ pub enum PreAssembled {
     Data { line: Line, base_addr: Addr, data: PreAssembledData },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum PreAssembleError {
     Direct(Line, DirectAssembleError),
     DuplicatedLabel(Line, String),
     MemoryOverflow(Line, Addr, usize),
     Mnemo(Line, MnemoAssembleError),
+    Syntax(SyntaxError),
 }
 
 impl fmt::Display for PreAssembleError {
@@ -48,6 +49,7 @@ impl fmt::Display for PreAssembleError {
                     line.row, addr, offset, line.content),
             &PreAssembleError::Mnemo(ref line, ref error) =>
                 write!(fmt, "in line {}: {}\n\t{}", line.row, error, line.content),
+            &PreAssembleError::Syntax(ref error) => write!(fmt, "{}", error),
         }
     }
 }
@@ -94,7 +96,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
                     let pre_asm = |line| Self::pre_assemble_direct(line, &direct, args, &mut memptr);
                     output.push(lab_decl.and_then(pre_asm));
                 },
-                _ => {},
+                Err(e) => output.push(Err(PreAssembleError::Syntax(e))),
             }
         }
         T::from_iter(output)
