@@ -34,7 +34,7 @@ impl fmt::Display for SyntaxError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     	match self {
     		&SyntaxError::UnexpectedToken(ref line, ref tok) =>
-    			write!(fmt, "in line {}: unexpected token {:?}\n\t{}", line.row, tok, line.content),
+    			write!(fmt, "in line {}: unexpected {}\n\t{}", line.row, tok, line.content),
     	}
     }
 }
@@ -153,7 +153,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
                 _ => {},
             }
         }
-    }    
+    }
 }
 
 impl<I: Iterator<Item=ParserInput>> Iterator for Parser<I> {

@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::ascii::AsciiExt;
+use std::fmt;
 use std::iter::{IntoIterator, Peekable};
 use std::str::FromStr;
 
@@ -52,6 +53,23 @@ pub enum Token {
 macro_rules! direct { ($i:expr) => (Token::Direct($i.to_string())) }
 macro_rules! eol { ($r:expr, $l:expr) => (Token::Eol(sline!($r, $l))) }
 macro_rules! ident { ($i:expr) => (Token::Ident($i.to_string())) }
+
+impl fmt::Display for Token {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            &Token::AddrReg(reg) => write!(fmt, "address register {}", reg),
+            &Token::Colon => write!(fmt, ":"),
+            &Token::Comma => write!(fmt, ","),
+            &Token::Direct(ref name) => write!(fmt, "directive {}", name),
+            &Token::Eol(_) => write!(fmt, "end of line"),
+            &Token::Ident(ref name) => write!(fmt, "identifier {}", name),
+            &Token::Minus => write!(fmt, "-"),
+            &Token::Number(n) => write!(fmt, "number {}", n),
+            &Token::Reg(reg) => write!(fmt, "register {}", reg),
+            &Token::Unknown(ref token) => write!(fmt, "unknown token `{}`", token),
+        }
+    }
+}
 
 pub type ScannerInput = char;
 pub type ScannerOutput = Token;
