@@ -30,13 +30,10 @@ pub fn offset_addr(base: Addr, offset: usize) -> Option<Addr> {
 
 pub fn addr_dist(from: Addr, to: Addr) -> Option<RelAddr> {
     let diff = (to as i64) - (from as i64);
-    if diff < RADDR_MIN as i64 || diff > RADDR_MAX as i64 { None }
-    else { Some(RelAddr(diff as i16)) }
+    if diff < RELADDR_RANGE.start as i64 || diff > RELADDR_RANGE.end as i64 { None }
+    else { Some(diff as i16) }
 }
 
-/// A relative address, i.e. a delta respect the current PC.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RelAddr(pub i16);
+pub const RELADDR_RANGE: Range<i64> = Range { start: -512, end: 511 };
 
-const RADDR_MAX: i16 = 511;
-const RADDR_MIN: i16 = -512;
+pub type RelAddr = i16;

@@ -65,7 +65,6 @@ mod test {
 
     use quickcheck::*;
 
-    use mem::addr::*;
     use mem::mem::*;
 
     use super::*;

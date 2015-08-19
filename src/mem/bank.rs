@@ -53,7 +53,6 @@ impl<P0: Memory, P1: Memory, P2: Memory, P3: Memory> Memory for MemBank<P0, P1, 
 #[cfg(test)]
 mod test {
 
-    use mem::addr::*;
     use mem::mem::*;
     use mem::page::*;
 

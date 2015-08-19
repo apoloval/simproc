@@ -283,10 +283,10 @@ mod test {
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_raddr(Expr::Number(100), 75),
-            Ok(RelAddr(25)));
+            Ok(25));
         assert_eq!(
             asm.to_raddr(Expr::id("foobar"), 0xf00),
-            Ok(RelAddr(0x100)));
+            Ok(0x100));
         assert_eq!(
             asm.to_raddr(Expr::Number(-10), 0),
             Err(ExprAssembleError::OutOfRange {

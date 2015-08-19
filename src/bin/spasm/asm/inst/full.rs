@@ -422,7 +422,7 @@ mod test {
         I1: Fn(Expr) -> PreAssembledInst,
         I2: Fn(RelAddr) -> RuntimeInst
     {
-        should_asm_unary_inst(pre, full, RelAddr(100), MockExprAssembler::with_raddr);
+        should_asm_unary_inst(pre, full, 100, MockExprAssembler::with_raddr);
     }
 
     fn should_asm_inst_reg_reg<I1, I2>(pre: I1, full: I2) where
