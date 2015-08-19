@@ -25,13 +25,13 @@ impl RamPage {
 
 impl Memory for RamPage {
     fn read(&self, addr: Addr) -> u8 {
-        let offset = addr.to_usize();
+        let offset = addr as usize;
         if offset < self.bytes.len() { self.bytes[offset] }
         else { 0 }
     }
 
     fn write(&mut self, addr: Addr, byte: u8) {
-        let offset = addr.to_usize();
+        let offset = addr as usize;
         if offset < self.bytes.len() { self.bytes[offset] = byte }
     }
 }
@@ -51,7 +51,7 @@ impl RomPage {
 
 impl Memory for RomPage {
     fn read(&self, addr: Addr) -> u8 {
-        let offset = addr.to_usize();
+        let offset = addr as usize;
         if offset < self.bytes.len() { self.bytes[offset] }
         else { 0 }
     }
@@ -73,14 +73,14 @@ mod test {
     #[test]
     fn ram_page_should_read_and_write() {
         let mut ram = RamPage::new();
-        ram.write(Addr(0x100), 1);
-        assert_eq!(ram.read(Addr(0x100)), 1);
+        ram.write(0x100, 1);
+        assert_eq!(ram.read(0x100), 1);
 
-        ram.write(Addr(0x3fff), 2);
-        assert_eq!(ram.read(Addr(0x3fff)), 2);
+        ram.write(0x3fff, 2);
+        assert_eq!(ram.read(0x3fff), 2);
 
-        ram.write(Addr(0xffff), 3);
-        assert_eq!(ram.read(Addr(0xffff)), 0);
+        ram.write(0xffff, 3);
+        assert_eq!(ram.read(0xffff), 0);
     }
 
     #[test]
@@ -88,7 +88,7 @@ mod test {
         fn rom_contains_is_read(bytes: Vec<u8>) -> bool {
             let rom = RomPage::with_content(bytes.clone());
             for (addr, byte) in bytes.iter().enumerate() {
-                if rom.read(Addr(addr as u16)) != *byte { return false }
+                if rom.read(addr as u16) != *byte { return false }
             }
             return true;
         }

@@ -63,7 +63,7 @@ fn pre_assemble_org(args: ExprList) -> Result<Direct, DirectAssembleError> {
     }
     match args[0] {
         Expr::Number(n) => {
-            Addr::from_i64(n)
+            addr_from_i64(n)
                 .ok_or(DirectAssembleError::InvalidAddress(n))
                 .and_then(|addr| Ok(Direct::Org(addr)))
         },
@@ -76,8 +76,6 @@ fn pre_assemble_org(args: ExprList) -> Result<Direct, DirectAssembleError> {
 #[cfg(test)]
 mod test {
 
-    use simproc::mem::*;
-
     use asm::expr::*;
 
     use super::*;
@@ -86,7 +84,7 @@ mod test {
     fn should_preassemble_org() {
         assert_eq!(
             pre_assemble_direct("org", vec![Expr::Number(0x1000)]),
-            Ok(Direct::Org(Addr(0x1000))));
+            Ok(Direct::Org(0x1000)));
         assert_eq!(
             pre_assemble_direct("org", vec![Expr::Number(0x100000)]),
             Err(DirectAssembleError::InvalidAddress(0x100000)));

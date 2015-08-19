@@ -341,7 +341,7 @@ mod test {
     fn should_asm_nullary_inst(pre: PreAssembledInst, full: RuntimeInst) {
         let expr = MockExprAssembler::new();
         let mut asm = InstAssembler::from_expr_asm(expr);
-        assert_eq!(asm.assemble(pre, Addr(1000)), Ok(full));
+        assert_eq!(asm.assemble(pre, 1000), Ok(full));
     }
 
     fn should_asm_unary_inst<I1, I2, O1, M1>(pre: I1, full: I2, o1: O1, m1: M1) where
@@ -356,10 +356,10 @@ mod test {
         m1(&mut expr, Err(err.clone()));
         let mut asm = InstAssembler::from_expr_asm(expr);
         assert_eq!(
-            asm.assemble(pre(Expr::Number(1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1)), 1000),
             Ok(full(o1)));
         assert_eq!(
-            asm.assemble(pre(Expr::Number(1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1)), 1000),
             Err(err.clone()));
     }
 
@@ -381,13 +381,13 @@ mod test {
         m2(&mut expr, Ok(o2.clone()));
         let mut asm = InstAssembler::from_expr_asm(expr);
         assert_eq!(
-            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), 1000),
             Ok(full(o1, o2)));
         assert_eq!(
-            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), 1000),
             Err(err.clone()));
         assert_eq!(
-            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), Addr(1000)),
+            asm.assemble(pre(Expr::Number(1), Expr::Number(1)), 1000),
             Err(err.clone()));
     }
 
@@ -415,20 +415,14 @@ mod test {
         I1: Fn(Expr) -> PreAssembledInst,
         I2: Fn(Addr) -> RuntimeInst
     {
-        should_asm_unary_inst(
-            pre, full,
-            Addr(100),
-            MockExprAssembler::with_addr);
+        should_asm_unary_inst(pre, full, 100, MockExprAssembler::with_addr);
     }
 
     fn should_asm_inst_raddr<I1, I2>(pre: I1, full: I2) where
         I1: Fn(Expr) -> PreAssembledInst,
         I2: Fn(RelAddr) -> RuntimeInst
     {
-        should_asm_unary_inst(
-            pre, full,
-            RelAddr(100),
-            MockExprAssembler::with_raddr);
+        should_asm_unary_inst(pre, full, RelAddr(100), MockExprAssembler::with_raddr);
     }
 
     fn should_asm_inst_reg_reg<I1, I2>(pre: I1, full: I2) where
@@ -487,7 +481,7 @@ mod test {
     {
         should_asm_binary_inst(
             pre, full,
-            Reg::R0, Addr(100),
+            Reg::R0, 100,
             MockExprAssembler::with_reg, MockExprAssembler::with_addr);
     }
 
@@ -497,7 +491,7 @@ mod test {
     {
         should_asm_binary_inst(
             pre, full,
-            Addr(100), Reg::R0,
+            100, Reg::R0,
             MockExprAssembler::with_addr, MockExprAssembler::with_reg);
     }
 }

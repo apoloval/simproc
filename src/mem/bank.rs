@@ -23,19 +23,17 @@ impl<P0: Memory, P1: Memory, P2: Memory, P3: Memory> MemBank<P0, P1, P2, P3> {
     }
 
     fn select_page(&self, addr: Addr) -> (&Memory, Addr) {
-        let offset = addr.to_usize();
-        if offset < 0x4000 { (&self.page0, addr) }
-        else if offset < 0x8000 { (&self.page1, Addr((offset - 0x4000) as u16)) }
-        else if offset < 0xc000 { (&self.page2, Addr((offset - 0x8000) as u16)) }
-        else { (&self.page3, Addr((offset - 0xc000) as u16)) }
+        if addr < 0x4000 { (&self.page0, addr) }
+        else if addr < 0x8000 { (&self.page1, (addr - 0x4000) as u16) }
+        else if addr < 0xc000 { (&self.page2, (addr - 0x8000) as u16) }
+        else { (&self.page3, (addr - 0xc000) as u16) }
     }
 
     fn select_page_mut(&mut self, addr: Addr) -> (&mut Memory, Addr) {
-        let offset = addr.to_usize();
-        if offset < 0x4000 { (&mut self.page0, addr) }
-        else if offset < 0x8000 { (&mut self.page1, Addr((offset - 0x4000) as u16)) }
-        else if offset < 0xc000 { (&mut self.page2, Addr((offset - 0x8000) as u16)) }
-        else { (&mut self.page3, Addr((offset - 0xc000) as u16)) }
+        if addr < 0x4000 { (&mut self.page0, addr) }
+        else if addr < 0x8000 { (&mut self.page1, (addr - 0x4000) as u16) }
+        else if addr < 0xc000 { (&mut self.page2, (addr - 0x8000) as u16) }
+        else { (&mut self.page3, (addr - 0xc000) as u16) }
     }
 }
 
@@ -67,15 +65,15 @@ mod test {
         let mut p1 = RamPage::new();
         let mut p2 = RamPage::new();
         let mut p3 = RamPage::new();
-        p0.write(Addr(0x0000), 1);
-        p1.write(Addr(0x0000), 2);
-        p2.write(Addr(0x0000), 3);
-        p3.write(Addr(0x0000), 4);
+        p0.write(0x0000, 1);
+        p1.write(0x0000, 2);
+        p2.write(0x0000, 3);
+        p3.write(0x0000, 4);
 
         let bank = MemBank::with_pages(p0, p1, p2, p3);
-        assert_eq!(bank.read(Addr(0x0000)), 1);
-        assert_eq!(bank.read(Addr(0x4000)), 2);
-        assert_eq!(bank.read(Addr(0x8000)), 3);
-        assert_eq!(bank.read(Addr(0xc000)), 4);
+        assert_eq!(bank.read(0x0000), 1);
+        assert_eq!(bank.read(0x4000), 2);
+        assert_eq!(bank.read(0x8000), 3);
+        assert_eq!(bank.read(0xc000), 4);
     }
 }

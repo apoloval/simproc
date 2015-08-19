@@ -192,8 +192,8 @@ impl RuntimeInst {
             &Inst::Mov(ref r1, ref r2) => pack!(w, 0x78, regs r1, r2 in 0x00),
             &Inst::Ld(ref r, ref a) => pack!(w, 0x79, regs r, a in 0x00),
             &Inst::St(ref a, ref r) => pack!(w, 0x7a, regs a, r in 0x00),
-            &Inst::Ldd(ref r, Addr(a)) => pack!(w, reg r in 0x40, word a),
-            &Inst::Std(Addr(a), ref r) => pack!(w, reg r in 0x48, word a),
+            &Inst::Ldd(ref r, a) => pack!(w, reg r in 0x40, word a),
+            &Inst::Std(a, ref r) => pack!(w, reg r in 0x48, word a),
             &Inst::Ldi(ref r, Immediate(k)) => pack!(w, reg r in 0x50, byte k),
             &Inst::Ldsp(ref r) => pack!(w, reg r in 0x58),
             &Inst::Push(ref r) => pack!(w, reg r in 0x60),
@@ -206,10 +206,10 @@ impl RuntimeInst {
             &Inst::Jcs(RelAddr(o)) => pack!(w, offset o in 0x94),
             &Inst::Jvc(RelAddr(o)) => pack!(w, offset o in 0x98),
             &Inst::Jvs(RelAddr(o)) => pack!(w, offset o in 0x9c),
-            &Inst::Jmp(Addr(a)) => pack!(w, word a in 0xa0),
+            &Inst::Jmp(a) => pack!(w, word a in 0xa0),
             &Inst::Rjmp(RelAddr(o)) => pack!(w, offset o in 0xa4),
             &Inst::Ijmp(ref a) => pack!(w, reg a in 0xa8),
-            &Inst::Call(Addr(a)) => pack!(w, word a in 0xac),
+            &Inst::Call(a) => pack!(w, word a in 0xac),
             &Inst::Rcall(RelAddr(o)) => pack!(w, offset o in 0xb0),
             &Inst::Icall(ref a) => pack!(w, reg a in 0xb4),
             &Inst::Ret => pack!(w, 0xb8),
@@ -304,10 +304,10 @@ mod test {
     fn encode_st() { assert_encode(Inst::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
 
     #[test]
-    fn encode_ldd() { assert_encode(Inst::Ldd(Reg::R1, Addr(0x2010)), &[0x41, 0x10, 0x20]); }
+    fn encode_ldd() { assert_encode(Inst::Ldd(Reg::R1, 0x2010), &[0x41, 0x10, 0x20]); }
 
     #[test]
-    fn encode_std() { assert_encode(Inst::Std(Addr(0x1020), Reg::R6), &[0x4e, 0x20, 0x10]); }
+    fn encode_std() { assert_encode(Inst::Std(0x1020, Reg::R6), &[0x4e, 0x20, 0x10]); }
 
     #[test]
     fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13i8 as u8)), &[0x52, 0xf3]); }
@@ -346,7 +346,7 @@ mod test {
     fn encode_jvs() { assert_encode(Inst::Jvs(RelAddr(-4)), &[0x9f, 0xfc]); }
 
     #[test]
-    fn encode_jmp() { assert_encode(Inst::Jmp(Addr(0x4321)), &[0xa0, 0x21, 0x43]); }
+    fn encode_jmp() { assert_encode(Inst::Jmp(0x4321), &[0xa0, 0x21, 0x43]); }
 
     #[test]
     fn encode_rjmp() { assert_encode(Inst::Rjmp(RelAddr(100)), &[0xa4, 0x64]); }
@@ -355,7 +355,7 @@ mod test {
     fn encode_ijmp() { assert_encode(Inst::Ijmp(AddrReg::A3), &[0xab]); }
 
     #[test]
-    fn encode_call() { assert_encode(Inst::Call(Addr(0x1234)), &[0xac, 0x34, 0x12]); }
+    fn encode_call() { assert_encode(Inst::Call(0x1234), &[0xac, 0x34, 0x12]); }
 
     #[test]
     fn encode_rcall() { assert_encode(Inst::Rcall(RelAddr(-100)), &[0xb3, 0x9c]); }

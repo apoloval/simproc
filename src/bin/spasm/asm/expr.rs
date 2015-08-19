@@ -46,8 +46,7 @@ impl fmt::Display for ExprAssembleError {
             &ExprAssembleError::Undefined { ref symbol } =>
                 write!(fmt, "'{}' is undefined", symbol),
             &ExprAssembleError::TooFar { from, to } =>
-                write!(fmt, "'0x{:x}' is too far from base address 0x{:x}",
-                    to.to_u16(), from.to_u16()),
+                write!(fmt, "'0x{:x}' is too far from base address 0x{:x}", to, from),
             &ExprAssembleError::OutOfRange { ref range, given } =>
                 write!(fmt, "'{}' is out of expected range [{}, {}]",
                     given, range.start, range.end),
@@ -120,8 +119,8 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
 
     fn to_addr(&mut self, e: Expr) -> Result<Addr, ExprAssembleError> {
         fn validate(dest: i64) -> Result<Addr, ExprAssembleError> {
-            Addr::from_i64(dest).ok_or(ExprAssembleError::OutOfRange {
-                range: Addr::range(),
+            addr_from_i64(dest).ok_or(ExprAssembleError::OutOfRange {
+                range: ADDR_RANGE,
                 given: dest,
             })
         }
@@ -143,12 +142,12 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
 
     fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, ExprAssembleError> {
         fn validate(from: Addr, dest: i64) -> Result<RelAddr, ExprAssembleError> {
-            match Addr::from_i64(dest) {
+            match addr_from_i64(dest) {
                 Some(to) => {
-                    (to - from).ok_or(ExprAssembleError::TooFar { from: from, to: to, })
+                    addr_dist(from, to).ok_or(ExprAssembleError::TooFar { from: from, to: to, })
                 },
                 None => Err(ExprAssembleError::OutOfRange {
-                    range: Addr::range(),
+                    range: ADDR_RANGE,
                     given: dest,
                 }),
             }
@@ -256,16 +255,16 @@ mod test {
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
             asm.to_addr(Expr::Number(100)),
-            Ok(Addr(100)));
+            Ok(100));
         assert_eq!(
             asm.to_addr(Expr::id("foobar")),
-            Ok(Addr(0x1000)));
+            Ok(0x1000));
         assert_eq!(
             asm.to_addr(Expr::Number(-100)),
-            Err(ExprAssembleError::OutOfRange { range: Addr::range(), given: -100, }));
+            Err(ExprAssembleError::OutOfRange { range: ADDR_RANGE, given: -100, }));
         assert_eq!(
             asm.to_addr(Expr::id("toobig")),
-            Err(ExprAssembleError::OutOfRange { range: Addr::range(), given: 0x100000, }));
+            Err(ExprAssembleError::OutOfRange { range: ADDR_RANGE, given: 0x100000, }));
         assert_eq!(
             asm.to_addr(Expr::id("undefined")),
             Err(ExprAssembleError::Undefined { symbol: "undefined".to_string() }));
@@ -283,36 +282,30 @@ mod test {
         symbols.insert("foobar".to_string(), 0x1000);
         let mut asm = StdExprAssembler::from_symbols(&symbols);
         assert_eq!(
-            asm.to_raddr(Expr::Number(100), Addr(75)),
+            asm.to_raddr(Expr::Number(100), 75),
             Ok(RelAddr(25)));
         assert_eq!(
-            asm.to_raddr(Expr::id("foobar"), Addr(0xf00)),
+            asm.to_raddr(Expr::id("foobar"), 0xf00),
             Ok(RelAddr(0x100)));
         assert_eq!(
-            asm.to_raddr(Expr::Number(-10), Addr(0)),
+            asm.to_raddr(Expr::Number(-10), 0),
             Err(ExprAssembleError::OutOfRange {
-                range: Addr::range(),
+                range: ADDR_RANGE,
                 given: -10,
             }));
         assert_eq!(
-            asm.to_raddr(Expr::Number(1024), Addr(2048)),
-            Err(ExprAssembleError::TooFar {
-                from: Addr(2048),
-                to: Addr(1024),
-            }));
+            asm.to_raddr(Expr::Number(1024), 2048),
+            Err(ExprAssembleError::TooFar { from: 2048, to: 1024, }));
         assert_eq!(
-            asm.to_raddr(Expr::id("foobar"), Addr(0x2000)),
-            Err(ExprAssembleError::TooFar {
-                from: Addr(0x2000),
-                to: Addr(0x1000),
-            }));
+            asm.to_raddr(Expr::id("foobar"), 0x2000),
+            Err(ExprAssembleError::TooFar { from: 0x2000, to: 0x1000, }));
         assert_eq!(
-            asm.to_raddr(Expr::id("undefined"), Addr(75)),
+            asm.to_raddr(Expr::id("undefined"), 75),
             Err(ExprAssembleError::Undefined {
                 symbol: "undefined".to_string()
             }));
         assert_eq!(
-            asm.to_raddr(Expr::Reg(Reg::R0), Addr(75)),
+            asm.to_raddr(Expr::Reg(Reg::R0), 75),
             Err(ExprAssembleError::TypeMismatch {
                 expected: "memory address".to_string(),
                 given: Expr::Reg(Reg::R0),

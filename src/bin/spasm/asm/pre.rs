@@ -75,7 +75,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         where T: FromIterator<PreAssemblerOutput>
     {
         let mut output = Vec::with_capacity(65536);
-        let mut memptr = Addr(0);
+        let mut memptr = 0;
         for entry in self.input {
             match entry {
                 Ok(Statement::Empty(line, lab)) => {
@@ -114,7 +114,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
             if symbols.contains_key(&l) {
                 return Err(PreAssembleError::DuplicatedLabel(line.clone(), l));
             }
-            symbols.insert(l, memptr.to_i64());
+            symbols.insert(l, memptr as i64);
         }
         Ok(line)
     }
@@ -131,7 +131,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
             Ok(inst) => {
                 let base = *memptr;
                 let nbytes = inst.len();
-                match *memptr + nbytes {
+                match offset_addr(*memptr, nbytes) {
                     Some(newaddr) => {
                         *memptr = newaddr;
                         Ok(PreAssembled::Inst { line: line, base_addr: base, inst: inst })
@@ -159,7 +159,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
             Ok(Direct::Db(args)) => {
                 let base = *memptr;
                 let nbytes = args.len();
-                match *memptr + nbytes {
+                match offset_addr(*memptr, nbytes) {
                     Some(newaddr) => {
                         *memptr = newaddr;
                         Ok(PreAssembled::Data {
@@ -180,7 +180,6 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
 mod test {
 
     use simproc::inst::*;
-    use simproc::mem::*;
 
     use asm::data::*;
     use asm::expr::*;
@@ -270,26 +269,26 @@ mod test {
             result[0],
             Ok(PreAssembled::Empty {
                 line: sline!(1, ""),
-                base_addr: Addr(0),
+                base_addr: 0,
             }));
         assert_eq!(
             result[1],
             Ok(PreAssembled::Inst {
                 line: sline!(2, "halt"),
-                base_addr: Addr(0),
+                base_addr: 0,
                 inst: Inst::Halt
             }));
         assert_eq!(
             result[2],
             Ok(PreAssembled::Empty {
                 line: sline!(3, ".org 0x1000"),
-                base_addr: Addr(0x1000),
+                base_addr: 0x1000,
             }));
         assert_eq!(
             result[3],
             Ok(PreAssembled::Data {
                 line: sline!(4, ".db 1, foobar"),
-                base_addr: Addr(0x1000),
+                base_addr: 0x1000,
                 data: PreAssembledData {
                     size: DataSize::Byte,
                     content: vec![Expr::Number(1), Expr::id("foobar")]

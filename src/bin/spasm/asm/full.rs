@@ -108,7 +108,6 @@ impl<'a, I: Iterator<Item=FullAssemblerInput>> Iterator for FullAssembler<'a, I>
 mod test {
 
     use simproc::inst::*;
-    use simproc::mem::*;
 
     use asm::data::*;
     use asm::expr::*;
@@ -130,16 +129,16 @@ mod test {
         let input = vec![
             Ok(PreAssembled::Empty {
                 line: sline!(1, ""),
-                base_addr: Addr(0x100),
+                base_addr: 100,
             }),
             Ok(PreAssembled::Inst {
                 line: sline!(2, "nop"),
-                base_addr: Addr(0x100),
+                base_addr: 100,
                 inst: Inst::Nop,
             }),
             Ok(PreAssembled::Data {
                 line: sline!(3, ".db 1, 2"),
-                base_addr: Addr(0x200),
+                base_addr: 200,
                 data: pdata!(DataSize::Byte, Expr::Number(1), Expr::Number(2)),
             }),
             Err(PreAssembleError::DuplicatedLabel(sline!(4, "foobar"), "foobar".to_string())),
@@ -148,16 +147,16 @@ mod test {
         let mut full = FullAssembler::from(input, &symbols);
         assert_eq!(full.next(), Some(Ok(FullAssembled::Empty {
             line: sline!(1, ""),
-            base_addr: Addr(0x100),
+            base_addr: 100,
         })));
         assert_eq!(full.next(), Some(Ok(FullAssembled::Inst {
             line: sline!(2, "nop"),
-            base_addr: Addr(0x100),
+            base_addr: 100,
             inst: Inst::Nop,
         })));
         assert_eq!(full.next(), Some(Ok(FullAssembled::Data {
             line: sline!(3, ".db 1, 2"),
-            base_addr: Addr(0x200),
+            base_addr: 200,
             data: vec![1, 2],
         })));
         assert_eq!(full.next(), Some(Err(FullAssembleError::Pre(
