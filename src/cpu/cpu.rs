@@ -7,12 +7,15 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::cell::RefCell;
+use std::io;
+use std::io::Read;
 use std::rc::Rc;
 
 use time::Duration;
 
 use cpu::clock::*;
 use cpu::reg::*;
+use inst::*;
 use mem::*;
 
 pub struct Cpu<M: Memory> {
@@ -39,9 +42,14 @@ impl<M: Memory> Cpu<M> {
     /// Run one step, executing a single instruction
     /// It returns how much time such step took.
     pub fn step(&mut self) -> Duration {
-        self.regs.pc += 1;
+        let _inst = RuntimeInst::decode(self.inst_fetch().bytes().map(|r| r.ok().unwrap()));
         self.clock.cycles(4)
     }
+
+    fn inst_fetch<'a>(&'a mut self) -> InstFetch<'a, M> { InstFetch {
+        mem: self.mem(),
+        regs: &mut self.regs
+    }}
 }
 
 /// An adapter to the memory attached to the CPU
@@ -52,6 +60,19 @@ pub struct Mem<M: Memory> {
 impl<M: Memory> Memory for Mem<M> {
     fn read(&self, addr: Addr) -> u8 { self.mem.borrow().read(addr) }
     fn write(&mut self, addr: Addr, byte: u8) { self.mem.borrow_mut().write(addr, byte) }
+}
+
+pub struct InstFetch<'a, M: Memory> {
+    mem: Mem<M>,
+    regs: &'a mut Regs,
+}
+
+impl<'a, M: Memory> io::Read for InstFetch<'a, M> {
+    fn read(&mut self, buf: &mut[u8]) -> io::Result<usize> {
+        let nread = self.mem.read_bytes(self.regs.pc, buf);
+        self.regs.pc += nread as u16;
+        Ok(nread)
+    }
 }
 
 #[cfg(test)]

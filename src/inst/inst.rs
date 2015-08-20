@@ -8,7 +8,6 @@
 
 use std::io;
 
-use cpu::*;
 use inst::ops::*;
 use mem::*;
 
@@ -218,12 +217,19 @@ impl RuntimeInst {
             &Inst::Halt => pack!(w, 0x15),
         }
     }
+
+    pub fn decode<I: Iterator<Item=u8>>(input: I) -> Option<RuntimeInst> {
+        let mut bytes = input;
+        match bytes.next() {
+            Some(0) => Some(Inst::Nop),
+            _ => None
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
 
-    use cpu::*;
     use inst::ops::*;
 
     use super::*;

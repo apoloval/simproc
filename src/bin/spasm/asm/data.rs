@@ -99,7 +99,7 @@ pub type RuntimeData = Vec<u8>;
 #[cfg(test)]
 mod test {
 
-    use simproc::cpu::*;
+    use simproc::inst::{Reg};
 
     use asm::expr::*;
     use asm::symbol::*;

@@ -142,9 +142,8 @@ fn pre_assemble_binary<F>(
 #[cfg(test)]
 mod test {
 
-    use simproc::cpu::*;
     use simproc::inst::*;
-
+    
     use asm::expr::*;
 
     use super::*;
