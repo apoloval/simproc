@@ -8,5 +8,5 @@
 
 mod addr; pub use self::addr::*;
 mod bank; pub use self::bank::*;
-mod mem; pub use self::mem::*;
+pub mod mem; pub use self::mem::*;
 mod page; pub use self::page::*;

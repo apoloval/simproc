@@ -6,5 +6,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-mod reg;
-pub use self::reg::*;
+mod clock; pub use self::clock::*;
+mod cpu; pub use self::cpu::*;
+mod reg; pub use self::reg::*;

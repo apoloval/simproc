@@ -8,6 +8,8 @@
 
 use std::fmt;
 
+use mem::*;
+
 /// General purpose 8-bit Regs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
@@ -68,6 +70,18 @@ impl fmt::Display for AddrReg {
             &AddrReg::A1 => write!(fmt, "A1"),
             &AddrReg::A2 => write!(fmt, "A2"),
             &AddrReg::A3 => write!(fmt, "A3"),
+        }
+    }
+}
+
+pub struct Regs {
+    pub pc: Addr,
+}
+
+impl Regs {
+    pub fn new() -> Self {
+        Regs {
+            pc: 0,
         }
     }
 }

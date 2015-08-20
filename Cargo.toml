@@ -9,6 +9,7 @@ byteorder = "*"
 docopt = "*"
 regex = "*"
 rustc-serialize = "*"
+time = "*"
 
 [dev-dependencies]
 quickcheck = "*"

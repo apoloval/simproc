@@ -9,6 +9,8 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+extern crate time;
+
 pub mod cpu;
 pub mod inst;
 pub mod mem;
