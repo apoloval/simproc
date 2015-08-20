@@ -9,6 +9,8 @@
 use std::io;
 use std::iter::Iterator;
 
+use byteorder::*;
+
 use inst::ops::*;
 use mem::*;
 
@@ -99,9 +101,9 @@ macro_rules! pack {
         $w.write(&[$b1, regs])
     });
     ($w:ident, reg $r:ident in $b:expr, word $wrd:expr) => ({
-        let l = ($wrd.to_be() >> 8) as u8;
-        let r = $wrd.to_be() as u8;
-        $w.write(&[$b | $r.encode(), l, r])
+        let mut bytes = [0, 0];
+        LittleEndian::write_u16(&mut bytes, $wrd);
+        $w.write(&[$b | $r.encode(), bytes[0], bytes[1]])
     });
     ($w:ident, reg $r:ident in $b1:expr, byte $b2:expr) => ({
         $w.write(&[$b1 | $r.encode(), $b2])
@@ -233,6 +235,7 @@ impl RuntimeInst {
         let first = get!(bytes.next());
         match first >> 6 {
             0 => Self::decode_ctrl(first),
+            1 => Self::decode_dt(first, bytes),
             3 => Self::decode_al(first, bytes),
             _ => None
         }
@@ -273,10 +276,45 @@ impl RuntimeInst {
         }
     }
 
+    fn decode_dt<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
+        let mut bytes = input;
+        match ((first >> 3) & 0x07, first & 0x03) {
+            (0, _) =>
+                Some(Inst::Ldd(get!(Self::decode_reg(first)), get!(Self::decode_word(bytes)))),
+            (1, _) =>
+                Some(Inst::Std(get!(Self::decode_word(bytes)), get!(Self::decode_reg(first)))),
+            (2, _) =>
+                Some(Inst::Ldi(get!(Self::decode_reg(first)), get!(Self::decode_immediate(bytes)))),
+            (3, _) =>
+                Some(Inst::Ldsp(get!(Self::decode_areg(first)))),
+            (4, _) =>
+                Some(Inst::Push(get!(Self::decode_reg(first)))),
+            (6, _) =>
+                Some(Inst::Pop(get!(Self::decode_reg(first)))),
+            (7, 0) => {
+                let (dst, src) = get!(Self::decode_regs(get!(bytes.next())));
+                Some(Inst::Mov(dst, src))
+            },
+            (7, 1) => {
+                let next = get!(bytes.next());
+                let dst = get!(Reg::decode(next >> 3));
+                let src = get!(AddrReg::decode(next & 0x03));
+                Some(Inst::Ld(dst, src))
+            },
+            (7, 2) => {
+                let next = get!(bytes.next());
+                let dst = get!(AddrReg::decode(next >> 3));
+                let src = get!(Reg::decode(next & 0x03));
+                Some(Inst::St(dst, src))
+            },
+            _ => None,
+        }
+    }
+
     fn decode_ctrl(first: u8) -> Option<RuntimeInst> {
         match first {
             0 => Some(Inst::Nop),
-            _ => None
+            _ => None,
         }
     }
 
@@ -288,6 +326,18 @@ impl RuntimeInst {
         Some((
             get!(Reg::decode((byte & 0x3f) >> 3)),
             get!(Reg::decode((byte & 0x3f) >> 0))))
+    }
+
+    fn decode_immediate<I: Iterator<Item=u8>>(input: I) -> Option<Immediate> {
+        let mut bytes = input;
+        bytes.next().map(|b| Immediate(b))
+    }
+
+    fn decode_word<I: Iterator<Item=u8>>(input: I) -> Option<u16> {
+        let mut bytes = input;
+        let lsb = get!(bytes.next());
+        let msb = get!(bytes.next());
+        Some(LittleEndian::read_u16(&[lsb, msb]))
     }
 }
 
@@ -489,6 +539,33 @@ mod test {
 
     #[test]
     fn decode_decw() { assert_decode(Inst::Decw(AddrReg::A0), &[0xf4]) }
+
+    #[test]
+    fn decode_mov() { assert_decode(Inst::Mov(Reg::R0, Reg::R1), &[0x78, 0x01]) }
+
+    #[test]
+    fn decode_ld() { assert_decode(Inst::Ld(Reg::R0, AddrReg::A1), &[0x79, 0x01]) }
+
+    #[test]
+    fn decode_st() { assert_decode(Inst::St(AddrReg::A0, Reg::R1), &[0x7a, 0x01]) }
+
+    #[test]
+    fn decode_ldd() { assert_decode(Inst::Ldd(Reg::R0, 0x8000), &[0x40, 0x00, 0x80]) }
+
+    #[test]
+    fn decode_std() { assert_decode(Inst::Std(0x8000, Reg::R0), &[0x48, 0x00, 0x80]) }
+
+    #[test]
+    fn decode_ldi() { assert_decode(Inst::Ldi(Reg::R0, Immediate(7)), &[0x50, 0x07]) }
+
+    #[test]
+    fn decode_ldsp() { assert_decode(Inst::Ldsp(AddrReg::A0), &[0x58]) }
+
+    #[test]
+    fn decode_push() { assert_decode(Inst::Push(Reg::R0), &[0x60]) }
+
+    #[test]
+    fn decode_pop() { assert_decode(Inst::Pop(Reg::R0), &[0x70]) }
 
     fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
         let mut w: Vec<u8> = Vec::with_capacity(16);
