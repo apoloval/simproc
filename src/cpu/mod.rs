@@ -8,4 +8,5 @@
 
 mod clock; pub use self::clock::*;
 mod cpu; pub use self::cpu::*;
+mod exec;
 mod reg; pub use self::reg::*;

@@ -14,6 +14,7 @@ use std::rc::Rc;
 use time::Duration;
 
 use cpu::clock::*;
+use cpu::exec::*;
 use cpu::reg::*;
 use inst::*;
 use mem::*;
@@ -42,14 +43,37 @@ impl<M: Memory> Cpu<M> {
     /// Run one step, executing a single instruction
     /// It returns how much time such step took.
     pub fn step(&mut self) -> Duration {
-        let _inst = RuntimeInst::decode(self.inst_fetch().bytes().map(|r| r.ok().unwrap()));
+        let decoded = {
+            let fetch = self.inst_fetch().bytes().map(|r| r.ok().unwrap());
+            RuntimeInst::decode(fetch)
+        };
+        if let Some(inst) = decoded {
+            let mut ctx = self.exec_ctx();
+            exec(&inst, &mut ctx);
+        }
         self.clock.cycles(4)
     }
 
-    fn inst_fetch<'a>(&'a mut self) -> InstFetch<'a, M> { InstFetch {
+    fn exec_ctx<'a>(&'a mut self) -> Ctx<'a, M> { Ctx {
         mem: self.mem(),
-        regs: &mut self.regs
+        regs: &mut self.regs,
     }}
+
+    fn inst_fetch<'a>(&'a mut self) -> InstFetch<M> { InstFetch {
+        mem: self.mem(),
+        pc: self.regs.pc,
+    }}
+}
+
+pub struct Ctx<'a, M: Memory> {
+    mem: Mem<M>,
+    regs: &'a mut Regs,
+}
+
+impl<'a, M: Memory> ExecCtx for Ctx<'a, M> {
+    type Mem = Mem<M>;
+    fn mem(&mut self) -> &mut Mem<M> { &mut self.mem }
+    fn regs(&mut self) -> &mut Regs { self.regs }
 }
 
 /// An adapter to the memory attached to the CPU
@@ -62,15 +86,15 @@ impl<M: Memory> Memory for Mem<M> {
     fn write(&mut self, addr: Addr, byte: u8) { self.mem.borrow_mut().write(addr, byte) }
 }
 
-pub struct InstFetch<'a, M: Memory> {
+pub struct InstFetch<M: Memory> {
     mem: Mem<M>,
-    regs: &'a mut Regs,
+    pc: Addr,
 }
 
-impl<'a, M: Memory> io::Read for InstFetch<'a, M> {
+impl<M: Memory> io::Read for InstFetch<M> {
     fn read(&mut self, buf: &mut[u8]) -> io::Result<usize> {
-        let nread = self.mem.read_bytes(self.regs.pc, buf);
-        self.regs.pc += nread as u16;
+        let nread = self.mem.read_bytes(self.pc, buf);
+        self.pc += nread as u16;
         Ok(nread)
     }
 }
