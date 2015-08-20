@@ -31,6 +31,20 @@ pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
 
 impl Reg {
 
+    pub fn decode(byte: u8) -> Option<Self> {
+        match byte {
+            0x00 => Some(Reg::R0),
+            0x01 => Some(Reg::R1),
+            0x02 => Some(Reg::R2),
+            0x03 => Some(Reg::R3),
+            0x04 => Some(Reg::R4),
+            0x05 => Some(Reg::R5),
+            0x06 => Some(Reg::R6),
+            0x07 => Some(Reg::R7),
+            _ => None,
+        }
+    }
+
     /// Encode a general purpose register into its binary representation
     pub fn encode(&self) -> u8 {
         match self {
@@ -66,6 +80,16 @@ impl fmt::Display for Reg {
 pub enum AddrReg { A0, A1, A2, A3 }
 
 impl AddrReg {
+
+    pub fn decode(byte: u8) -> Option<Self> {
+        match byte {
+            0x00 => Some(AddrReg::A0),
+            0x01 => Some(AddrReg::A1),
+            0x02 => Some(AddrReg::A2),
+            0x03 => Some(AddrReg::A3),
+            _ => None,
+        }
+    }
 
     /// Encode a general purpose register into its binary representation
     pub fn encode(&self) -> u8 {

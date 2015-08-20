@@ -7,6 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::io;
+use std::iter::Iterator;
 
 use inst::ops::*;
 use mem::*;
@@ -106,6 +107,15 @@ macro_rules! pack {
         $w.write(&[$b1 | $r.encode(), $b2])
     });
 
+}
+
+macro_rules! get {
+    ($e:expr) => ({
+        match $e {
+            Some(val) => val,
+            None => return None,
+        }
+    })
 }
 
 impl<O: Operands> Inst<O> {
@@ -218,12 +228,66 @@ impl RuntimeInst {
         }
     }
 
-    pub fn decode<I: Iterator<Item=u8>>(input: I) -> Option<RuntimeInst> {
-        let mut bytes = input;
-        match bytes.next() {
-            Some(0) => Some(Inst::Nop),
+    pub fn decode<I: IntoIterator<Item=u8>>(input: I) -> Option<RuntimeInst> {
+        let mut bytes = input.into_iter();
+        let first = get!(bytes.next());
+        match first >> 6 {
+            0 => Self::decode_ctrl(first),
+            3 => Self::decode_al(first, bytes),
             _ => None
         }
+    }
+
+    fn decode_al<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
+        let mut bytes = input;
+        match (first & 0x38) >> 3 {
+            0 => Some(Inst::Addi(get!(Self::decode_reg(first)), Immediate(get!(bytes.next())))),
+            1 => Some(Inst::Subi(get!(Self::decode_reg(first)), Immediate(get!(bytes.next())))),
+            2 => Some(Inst::Not(get!(Self::decode_reg(first)))),
+            3 => Some(Inst::Comp(get!(Self::decode_reg(first)))),
+            4 => Some(Inst::Inc(get!(Self::decode_reg(first)))),
+            5 => Some(Inst::Dec(get!(Self::decode_reg(first)))),
+            6 => {
+                let reg = get!(Self::decode_areg(first));
+                Some(if first & 0x04 == 0x04 { Inst::Decw(reg) } else { Inst::Incw(reg) })
+            },
+            7 => Self::decode_arithmetic(first, get!(bytes.next())),
+            _ => None
+        }
+    }
+
+    fn decode_arithmetic(first: u8, next: u8) -> Option<RuntimeInst> {
+        let (dst, src) = get!(Self::decode_regs(next));
+        match (first & 0x07, next >> 6) {
+            (0, 0) => Some(Inst::Add(dst, src)),
+            (0, 1) => Some(Inst::Adc(dst, src)),
+            (0, 2) => Some(Inst::Sub(dst, src)),
+            (0, 3) => Some(Inst::Sbc(dst, src)),
+            (2, 0) => Some(Inst::And(dst, src)),
+            (2, 2) => Some(Inst::Or(dst, src)),
+            (3, 0) => Some(Inst::Xor(dst, src)),
+            (4, 0) => Some(Inst::Lsl(dst, src)),
+            (4, 2) => Some(Inst::Lsr(dst, src)),
+            (5, 2) => Some(Inst::Asr(dst, src)),
+            _ => None,
+        }
+    }
+
+    fn decode_ctrl(first: u8) -> Option<RuntimeInst> {
+        match first {
+            0 => Some(Inst::Nop),
+            _ => None
+        }
+    }
+
+    fn decode_reg(byte: u8)  -> Option<Reg> { Reg::decode(byte & 0x07) }
+
+    fn decode_areg(byte: u8)  -> Option<AddrReg> { AddrReg::decode(byte & 0x03) }
+
+    fn decode_regs(byte: u8) -> Option<(Reg, Reg)> {
+        Some((
+            get!(Reg::decode((byte & 0x3f) >> 3)),
+            get!(Reg::decode((byte & 0x3f) >> 0))))
     }
 }
 
@@ -233,14 +297,6 @@ mod test {
     use inst::ops::*;
 
     use super::*;
-
-    fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
-        let mut w: Vec<u8> = Vec::with_capacity(16);
-        let result = inst.encode(&mut w);
-        assert!(result.is_ok());
-        assert_eq!(bytes.len(), result.ok().unwrap());
-        assert_eq!(&w[..], bytes);
-    }
 
     #[test]
     fn encode_add() { assert_encode(Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
@@ -379,5 +435,73 @@ mod test {
 
     #[test]
     fn encode_halt() { assert_encode(Inst::Halt, &[0x15]); }
+
+    #[test]
+    fn decode_add() { assert_decode(Inst::Add(Reg::R0, Reg::R1), &[0xf8, 0x01]) }
+
+    #[test]
+    fn decode_adc() { assert_decode(Inst::Adc(Reg::R0, Reg::R1), &[0xf8, 0x41]) }
+
+    #[test]
+    fn decode_addi() { assert_decode(Inst::Addi(Reg::R0, Immediate(7)), &[0xc0, 0x07]) }
+
+    #[test]
+    fn decode_sub() { assert_decode(Inst::Sub(Reg::R0, Reg::R1), &[0xf8, 0x81]) }
+
+    #[test]
+    fn decode_sbc() { assert_decode(Inst::Sbc(Reg::R0, Reg::R1), &[0xf8, 0xc1]) }
+
+    #[test]
+    fn decode_subi() { assert_decode(Inst::Subi(Reg::R0, Immediate(7)), &[0xc8, 0x07]) }
+
+    #[test]
+    fn decode_and() { assert_decode(Inst::And(Reg::R0, Reg::R1), &[0xfa, 0x01]) }
+
+    #[test]
+    fn decode_or() { assert_decode(Inst::Or(Reg::R0, Reg::R1), &[0xfa, 0x81]) }
+
+    #[test]
+    fn decode_xor() { assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0xfb, 0x01]) }
+
+    #[test]
+    fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R0, Reg::R1), &[0xfc, 0x01]) }
+
+    #[test]
+    fn decode_lsr() { assert_decode(Inst::Lsr(Reg::R0, Reg::R1), &[0xfc, 0x81]) }
+
+    #[test]
+    fn decode_asr() { assert_decode(Inst::Asr(Reg::R0, Reg::R1), &[0xfd, 0x81]) }
+
+    #[test]
+    fn decode_not() { assert_decode(Inst::Not(Reg::R0), &[0xd0]) }
+
+    #[test]
+    fn decode_comp() { assert_decode(Inst::Comp(Reg::R0), &[0xd8]) }
+
+    #[test]
+    fn decode_inc() { assert_decode(Inst::Inc(Reg::R0), &[0xe0]) }
+
+    #[test]
+    fn decode_incw() { assert_decode(Inst::Incw(AddrReg::A0), &[0xf0]) }
+
+    #[test]
+    fn decode_dec() { assert_decode(Inst::Dec(Reg::R0), &[0xe8]) }
+
+    #[test]
+    fn decode_decw() { assert_decode(Inst::Decw(AddrReg::A0), &[0xf4]) }
+
+    fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
+        let mut w: Vec<u8> = Vec::with_capacity(16);
+        let result = inst.encode(&mut w);
+        assert!(result.is_ok());
+        assert_eq!(bytes.len(), result.ok().unwrap());
+        assert_eq!(&w[..], bytes);
+    }
+
+    fn assert_decode(expected: RuntimeInst, bytes: &[u8]) {
+        let actual = RuntimeInst::decode(bytes.iter().map(|b| *b));
+        assert!(actual.is_some());
+        assert_eq!(actual.unwrap(), expected);
+    }
 
 }
