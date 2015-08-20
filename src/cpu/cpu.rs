@@ -11,7 +11,7 @@ use std::io;
 use std::io::Read;
 use std::rc::Rc;
 
-use time::Duration;
+use time::precise_time_ns;
 
 use cpu::clock::*;
 use cpu::exec::*;
@@ -42,16 +42,20 @@ impl<M: Memory> Cpu<M> {
 
     /// Run one step, executing a single instruction
     /// It returns how much time such step took.
-    pub fn step(&mut self) -> Duration {
+    pub fn step(&mut self) {
+        let start = precise_time_ns();
         let decoded = {
             let fetch = self.inst_fetch().bytes().map(|r| r.ok().unwrap());
             RuntimeInst::decode(fetch)
         };
         if let Some(inst) = decoded {
-            let mut ctx = self.exec_ctx();
-            exec(&inst, &mut ctx);
+            let cycles = exec(&inst, &mut self.exec_ctx());
+            let end = start + self.clock.cycles(cycles).num_nanoseconds().unwrap() as u64;
+            loop {
+                let now = precise_time_ns();
+                if end < now { break }
+            }
         }
-        self.clock.cycles(4)
     }
 
     fn exec_ctx<'a>(&'a mut self) -> Ctx<'a, M> { Ctx {

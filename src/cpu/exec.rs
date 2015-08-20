@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use cpu::clock::Cycle;
 use cpu::reg::Regs;
 use inst::{Inst, RuntimeInst};
 use mem::Memory;
@@ -16,15 +17,18 @@ pub trait ExecCtx {
     fn regs(&mut self) -> &mut Regs;
 }
 
-pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) {
+/// Execute the given instruction over the given context
+/// It returns the number of cycles that correspond to that instruction execution.
+pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
     match inst {
         &Inst::Nop => exec_nop(ctx),
         _ => unimplemented!(),
     }
 }
 
-fn exec_nop<M: Memory>(ctx: &mut ExecCtx<Mem=M>) {
+fn exec_nop<M: Memory>(ctx: &mut ExecCtx<Mem=M>) -> Cycle {
     ctx.regs().pc += 1;
+    4
 }
 
 #[cfg(test)]

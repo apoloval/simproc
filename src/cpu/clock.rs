@@ -8,6 +8,8 @@
 
 use time::Duration;
 
+pub type Cycle = usize;
+
 #[derive(Clone, Copy)]
 pub struct ClockFreq { mhz: f64, }
 
@@ -16,7 +18,7 @@ impl ClockFreq {
     pub fn mhz(val: f64) -> Self { ClockFreq { mhz: val }}
 
     /// Return the duration equivalent to the given cycles for this clock
-    pub fn cycles(&self, n: usize) -> Duration {
+    pub fn cycles(&self, n: Cycle) -> Duration {
         let period = 1000.0 / self.mhz;
         Duration::nanoseconds((period * n as f64) as i64)
     }
