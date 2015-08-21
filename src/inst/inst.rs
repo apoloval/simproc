@@ -337,7 +337,8 @@ impl RuntimeInst {
 
     fn decode_ctrl(first: u8) -> Option<RuntimeInst> {
         match first {
-            0 => Some(Inst::Nop),
+            0x00 => Some(Inst::Nop),
+            0x14 => Some(Inst::Halt),
             _ => None,
         }
     }
@@ -643,6 +644,12 @@ mod test {
 
     #[test]
     fn decode_reti() { assert_decode(Inst::Reti, &[0xbc]) }
+
+    #[test]
+    fn decode_nop() { assert_decode(Inst::Nop, &[0x00]) }
+
+    #[test]
+    fn decode_halt() { assert_decode(Inst::Halt, &[0x14]) }
 
     fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
         let mut w: Vec<u8> = Vec::with_capacity(16);
