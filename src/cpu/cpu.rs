@@ -34,6 +34,9 @@ impl<M: Memory> Cpu<M> {
         clock: ClockFreq::default(),
     }}
 
+    /// Returns the clock frequency for this CPU
+    pub fn clock(&self) -> &ClockFreq { &self.clock }
+
     /// Returns a shared adapter to the memory attached to this CPU.
     pub fn mem(&self) -> Mem<M> { Mem { mem: self.mem.clone() } }
 
@@ -104,6 +107,8 @@ impl<M: Memory> io::Read for InstFetch<M> {
 #[cfg(test)]
 mod test {
 
+    use time::Duration;
+
     use mem::{Memory, RamPage};
 
     use super::*;
@@ -113,7 +118,7 @@ mod test {
         let mut cpu = Cpu::with_memory(RamPage::new());
         // 8 nops
         cpu.mem().write_bytes(0x0000, &[0]);
-        cpu.step();
+        assert!(Duration::span(|| cpu.step()) > cpu.clock().cycles(4));
         assert_eq!(cpu.regs().pc, 1);
     }
 
@@ -122,7 +127,7 @@ mod test {
         let mut cpu = Cpu::with_memory(RamPage::new());
         // 8 nops
         cpu.mem().write_bytes(0x0000, &[0xff]);
-        cpu.step();
+        assert!(Duration::span(|| cpu.step()) > cpu.clock().cycles(4));
         assert_eq!(cpu.regs().pc, 1);
     }
 }
