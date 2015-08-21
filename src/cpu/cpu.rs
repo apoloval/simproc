@@ -44,17 +44,15 @@ impl<M: Memory> Cpu<M> {
     /// It returns how much time such step took.
     pub fn step(&mut self) {
         let start = precise_time_ns();
-        let decoded = {
+        let inst = {
             let fetch = self.inst_fetch().bytes().map(|r| r.ok().unwrap());
-            RuntimeInst::decode(fetch)
+            RuntimeInst::decode(fetch).unwrap_or(Inst::Nop)
         };
-        if let Some(inst) = decoded {
-            let cycles = exec(&inst, &mut self.exec_ctx());
-            let end = start + self.clock.cycles(cycles).num_nanoseconds().unwrap() as u64;
-            loop {
-                let now = precise_time_ns();
-                if end < now { break }
-            }
+        let cycles = exec(&inst, &mut self.exec_ctx());
+        let end = start + self.clock.cycles(cycles).num_nanoseconds().unwrap() as u64;
+        loop {
+            let now = precise_time_ns();
+            if end < now { break }
         }
     }
 
@@ -114,7 +112,16 @@ mod test {
     fn should_step_over() {
         let mut cpu = Cpu::with_memory(RamPage::new());
         // 8 nops
-        cpu.mem().write_bytes(0x0000, &[0, 0, 0, 0, 0, 0, 0, 0]);
+        cpu.mem().write_bytes(0x0000, &[0]);
+        cpu.step();
+        assert_eq!(cpu.regs().pc, 1);
+    }
+
+    #[test]
+    fn should_step_interpreting_invalid_opcode_as_nop() {
+        let mut cpu = Cpu::with_memory(RamPage::new());
+        // 8 nops
+        cpu.mem().write_bytes(0x0000, &[0xff]);
         cpu.step();
         assert_eq!(cpu.regs().pc, 1);
     }
