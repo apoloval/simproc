@@ -54,7 +54,6 @@ pub fn pre_assemble_inst(
         "sub" => pre_assemble_binary(args, Inst::Sub),
         "sbc" => pre_assemble_binary(args, Inst::Sbc),
         "subi" => pre_assemble_binary(args, Inst::Subi),
-        "mulw" => pre_assemble_binary(args, Inst::Mulw),
         "and" => pre_assemble_binary(args, Inst::And),
         "or" => pre_assemble_binary(args, Inst::Or),
         "xor" => pre_assemble_binary(args, Inst::Xor),
@@ -143,7 +142,7 @@ fn pre_assemble_binary<F>(
 mod test {
 
     use simproc::inst::*;
-    
+
     use asm::expr::*;
 
     use super::*;
@@ -165,9 +164,6 @@ mod test {
 
     #[test]
     fn should_pre_assemble_subi() { should_pre_assemble_binary_inst("subi", Inst::Subi) }
-
-    #[test]
-    fn should_pre_assemble_mulw() { should_pre_assemble_binary_inst("mulw", Inst::Mulw) }
 
     #[test]
     fn should_pre_assemble_and() { should_pre_assemble_binary_inst("and", Inst::And) }

@@ -25,7 +25,6 @@ pub enum Inst<O: Operands> {
     Sub(O::Reg, O::Reg),
     Sbc(O::Reg, O::Reg),
     Subi(O::Reg, O::Immediate),
-    Mulw(O::AddrReg, O::AddrReg),
     And(O::Reg, O::Reg),
     Or(O::Reg, O::Reg),
     Xor(O::Reg, O::Reg),
@@ -131,7 +130,6 @@ impl<O: Operands> Inst<O> {
             &Inst::Sub(_, _) => 2,
             &Inst::Sbc(_, _) => 2,
             &Inst::Subi(_, _) => 2,
-            &Inst::Mulw(_, _) => 2,
             &Inst::And(_, _) => 2,
             &Inst::Or(_, _) => 2,
             &Inst::Xor(_, _) => 2,
@@ -187,7 +185,6 @@ impl RuntimeInst {
             &Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
             &Inst::Sbc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0xc0),
             &Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0xc8, byte k),
-            &Inst::Mulw(ref a1, ref a2) => pack!(w, 0xf8, regs a1, a2 in 0x40),
             &Inst::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
             &Inst::Or(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x80),
             &Inst::Xor(ref r1, ref r2) => pack!(w, 0xfa, regs r1, r2 in 0x00),
@@ -395,9 +392,6 @@ mod test {
 
     #[test]
     fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0xcb, 0x64]); }
-
-    #[test]
-    fn encode_mulw() { assert_encode(Inst::Mulw(AddrReg::A3, AddrReg::A2), &[0xf8, 0x5a]); }
 
     #[test]
     fn encode_and() { assert_encode(Inst::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }

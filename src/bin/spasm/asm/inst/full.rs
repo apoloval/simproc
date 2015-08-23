@@ -41,8 +41,6 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::Sbc(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Subi(r, l) =>
                 Ok(Inst::Subi(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_immediate(l)))),
-            Inst::Mulw(r1, r2) =>
-                Ok(Inst::Mulw(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_areg(r2)))),
             Inst::And(r1, r2) =>
                 Ok(Inst::And(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Or(r1, r2) =>
@@ -158,9 +156,6 @@ mod test {
 
     #[test]
     fn should_asm_subi() { should_asm_inst_reg_imm(Inst::Subi, Inst::Subi); }
-
-    #[test]
-    fn should_asm_mulw() { should_asm_inst_areg_areg(Inst::Mulw, Inst::Mulw); }
 
     #[test]
     fn should_asm_and() { should_asm_inst_reg_reg(Inst::And, Inst::And); }
@@ -442,16 +437,6 @@ mod test {
             pre, full,
             Reg::R0, Immediate(100),
             MockExprAssembler::with_reg, MockExprAssembler::with_imm);
-    }
-
-    fn should_asm_inst_areg_areg<I1, I2>(pre: I1, full: I2) where
-        I1: Fn(Expr, Expr) -> PreAssembledInst,
-        I2: Fn(AddrReg, AddrReg) -> RuntimeInst
-    {
-        should_asm_binary_inst(
-            pre, full,
-            AddrReg::A0, AddrReg::A1,
-            MockExprAssembler::with_areg, MockExprAssembler::with_areg);
     }
 
     fn should_asm_inst_reg_areg<I1, I2>(pre: I1, full: I2) where
