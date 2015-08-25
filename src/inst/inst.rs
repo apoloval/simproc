@@ -179,33 +179,40 @@ impl RuntimeInst {
     /// Encode a instruction using the given writer
     pub fn encode<W: io::Write>(&self, w: &mut W) -> io::Result<usize> {
         match self {
-            &Inst::Add(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x00),
-            &Inst::Adc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x40),
-            &Inst::Addi(ref r, Immediate(k)) => pack!(w, reg r in 0xc0, byte k),
-            &Inst::Sub(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0x80),
-            &Inst::Sbc(ref r1, ref r2) => pack!(w, 0xf8, regs r1, r2 in 0xc0),
-            &Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0xc8, byte k),
-            &Inst::And(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x00),
-            &Inst::Or(ref r1, ref r2) => pack!(w, 0xf9, regs r1, r2 in 0x80),
-            &Inst::Xor(ref r1, ref r2) => pack!(w, 0xfa, regs r1, r2 in 0x00),
-            &Inst::Lsl(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x00),
-            &Inst::Lsr(ref r1, ref r2) => pack!(w, 0xfc, regs r1, r2 in 0x80),
-            &Inst::Asr(ref r1, ref r2) => pack!(w, 0xfd, regs r1, r2 in 0x80),
-            &Inst::Not(ref r) => pack!(w, reg r in 0xd0),
-            &Inst::Comp(ref r) => pack!(w, reg r in 0xd8),
-            &Inst::Inc(ref r) => pack!(w, reg r in 0xe0),
-            &Inst::Incw(ref a) => pack!(w, reg a in 0xf0),
-            &Inst::Dec(ref r) => pack!(w, reg r in 0xe8),
-            &Inst::Decw(ref a) => pack!(w, reg a in 0xf4),
-            &Inst::Mov(ref r1, ref r2) => pack!(w, 0x78, regs r1, r2 in 0x00),
-            &Inst::Ld(ref r, ref a) => pack!(w, 0x79, regs r, a in 0x00),
-            &Inst::St(ref a, ref r) => pack!(w, 0x7a, regs a, r in 0x00),
-            &Inst::Ldd(ref r, a) => pack!(w, reg r in 0x40, word a),
-            &Inst::Std(a, ref r) => pack!(w, reg r in 0x48, word a),
-            &Inst::Ldi(ref r, Immediate(k)) => pack!(w, reg r in 0x50, byte k),
-            &Inst::Ldsp(ref r) => pack!(w, reg r in 0x58),
-            &Inst::Push(ref r) => pack!(w, reg r in 0x60),
-            &Inst::Pop(ref r) => pack!(w, reg r in 0x70),
+            &Inst::Add(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x20),
+            &Inst::Add(ref r1, ref r2) => pack!(w, 0x80, regs r1, r2 in 0x00),
+            &Inst::Adc(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x24),
+            &Inst::Adc(ref r1, ref r2) => pack!(w, 0x81, regs r1, r2 in 0x00),
+            &Inst::Addi(ref r, Immediate(k)) => pack!(w, reg r in 0x90, byte k),
+            &Inst::Sub(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x28),
+            &Inst::Sub(ref r1, ref r2) => pack!(w, 0x82, regs r1, r2 in 0x00),
+            &Inst::Sbc(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x2c),
+            &Inst::Sbc(ref r1, ref r2) => pack!(w, 0x83, regs r1, r2 in 0x00),
+            &Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0x98, byte k),
+            &Inst::And(ref r1, ref r2) => pack!(w, 0x84, regs r1, r2 in 0x00),
+            &Inst::Or(ref r1, ref r2) => pack!(w, 0x85, regs r1, r2 in 0x00),
+            &Inst::Xor(ref r1, ref r2) => pack!(w, 0x86, regs r1, r2 in 0x00),
+            &Inst::Lsl(ref r1, ref r2) => pack!(w, 0x87, regs r1, r2 in 0x00),
+            &Inst::Lsr(ref r1, ref r2) => pack!(w, 0x88, regs r1, r2 in 0x00),
+            &Inst::Asr(ref r1, ref r2) => pack!(w, 0x89, regs r1, r2 in 0x00),
+            &Inst::Not(ref r) => pack!(w, reg r in 0x40),
+            &Inst::Comp(ref r) => pack!(w, reg r in 0x48),
+            &Inst::Inc(ref r) => pack!(w, reg r in 0x50),
+            &Inst::Incw(ref a) => pack!(w, reg a in 0x08),
+            &Inst::Dec(ref r) => pack!(w, reg r in 0x58),
+            &Inst::Decw(ref a) => pack!(w, reg a in 0x0c),
+            &Inst::Mov(ref r1, ref r2) if Self::is_onebyte(r2, r1) => pack!(w, reg r1 in 0x60),
+            &Inst::Mov(ref r1, ref r2) => pack!(w, 0xc0, regs r1, r2 in 0x00),
+            &Inst::Ld(ref r1, ref r2) if *r1 == Reg::R0 => pack!(w, reg r2 in 0x64),
+            &Inst::Ld(ref r1, ref r2) => pack!(w, 0xc1, regs r1, r2 in 0x00),
+            &Inst::St(ref a, ref r) if *r == Reg::R0 => pack!(w, reg a in 0x68),
+            &Inst::St(ref a, ref r) => pack!(w, 0xc2, regs a, r in 0x00),
+            &Inst::Ldd(ref r, a) => pack!(w, reg r in 0xc8, word a),
+            &Inst::Std(a, ref r) => pack!(w, reg r in 0xd0, word a),
+            &Inst::Ldi(ref r, Immediate(k)) => pack!(w, reg r in 0xd8, byte k),
+            &Inst::Ldsp(ref r) => pack!(w, reg r in 0x6c),
+            &Inst::Push(ref r) => pack!(w, reg r in 0x70),
+            &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
             &Inst::Je(o) => pack!(w, offset o in 0x80),
             &Inst::Jne(o) => pack!(w, offset o in 0x84),
             &Inst::Jl(o) => pack!(w, offset o in 0x88),
@@ -237,6 +244,10 @@ impl RuntimeInst {
             3 => Self::decode_al(first, bytes),
             _ => None
         }
+    }
+
+    fn is_onebyte(accum: &Reg, other: &Reg) -> bool {
+        *accum == Reg::R0 && other.encode() < 4
     }
 
     fn decode_al<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
@@ -376,85 +387,113 @@ mod test {
     use super::*;
 
     #[test]
-    fn encode_add() { assert_encode(Inst::Add(Reg::R3, Reg::R5), &[0xf8, 0x1d]); }
+    fn encode_add() {
+        assert_encode(Inst::Add(Reg::R0, Reg::R1), &[0x21]);
+        assert_encode(Inst::Add(Reg::R0, Reg::R4), &[0x80, 0x04]);
+        assert_encode(Inst::Add(Reg::R3, Reg::R5), &[0x80, 0x1d]);
+    }
 
     #[test]
-    fn encode_adc() { assert_encode(Inst::Adc(Reg::R3, Reg::R5), &[0xf8, 0x5d]); }
+    fn encode_adc() {
+        assert_encode(Inst::Adc(Reg::R0, Reg::R1), &[0x25]);
+        assert_encode(Inst::Adc(Reg::R0, Reg::R4), &[0x81, 0x04]);
+        assert_encode(Inst::Adc(Reg::R3, Reg::R5), &[0x81, 0x1d]);
+    }
 
     #[test]
-    fn encode_addi() { assert_encode(Inst::Addi(Reg::R3, Immediate(100)), &[0xc3, 0x64]); }
+    fn encode_addi() { assert_encode(Inst::Addi(Reg::R3, Immediate(100)), &[0x93, 0x64]); }
 
     #[test]
-    fn encode_sub() { assert_encode(Inst::Sub(Reg::R3, Reg::R5), &[0xf8, 0x9d]); }
+    fn encode_sub() {
+        assert_encode(Inst::Sub(Reg::R0, Reg::R1), &[0x29]);
+        assert_encode(Inst::Sub(Reg::R0, Reg::R4), &[0x82, 0x04]);
+        assert_encode(Inst::Sub(Reg::R3, Reg::R5), &[0x82, 0x1d]);
+    }
 
     #[test]
-    fn encode_sbc() { assert_encode(Inst::Sbc(Reg::R3, Reg::R2), &[0xf8, 0xda]); }
+    fn encode_sbc() {
+        assert_encode(Inst::Sbc(Reg::R0, Reg::R1), &[0x2d]);
+        assert_encode(Inst::Sbc(Reg::R0, Reg::R4), &[0x83, 0x04]);
+        assert_encode(Inst::Sbc(Reg::R3, Reg::R5), &[0x83, 0x1d]);
+    }
 
     #[test]
-    fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0xcb, 0x64]); }
+    fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0x9b, 0x64]); }
 
     #[test]
-    fn encode_and() { assert_encode(Inst::And(Reg::R3, Reg::R5), &[0xf9, 0x1d]); }
+    fn encode_and() { assert_encode(Inst::And(Reg::R3, Reg::R5), &[0x84, 0x1d]); }
 
     #[test]
-    fn encode_or() { assert_encode(Inst::Or(Reg::R3, Reg::R5), &[0xf9, 0x9d]); }
+    fn encode_or() { assert_encode(Inst::Or(Reg::R3, Reg::R5), &[0x85, 0x1d]); }
 
     #[test]
-    fn encode_xor() { assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0xfa, 0x0f]); }
+    fn encode_xor() { assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0x86, 0x0f]); }
 
     #[test]
-    fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3, Reg::R4), &[0xfc, 0x1c]); }
+    fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3, Reg::R4), &[0x87, 0x1c]); }
 
     #[test]
-    fn encode_lsr() { assert_encode(Inst::Lsr(Reg::R6, Reg::R1), &[0xfc, 0xb1]); }
+    fn encode_lsr() { assert_encode(Inst::Lsr(Reg::R6, Reg::R1), &[0x88, 0x31]); }
 
     #[test]
-    fn encode_asr() { assert_encode(Inst::Asr(Reg::R1, Reg::R2), &[0xfd, 0x8a]); }
+    fn encode_asr() { assert_encode(Inst::Asr(Reg::R1, Reg::R2), &[0x89, 0x0a]); }
 
     #[test]
-    fn encode_not() { assert_encode(Inst::Not(Reg::R5), &[0xd5]); }
+    fn encode_not() { assert_encode(Inst::Not(Reg::R5), &[0x45]); }
 
     #[test]
-    fn encode_comp() { assert_encode(Inst::Comp(Reg::R1), &[0xd9]); }
+    fn encode_comp() { assert_encode(Inst::Comp(Reg::R1), &[0x49]); }
 
     #[test]
-    fn encode_inc() { assert_encode(Inst::Inc(Reg::R6), &[0xe6]); }
+    fn encode_inc() { assert_encode(Inst::Inc(Reg::R6), &[0x56]); }
 
     #[test]
-    fn encode_incw() { assert_encode(Inst::Incw(AddrReg::A2), &[0xf2]); }
+    fn encode_incw() { assert_encode(Inst::Incw(AddrReg::A2), &[0x0a]); }
 
     #[test]
-    fn encode_dec() { assert_encode(Inst::Dec(Reg::R7), &[0xef]); }
+    fn encode_dec() { assert_encode(Inst::Dec(Reg::R7), &[0x5f]); }
 
     #[test]
-    fn encode_decw() { assert_encode(Inst::Decw(AddrReg::A1), &[0xf5]); }
+    fn encode_decw() { assert_encode(Inst::Decw(AddrReg::A1), &[0x0d]); }
 
     #[test]
-    fn encode_mov() { assert_encode(Inst::Mov(Reg::R6, Reg::R2), &[0x78, 0x32]); }
+    fn encode_mov() {
+        assert_encode(Inst::Mov(Reg::R1, Reg::R0), &[0x61]);
+        assert_encode(Inst::Mov(Reg::R4, Reg::R0), &[0xc0, 0x20]);
+        assert_encode(Inst::Mov(Reg::R3, Reg::R5), &[0xc0, 0x1d]);
+    }
 
     #[test]
-    fn encode_ld() { assert_encode(Inst::Ld(Reg::R4, AddrReg::A1), &[0x79, 0x21]); }
+    fn encode_ld() {
+        assert_encode(Inst::Ld(Reg::R0, AddrReg::A1), &[0x65]);
+        assert_encode(Inst::Ld(Reg::R0, AddrReg::A3), &[0x67]);
+        assert_encode(Inst::Ld(Reg::R3, AddrReg::A3), &[0xc1, 0x1b]);
+    }
 
     #[test]
-    fn encode_st() { assert_encode(Inst::St(AddrReg::A3, Reg::R2), &[0x7a, 0x1a]); }
+    fn encode_st() {
+        assert_encode(Inst::St(AddrReg::A1, Reg::R0), &[0x69]);
+        assert_encode(Inst::St(AddrReg::A3, Reg::R0), &[0x6b]);
+        assert_encode(Inst::St(AddrReg::A3, Reg::R3), &[0xc2, 0x1b]);
+    }
 
     #[test]
-    fn encode_ldd() { assert_encode(Inst::Ldd(Reg::R1, 0x2010), &[0x41, 0x10, 0x20]); }
+    fn encode_ldd() { assert_encode(Inst::Ldd(Reg::R1, 0x2010), &[0xc9, 0x10, 0x20]); }
 
     #[test]
-    fn encode_std() { assert_encode(Inst::Std(0x1020, Reg::R6), &[0x4e, 0x20, 0x10]); }
+    fn encode_std() { assert_encode(Inst::Std(0x1020, Reg::R6), &[0xd6, 0x20, 0x10]); }
 
     #[test]
-    fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13i8 as u8)), &[0x52, 0xf3]); }
+    fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13i8 as u8)), &[0xda, 0xf3]); }
 
     #[test]
-    fn encode_ldsp() { assert_encode(Inst::Ldsp(AddrReg::A1), &[0x59]); }
+    fn encode_ldsp() { assert_encode(Inst::Ldsp(AddrReg::A1), &[0x6d]); }
 
     #[test]
-    fn encode_push() { assert_encode(Inst::Push(Reg::R3), &[0x63]); }
+    fn encode_push() { assert_encode(Inst::Push(Reg::R3), &[0x73]); }
 
     #[test]
-    fn encode_pop() { assert_encode(Inst::Pop(Reg::R5), &[0x75]); }
+    fn encode_pop() { assert_encode(Inst::Pop(Reg::R5), &[0x7d]); }
 
     #[test]
     fn encode_je() { assert_encode(Inst::Je(1), &[0x80, 0x01]); }
