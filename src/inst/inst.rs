@@ -213,24 +213,24 @@ impl RuntimeInst {
             &Inst::Ldsp(ref r) => pack!(w, reg r in 0x6c),
             &Inst::Push(ref r) => pack!(w, reg r in 0x70),
             &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
-            &Inst::Je(o) => pack!(w, offset o in 0x80),
-            &Inst::Jne(o) => pack!(w, offset o in 0x84),
-            &Inst::Jl(o) => pack!(w, offset o in 0x88),
-            &Inst::Jge(o) => pack!(w, offset o in 0x8c),
-            &Inst::Jcc(o) => pack!(w, offset o in 0x90),
-            &Inst::Jcs(o) => pack!(w, offset o in 0x94),
-            &Inst::Jvc(o) => pack!(w, offset o in 0x98),
-            &Inst::Jvs(o) => pack!(w, offset o in 0x9c),
-            &Inst::Jmp(a) => pack!(w, word a in 0xa0),
-            &Inst::Rjmp(o) => pack!(w, offset o in 0xa4),
-            &Inst::Ijmp(ref a) => pack!(w, reg a in 0xa8),
-            &Inst::Call(a) => pack!(w, word a in 0xac),
-            &Inst::Rcall(o) => pack!(w, offset o in 0xb0),
-            &Inst::Icall(ref a) => pack!(w, reg a in 0xb4),
-            &Inst::Ret => pack!(w, 0xb8),
-            &Inst::Reti => pack!(w, 0xbc),
+            &Inst::Je(o) => pack!(w, offset o in 0xa0),
+            &Inst::Jne(o) => pack!(w, offset o in 0xa4),
+            &Inst::Jl(o) => pack!(w, offset o in 0xa8),
+            &Inst::Jge(o) => pack!(w, offset o in 0xac),
+            &Inst::Jcc(o) => pack!(w, offset o in 0xb0),
+            &Inst::Jcs(o) => pack!(w, offset o in 0xb4),
+            &Inst::Jvc(o) => pack!(w, offset o in 0xb8),
+            &Inst::Jvs(o) => pack!(w, offset o in 0xbc),
+            &Inst::Jmp(a) => pack!(w, word a in 0x8a),
+            &Inst::Rjmp(o) => pack!(w, offset o in 0xe0),
+            &Inst::Ijmp(ref a) => pack!(w, reg a in 0x10),
+            &Inst::Call(a) => pack!(w, word a in 0x8b),
+            &Inst::Rcall(o) => pack!(w, offset o in 0xe4),
+            &Inst::Icall(ref a) => pack!(w, reg a in 0x14),
+            &Inst::Ret => pack!(w, 0x02),
+            &Inst::Reti => pack!(w, 0x03),
             &Inst::Nop => pack!(w, 0x00),
-            &Inst::Halt => pack!(w, 0x15),
+            &Inst::Halt => pack!(w, 0x3c),
         }
     }
 
@@ -496,58 +496,58 @@ mod test {
     fn encode_pop() { assert_encode(Inst::Pop(Reg::R5), &[0x7d]); }
 
     #[test]
-    fn encode_je() { assert_encode(Inst::Je(1), &[0x80, 0x01]); }
+    fn encode_je() { assert_encode(Inst::Je(1), &[0xa0, 0x01]); }
 
     #[test]
-    fn encode_jne() { assert_encode(Inst::Jne(-1), &[0x87, 0xff]); }
+    fn encode_jne() { assert_encode(Inst::Jne(-1), &[0xa7, 0xff]); }
 
     #[test]
-    fn encode_jl() { assert_encode(Inst::Jl(2), &[0x88, 0x02]); }
+    fn encode_jl() { assert_encode(Inst::Jl(2), &[0xa8, 0x02]); }
 
     #[test]
-    fn encode_jge() { assert_encode(Inst::Jge(-2), &[0x8f, 0xfe]); }
+    fn encode_jge() { assert_encode(Inst::Jge(-2), &[0xaf, 0xfe]); }
 
     #[test]
-    fn encode_jcc() { assert_encode(Inst::Jcc(3), &[0x90, 0x03]); }
+    fn encode_jcc() { assert_encode(Inst::Jcc(3), &[0xb0, 0x03]); }
 
     #[test]
-    fn encode_jcs() { assert_encode(Inst::Jcs(-3), &[0x97, 0xfd]); }
+    fn encode_jcs() { assert_encode(Inst::Jcs(-3), &[0xb7, 0xfd]); }
 
     #[test]
-    fn encode_jvc() { assert_encode(Inst::Jvc(4), &[0x98, 0x04]); }
+    fn encode_jvc() { assert_encode(Inst::Jvc(4), &[0xb8, 0x04]); }
 
     #[test]
-    fn encode_jvs() { assert_encode(Inst::Jvs(-4), &[0x9f, 0xfc]); }
+    fn encode_jvs() { assert_encode(Inst::Jvs(-4), &[0xbf, 0xfc]); }
 
     #[test]
-    fn encode_jmp() { assert_encode(Inst::Jmp(0x4321), &[0xa0, 0x21, 0x43]); }
+    fn encode_jmp() { assert_encode(Inst::Jmp(0x4321), &[0x8a, 0x21, 0x43]); }
 
     #[test]
-    fn encode_rjmp() { assert_encode(Inst::Rjmp(100), &[0xa4, 0x64]); }
+    fn encode_rjmp() { assert_encode(Inst::Rjmp(100), &[0xe0, 0x64]); }
 
     #[test]
-    fn encode_ijmp() { assert_encode(Inst::Ijmp(AddrReg::A3), &[0xab]); }
+    fn encode_ijmp() { assert_encode(Inst::Ijmp(AddrReg::A3), &[0x13]); }
 
     #[test]
-    fn encode_call() { assert_encode(Inst::Call(0x1234), &[0xac, 0x34, 0x12]); }
+    fn encode_call() { assert_encode(Inst::Call(0x1234), &[0x8b, 0x34, 0x12]); }
 
     #[test]
-    fn encode_rcall() { assert_encode(Inst::Rcall(-100), &[0xb3, 0x9c]); }
+    fn encode_rcall() { assert_encode(Inst::Rcall(-100), &[0xe7, 0x9c]); }
 
     #[test]
-    fn encode_icall() { assert_encode(Inst::Icall(AddrReg::A2), &[0xb6]); }
+    fn encode_icall() { assert_encode(Inst::Icall(AddrReg::A2), &[0x16]); }
 
     #[test]
-    fn encode_ret() { assert_encode(Inst::Ret, &[0xb8]); }
+    fn encode_ret() { assert_encode(Inst::Ret, &[0x02]); }
 
     #[test]
-    fn encode_reti() { assert_encode(Inst::Reti, &[0xbc]); }
+    fn encode_reti() { assert_encode(Inst::Reti, &[0x03]); }
 
     #[test]
     fn encode_nop() { assert_encode(Inst::Nop, &[0x00]); }
 
     #[test]
-    fn encode_halt() { assert_encode(Inst::Halt, &[0x15]); }
+    fn encode_halt() { assert_encode(Inst::Halt, &[0x3c]); }
 
     #[test]
     fn decode_add() { assert_decode(Inst::Add(Reg::R0, Reg::R1), &[0xf8, 0x01]) }
