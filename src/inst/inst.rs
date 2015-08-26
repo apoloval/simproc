@@ -48,6 +48,8 @@ pub enum Inst<O: Operands> {
     Ldsp(O::AddrReg),
     Push(O::Reg),
     Pop(O::Reg),
+    In(O::Reg, O::IoPort),
+    Out(O::IoPort, O::Reg),
 
     // Branching instructions
     Je(O::RelAddr),
@@ -150,6 +152,8 @@ impl<O: Operands> Inst<O> {
             &Inst::Ldi(_, _) => 2,
             &Inst::Ldsp(_) => 1,
             &Inst::Push(_) => 1,
+            &Inst::In(_, _) => 2,
+            &Inst::Out(_, _) => 2,
             &Inst::Pop(_) => 1,
             &Inst::Je(_) => 2,
             &Inst::Jne(_) => 2,
@@ -213,6 +217,8 @@ impl RuntimeInst {
             &Inst::Ldsp(ref r) => pack!(w, reg r in 0x6c),
             &Inst::Push(ref r) => pack!(w, reg r in 0x70),
             &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
+            &Inst::In(ref r, IoPort(p)) => pack!(w, reg r in 0xf0, byte p),
+            &Inst::Out(IoPort(p), ref r) => pack!(w, reg r in 0xf8, byte p),
             &Inst::Je(o) => pack!(w, offset o in 0xa0),
             &Inst::Jne(o) => pack!(w, offset o in 0xa4),
             &Inst::Jl(o) => pack!(w, offset o in 0xa8),
@@ -253,6 +259,8 @@ impl RuntimeInst {
             (0xd8, _, _) => Some(Inst::Ldi(Self::decode_reg(first), Immediate(next))),
             (0x90, _, _) => Some(Inst::Addi(Self::decode_reg(first), Immediate(next))),
             (0x98, _, _) => Some(Inst::Subi(Self::decode_reg(first), Immediate(next))),
+            (0xf0, _, _) => Some(Inst::In(Self::decode_reg(first), IoPort(next))),
+            (0xf8, _, _) => Some(Inst::Out(IoPort(next), Self::decode_reg(first))),
             (_, 0x08, _) => Some(Inst::Incw(Self::decode_areg(first))),
             (_, 0x0c, _) => Some(Inst::Decw(Self::decode_areg(first))),
             (_, 0x10, _) => Some(Inst::Ijmp(Self::decode_areg(first))),
@@ -458,6 +466,12 @@ mod test {
     fn encode_pop() { assert_encode(Inst::Pop(Reg::R5), &[0x7d]); }
 
     #[test]
+    fn encode_in() { assert_encode(Inst::In(Reg::R0, IoPort(100)), &[0xf0, 0x64]); }
+
+    #[test]
+    fn encode_out() { assert_encode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]); }
+
+    #[test]
     fn encode_je() { assert_encode(Inst::Je(1), &[0xa0, 0x01]); }
 
     #[test]
@@ -617,6 +631,12 @@ mod test {
 
     #[test]
     fn decode_pop() { assert_decode(Inst::Pop(Reg::R0), &[0x78]) }
+
+    #[test]
+    fn decode_in() { assert_decode(Inst::In(Reg::R0, IoPort(100)), &[0xf0, 0x64]) }
+
+    #[test]
+    fn decode_out() { assert_decode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]) }
 
     #[test]
     fn decode_je() { assert_decode(Inst::Je(0x100), &[0xa1, 0x00]) }

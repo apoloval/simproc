@@ -22,6 +22,7 @@ impl Operands for PreAssembledOperands {
     type RelAddr = Expr;
     type Reg = Expr;
     type AddrReg = Expr;
+    type IoPort = Expr;
 }
 
 pub type PreAssembledInst = Inst<PreAssembledOperands>;
@@ -75,6 +76,8 @@ pub fn pre_assemble_inst(
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
         "pop" => pre_assemble_unary(args, Inst::Pop),
+        "in" => pre_assemble_binary(args, Inst::In),
+        "out" => pre_assemble_binary(args, Inst::Out),
         "je" => pre_assemble_unary(args, Inst::Je),
         "jne" => pre_assemble_unary(args, Inst::Jne),
         "jl" => pre_assemble_unary(args, Inst::Jl),
@@ -227,6 +230,12 @@ mod test {
 
     #[test]
     fn should_pre_assemble_pop() { should_pre_assemble_unary_inst("pop", Inst::Pop) }
+
+    #[test]
+    fn should_pre_assemble_in() { should_pre_assemble_binary_inst("in", Inst::In) }
+
+    #[test]
+    fn should_pre_assemble_out() { should_pre_assemble_binary_inst("out", Inst::Out) }
 
     #[test]
     fn should_pre_assemble_je() { should_pre_assemble_unary_inst("je", Inst::Je) }
