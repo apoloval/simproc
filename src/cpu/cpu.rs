@@ -126,7 +126,7 @@ mod test {
     fn should_step_interpreting_invalid_opcode_as_nop() {
         let mut cpu = Cpu::with_memory(RamPage::new());
         // 8 nops
-        cpu.mem().write_bytes(0x0000, &[0xff]);
+        cpu.mem().write_bytes(0x0000, &[0xe8]);
         assert!(Duration::span(|| cpu.step()) > cpu.clock().cycles(4));
         assert_eq!(cpu.regs().pc, 1);
     }
