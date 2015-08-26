@@ -15,6 +15,8 @@ use simproc::mem::*;
 use asm::data::*;
 use asm::dir::*;
 use asm::expr::*;
+use asm::inst::*;
+use asm::inst::len::*;
 use asm::inst::pre::*;
 use asm::lexer::Line;
 use asm::parser::*;
@@ -130,7 +132,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
         match pre_assemble_inst(mnemo, args) {
             Ok(inst) => {
                 let base = *memptr;
-                let nbytes = inst.len();
+                let nbytes = inst_len(&inst);
                 match offset_addr(*memptr, nbytes) {
                     Some(newaddr) => {
                         *memptr = newaddr;

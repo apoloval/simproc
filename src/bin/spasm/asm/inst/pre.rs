@@ -12,20 +12,7 @@ use std::fmt;
 use simproc::inst::*;
 
 use asm::expr::*;
-
-#[derive(Debug, PartialEq)]
-pub struct PreAssembledOperands;
-
-impl Operands for PreAssembledOperands {
-    type Immediate = Expr;
-    type Addr = Expr;
-    type RelAddr = Expr;
-    type Reg = Expr;
-    type AddrReg = Expr;
-    type IoPort = Expr;
-}
-
-pub type PreAssembledInst = Inst<PreAssembledOperands>;
+use asm::inst::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MnemoAssembleError {
@@ -146,6 +133,7 @@ mod test {
 
     use simproc::inst::*;
 
+    use asm::inst::*;
     use asm::expr::*;
 
     use super::*;

@@ -10,7 +10,7 @@ use simproc::inst::*;
 use simproc::mem::*;
 
 use asm::expr::*;
-use asm::inst::pre::*;
+use asm::inst::*;
 
 pub struct InstAssembler<E: ExprAssembler> {
     expr_asm: E,
@@ -139,7 +139,7 @@ mod test {
     use simproc::mem::*;
 
     use asm::expr::*;
-    use asm::inst::pre::*;
+    use asm::inst::*;
 
     use super::*;
 
