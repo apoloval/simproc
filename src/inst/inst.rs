@@ -237,11 +237,63 @@ impl RuntimeInst {
     pub fn decode<I: IntoIterator<Item=u8>>(input: I) -> Option<RuntimeInst> {
         let mut bytes = input.into_iter();
         let first = get!(bytes.next());
-        match first >> 6 {
-            0 => Self::decode_ctrl(first),
-            1 => Self::decode_dt(first, bytes),
-            2 => Self::decode_br(first, bytes),
-            3 => Self::decode_al(first, bytes),
+        let next = if first & 0x80 == 0x80 { get!(bytes.next()) } else { 0 };
+        let f5 = first & 0xf8;
+        let f6 = first & 0xfc;
+        let f8 = first;
+        match (f5, f6, f8) {
+            (0x40, _, _) => Some(Inst::Not(Self::decode_reg(first))),
+            (0x48, _, _) => Some(Inst::Comp(Self::decode_reg(first))),
+            (0x50, _, _) => Some(Inst::Inc(Self::decode_reg(first))),
+            (0x58, _, _) => Some(Inst::Dec(Self::decode_reg(first))),
+            (0x70, _, _) => Some(Inst::Push(Self::decode_reg(first))),
+            (0x78, _, _) => Some(Inst::Pop(Self::decode_reg(first))),
+            (0xc8, _, _) => Some(Inst::Ldd(Self::decode_reg(first), Self::decode_word(next, get!(bytes.next())))),
+            (0xd0, _, _) => Some(Inst::Std(Self::decode_word(next, get!(bytes.next())), Self::decode_reg(first))),
+            (0xd8, _, _) => Some(Inst::Ldi(Self::decode_reg(first), Immediate(next))),
+            (0x90, _, _) => Some(Inst::Addi(Self::decode_reg(first), Immediate(next))),
+            (0x98, _, _) => Some(Inst::Subi(Self::decode_reg(first), Immediate(next))),
+            (_, 0x08, _) => Some(Inst::Incw(Self::decode_areg(first))),
+            (_, 0x0c, _) => Some(Inst::Decw(Self::decode_areg(first))),
+            (_, 0x10, _) => Some(Inst::Ijmp(Self::decode_areg(first))),
+            (_, 0x14, _) => Some(Inst::Icall(Self::decode_areg(first))),
+            (_, 0x20, _) => Some(Inst::Add(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x24, _) => Some(Inst::Adc(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x28, _) => Some(Inst::Sub(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x2c, _) => Some(Inst::Sbc(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x60, _) => Some(Inst::Mov(Self::decode_short_reg(first), Reg::R0)),
+            (_, 0x64, _) => Some(Inst::Ld(Reg::R0, Self::decode_areg(first))),
+            (_, 0x68, _) => Some(Inst::St(Self::decode_areg(first), Reg::R0)),
+            (_, 0x6c, _) => Some(Inst::Ldsp(Self::decode_areg(first))),
+            (_, 0xa0, _) => Some(Inst::Je(Self::decode_offset(first, next))),
+            (_, 0xa4, _) => Some(Inst::Jne(Self::decode_offset(first, next))),
+            (_, 0xa8, _) => Some(Inst::Jl(Self::decode_offset(first, next))),
+            (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
+            (_, 0xb0, _) => Some(Inst::Jcc(Self::decode_offset(first, next))),
+            (_, 0xb4, _) => Some(Inst::Jcs(Self::decode_offset(first, next))),
+            (_, 0xb8, _) => Some(Inst::Jvc(Self::decode_offset(first, next))),
+            (_, 0xbc, _) => Some(Inst::Jvs(Self::decode_offset(first, next))),
+            (_, 0xe0, _) => Some(Inst::Rjmp(Self::decode_offset(first, next))),
+            (_, 0xe4, _) => Some(Inst::Rcall(Self::decode_offset(first, next))),
+            (_, _, 0x00) => Some(Inst::Nop),
+            (_, _, 0x02) => Some(Inst::Ret),
+            (_, _, 0x03) => Some(Inst::Reti),
+            (_, _, 0x3c) => Some(Inst::Halt),
+            (_, _, 0x80) => Self::decode_reg_reg(Inst::Add, next),
+            (_, _, 0x81) => Self::decode_reg_reg(Inst::Adc, next),
+            (_, _, 0x82) => Self::decode_reg_reg(Inst::Sub, next),
+            (_, _, 0x83) => Self::decode_reg_reg(Inst::Sbc, next),
+            (_, _, 0x84) => Self::decode_reg_reg(Inst::And, next),
+            (_, _, 0x85) => Self::decode_reg_reg(Inst::Or, next),
+            (_, _, 0x86) => Self::decode_reg_reg(Inst::Xor, next),
+            (_, _, 0x87) => Self::decode_reg_reg(Inst::Lsl, next),
+            (_, _, 0x88) => Self::decode_reg_reg(Inst::Lsr, next),
+            (_, _, 0x89) => Self::decode_reg_reg(Inst::Asr, next),
+            (_, _, 0x8a) => Some(Inst::Jmp(Self::decode_word(next, get!(bytes.next())))),
+            (_, _, 0x8b) => Some(Inst::Call(Self::decode_word(next, get!(bytes.next())))),
+            (_, _, 0xc0) => Self::decode_reg_reg(Inst::Mov, next),
+            (_, _, 0xc1) => Self::decode_reg_areg(Inst::Ld, next),
+            (_, _, 0xc2) => Self::decode_areg_reg(Inst::St, next),
             _ => None
         }
     }
@@ -250,132 +302,42 @@ impl RuntimeInst {
         *accum == Reg::R0 && other.encode() < 4
     }
 
-    fn decode_al<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
-        let mut bytes = input;
-        match (first & 0x38) >> 3 {
-            0 => Some(Inst::Addi(get!(Self::decode_reg(first)), Immediate(get!(bytes.next())))),
-            1 => Some(Inst::Subi(get!(Self::decode_reg(first)), Immediate(get!(bytes.next())))),
-            2 => Some(Inst::Not(get!(Self::decode_reg(first)))),
-            3 => Some(Inst::Comp(get!(Self::decode_reg(first)))),
-            4 => Some(Inst::Inc(get!(Self::decode_reg(first)))),
-            5 => Some(Inst::Dec(get!(Self::decode_reg(first)))),
-            6 => {
-                let reg = get!(Self::decode_areg(first));
-                Some(if first & 0x04 == 0x04 { Inst::Decw(reg) } else { Inst::Incw(reg) })
-            },
-            7 => Self::decode_arithmetic(first, get!(bytes.next())),
-            _ => None
-        }
-    }
+    fn decode_short_reg(byte: u8)  -> Reg { Reg::decode(byte & 0x03).unwrap() }
 
-    fn decode_arithmetic(first: u8, next: u8) -> Option<RuntimeInst> {
-        let (dst, src) = get!(Self::decode_regs(next));
-        match (first & 0x07, next >> 6) {
-            (0, 0) => Some(Inst::Add(dst, src)),
-            (0, 1) => Some(Inst::Adc(dst, src)),
-            (0, 2) => Some(Inst::Sub(dst, src)),
-            (0, 3) => Some(Inst::Sbc(dst, src)),
-            (2, 0) => Some(Inst::And(dst, src)),
-            (2, 2) => Some(Inst::Or(dst, src)),
-            (3, 0) => Some(Inst::Xor(dst, src)),
-            (4, 0) => Some(Inst::Lsl(dst, src)),
-            (4, 2) => Some(Inst::Lsr(dst, src)),
-            (5, 2) => Some(Inst::Asr(dst, src)),
-            _ => None,
-        }
-    }
+    fn decode_reg(byte: u8)  -> Reg { Reg::decode(byte & 0x07).unwrap() }
 
-    fn decode_dt<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
-        let mut bytes = input;
-        match ((first >> 3) & 0x07, first & 0x03) {
-            (0, _) =>
-                Some(Inst::Ldd(get!(Self::decode_reg(first)), get!(Self::decode_word(bytes)))),
-            (1, _) =>
-                Some(Inst::Std(get!(Self::decode_word(bytes)), get!(Self::decode_reg(first)))),
-            (2, _) =>
-                Some(Inst::Ldi(get!(Self::decode_reg(first)), get!(Self::decode_immediate(bytes)))),
-            (3, _) =>
-                Some(Inst::Ldsp(get!(Self::decode_areg(first)))),
-            (4, _) =>
-                Some(Inst::Push(get!(Self::decode_reg(first)))),
-            (6, _) =>
-                Some(Inst::Pop(get!(Self::decode_reg(first)))),
-            (7, 0) => {
-                let (dst, src) = get!(Self::decode_regs(get!(bytes.next())));
-                Some(Inst::Mov(dst, src))
-            },
-            (7, 1) => {
-                let next = get!(bytes.next());
-                let dst = get!(Reg::decode(next >> 3));
-                let src = get!(AddrReg::decode(next & 0x03));
-                Some(Inst::Ld(dst, src))
-            },
-            (7, 2) => {
-                let next = get!(bytes.next());
-                let dst = get!(AddrReg::decode(next >> 3));
-                let src = get!(Reg::decode(next & 0x03));
-                Some(Inst::St(dst, src))
-            },
-            _ => None,
-        }
-    }
-
-    fn decode_br<I: Iterator<Item=u8>>(first: u8, input: I) -> Option<RuntimeInst> {
-        let mut bytes = input;
-        match (first >> 2) & 0x0f {
-            0 => Some(Inst::Je(Self::decode_offset(first, get!(bytes.next())))),
-            1 => Some(Inst::Jne(Self::decode_offset(first, get!(bytes.next())))),
-            2 => Some(Inst::Jl(Self::decode_offset(first, get!(bytes.next())))),
-            3 => Some(Inst::Jge(Self::decode_offset(first, get!(bytes.next())))),
-            4 => Some(Inst::Jcc(Self::decode_offset(first, get!(bytes.next())))),
-            5 => Some(Inst::Jcs(Self::decode_offset(first, get!(bytes.next())))),
-            6 => Some(Inst::Jvc(Self::decode_offset(first, get!(bytes.next())))),
-            7 => Some(Inst::Jvs(Self::decode_offset(first, get!(bytes.next())))),
-            8 => Some(Inst::Jmp(get!(Self::decode_word(bytes)))),
-            9 => Some(Inst::Rjmp(Self::decode_offset(first, get!(bytes.next())))),
-            10 => Some(Inst::Ijmp(get!(Self::decode_areg(first & 0x3)))),
-            11 => Some(Inst::Call(get!(Self::decode_word(bytes)))),
-            12 => Some(Inst::Rcall(Self::decode_offset(first, get!(bytes.next())))),
-            13 => Some(Inst::Icall(get!(Self::decode_areg(first & 0x3)))),
-            14 => Some(Inst::Ret),
-            15 => Some(Inst::Reti),
-            _ => None,
-        }
-    }
-
-    fn decode_ctrl(first: u8) -> Option<RuntimeInst> {
-        match first {
-            0x00 => Some(Inst::Nop),
-            0x14 => Some(Inst::Halt),
-            _ => None,
-        }
-    }
-
-    fn decode_reg(byte: u8)  -> Option<Reg> { Reg::decode(byte & 0x07) }
-
-    fn decode_areg(byte: u8)  -> Option<AddrReg> { AddrReg::decode(byte & 0x03) }
+    fn decode_areg(byte: u8)  -> AddrReg { AddrReg::decode(byte & 0x03).unwrap() }
 
     fn decode_regs(byte: u8) -> Option<(Reg, Reg)> {
         Some((
-            get!(Reg::decode((byte & 0x3f) >> 3)),
-            get!(Reg::decode((byte & 0x3f) >> 0))))
+            get!(Reg::decode((byte & 0x38) >> 3)),
+            get!(Reg::decode((byte & 0x07) >> 0))))
     }
 
-    fn decode_immediate<I: Iterator<Item=u8>>(input: I) -> Option<Immediate> {
-        let mut bytes = input;
-        bytes.next().map(|b| Immediate(b))
-    }
-
-    fn decode_word<I: Iterator<Item=u8>>(input: I) -> Option<u16> {
-        let mut bytes = input;
-        let lsb = get!(bytes.next());
-        let msb = get!(bytes.next());
-        Some(LittleEndian::read_u16(&[lsb, msb]))
+    fn decode_word(lsb: u8, msb: u8) -> u16 {
+        LittleEndian::read_u16(&[lsb, msb])
     }
 
     fn decode_offset(first: u8, next: u8) -> RelAddr {
         let buf = [ first & 0x3, next];
         BigEndian::read_i16(&buf)
+    }
+
+    fn decode_reg_reg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(Reg, Reg) -> I {
+        let (dst, src) = get!(Self::decode_regs(next));
+        Some(inst(dst, src))
+    }
+
+    fn decode_reg_areg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(Reg, AddrReg) -> I {
+        let dst = Self::decode_reg(next >> 3);
+        let src = Self::decode_areg(next);
+        Some(inst(dst, src))
+    }
+
+    fn decode_areg_reg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(AddrReg, Reg) -> I {
+        let dst = Self::decode_areg(next >> 3);
+        let src = Self::decode_reg(next);
+        Some(inst(dst, src))
     }
 }
 
@@ -550,139 +512,165 @@ mod test {
     fn encode_halt() { assert_encode(Inst::Halt, &[0x3c]); }
 
     #[test]
-    fn decode_add() { assert_decode(Inst::Add(Reg::R0, Reg::R1), &[0xf8, 0x01]) }
+    fn decode_add() {
+        assert_decode(Inst::Add(Reg::R0, Reg::R1), &[0x21]);
+        assert_decode(Inst::Add(Reg::R0, Reg::R4), &[0x80, 0x04]);
+        assert_decode(Inst::Add(Reg::R1, Reg::R2), &[0x80, 0x0a]);
+    }
 
     #[test]
-    fn decode_adc() { assert_decode(Inst::Adc(Reg::R0, Reg::R1), &[0xf8, 0x41]) }
+    fn decode_adc() {
+        assert_decode(Inst::Adc(Reg::R0, Reg::R1), &[0x25]);
+        assert_decode(Inst::Adc(Reg::R0, Reg::R4), &[0x81, 0x04]);
+        assert_decode(Inst::Adc(Reg::R1, Reg::R2), &[0x81, 0x0a]);
+    }
 
     #[test]
-    fn decode_addi() { assert_decode(Inst::Addi(Reg::R0, Immediate(7)), &[0xc0, 0x07]) }
+    fn decode_addi() { assert_decode(Inst::Addi(Reg::R0, Immediate(7)), &[0x90, 0x07]) }
 
     #[test]
-    fn decode_sub() { assert_decode(Inst::Sub(Reg::R0, Reg::R1), &[0xf8, 0x81]) }
+    fn decode_sub() {
+        assert_decode(Inst::Sub(Reg::R0, Reg::R1), &[0x29]);
+        assert_decode(Inst::Sub(Reg::R0, Reg::R4), &[0x82, 0x04]);
+        assert_decode(Inst::Sub(Reg::R1, Reg::R2), &[0x82, 0x0a]);
+    }
 
     #[test]
-    fn decode_sbc() { assert_decode(Inst::Sbc(Reg::R0, Reg::R1), &[0xf8, 0xc1]) }
+    fn decode_sbc() {
+        assert_decode(Inst::Sbc(Reg::R0, Reg::R1), &[0x2d]);
+        assert_decode(Inst::Sbc(Reg::R0, Reg::R4), &[0x83, 0x04]);
+        assert_decode(Inst::Sbc(Reg::R1, Reg::R2), &[0x83, 0x0a]);
+    }
 
     #[test]
-    fn decode_subi() { assert_decode(Inst::Subi(Reg::R0, Immediate(7)), &[0xc8, 0x07]) }
+    fn decode_subi() { assert_decode(Inst::Subi(Reg::R0, Immediate(7)), &[0x98, 0x07]) }
 
     #[test]
-    fn decode_and() { assert_decode(Inst::And(Reg::R0, Reg::R1), &[0xfa, 0x01]) }
+    fn decode_and() { assert_decode(Inst::And(Reg::R0, Reg::R1), &[0x84, 0x01]) }
 
     #[test]
-    fn decode_or() { assert_decode(Inst::Or(Reg::R0, Reg::R1), &[0xfa, 0x81]) }
+    fn decode_or() { assert_decode(Inst::Or(Reg::R0, Reg::R1), &[0x85, 0x81]) }
 
     #[test]
-    fn decode_xor() { assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0xfb, 0x01]) }
+    fn decode_xor() { assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0x86, 0x01]) }
 
     #[test]
-    fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R0, Reg::R1), &[0xfc, 0x01]) }
+    fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R0, Reg::R1), &[0x87, 0x01]) }
 
     #[test]
-    fn decode_lsr() { assert_decode(Inst::Lsr(Reg::R0, Reg::R1), &[0xfc, 0x81]) }
+    fn decode_lsr() { assert_decode(Inst::Lsr(Reg::R0, Reg::R1), &[0x88, 0x81]) }
 
     #[test]
-    fn decode_asr() { assert_decode(Inst::Asr(Reg::R0, Reg::R1), &[0xfd, 0x81]) }
+    fn decode_asr() { assert_decode(Inst::Asr(Reg::R0, Reg::R1), &[0x89, 0x81]) }
 
     #[test]
-    fn decode_not() { assert_decode(Inst::Not(Reg::R0), &[0xd0]) }
+    fn decode_not() { assert_decode(Inst::Not(Reg::R0), &[0x40]) }
 
     #[test]
-    fn decode_comp() { assert_decode(Inst::Comp(Reg::R0), &[0xd8]) }
+    fn decode_comp() { assert_decode(Inst::Comp(Reg::R0), &[0x48]) }
 
     #[test]
-    fn decode_inc() { assert_decode(Inst::Inc(Reg::R0), &[0xe0]) }
+    fn decode_inc() { assert_decode(Inst::Inc(Reg::R0), &[0x50]) }
 
     #[test]
-    fn decode_incw() { assert_decode(Inst::Incw(AddrReg::A0), &[0xf0]) }
+    fn decode_incw() { assert_decode(Inst::Incw(AddrReg::A0), &[0x08]) }
 
     #[test]
-    fn decode_dec() { assert_decode(Inst::Dec(Reg::R0), &[0xe8]) }
+    fn decode_dec() { assert_decode(Inst::Dec(Reg::R0), &[0x58]) }
 
     #[test]
-    fn decode_decw() { assert_decode(Inst::Decw(AddrReg::A0), &[0xf4]) }
+    fn decode_decw() { assert_decode(Inst::Decw(AddrReg::A0), &[0x0c]) }
 
     #[test]
-    fn decode_mov() { assert_decode(Inst::Mov(Reg::R0, Reg::R1), &[0x78, 0x01]) }
+    fn decode_mov() {
+        assert_decode(Inst::Mov(Reg::R1, Reg::R0), &[0x61]);
+        assert_decode(Inst::Mov(Reg::R4, Reg::R0), &[0xc0, 0x20]);
+        assert_decode(Inst::Mov(Reg::R0, Reg::R1), &[0xc0, 0x01]);
+    }
 
     #[test]
-    fn decode_ld() { assert_decode(Inst::Ld(Reg::R0, AddrReg::A1), &[0x79, 0x01]) }
+    fn decode_ld() {
+        assert_decode(Inst::Ld(Reg::R0, AddrReg::A1), &[0x65]);
+        assert_decode(Inst::Ld(Reg::R1, AddrReg::A1), &[0xc1, 0x09]);
+    }
 
     #[test]
-    fn decode_st() { assert_decode(Inst::St(AddrReg::A0, Reg::R1), &[0x7a, 0x01]) }
+    fn decode_st() {
+        assert_decode(Inst::St(AddrReg::A1, Reg::R0), &[0x69]);
+        assert_decode(Inst::St(AddrReg::A0, Reg::R1), &[0xc2, 0x01]);
+    }
 
     #[test]
-    fn decode_ldd() { assert_decode(Inst::Ldd(Reg::R0, 0x8000), &[0x40, 0x00, 0x80]) }
+    fn decode_ldd() { assert_decode(Inst::Ldd(Reg::R0, 0x8000), &[0xc8, 0x00, 0x80]) }
 
     #[test]
-    fn decode_std() { assert_decode(Inst::Std(0x8000, Reg::R0), &[0x48, 0x00, 0x80]) }
+    fn decode_std() { assert_decode(Inst::Std(0x8000, Reg::R0), &[0xd0, 0x00, 0x80]) }
 
     #[test]
-    fn decode_ldi() { assert_decode(Inst::Ldi(Reg::R0, Immediate(7)), &[0x50, 0x07]) }
+    fn decode_ldi() { assert_decode(Inst::Ldi(Reg::R0, Immediate(7)), &[0xd8, 0x07]) }
 
     #[test]
-    fn decode_ldsp() { assert_decode(Inst::Ldsp(AddrReg::A0), &[0x58]) }
+    fn decode_ldsp() { assert_decode(Inst::Ldsp(AddrReg::A0), &[0x6c]) }
 
     #[test]
-    fn decode_push() { assert_decode(Inst::Push(Reg::R0), &[0x60]) }
+    fn decode_push() { assert_decode(Inst::Push(Reg::R0), &[0x70]) }
 
     #[test]
-    fn decode_pop() { assert_decode(Inst::Pop(Reg::R0), &[0x70]) }
+    fn decode_pop() { assert_decode(Inst::Pop(Reg::R0), &[0x78]) }
 
     #[test]
-    fn decode_je() { assert_decode(Inst::Je(0x100), &[0x81, 0x00]) }
+    fn decode_je() { assert_decode(Inst::Je(0x100), &[0xa1, 0x00]) }
 
     #[test]
-    fn decode_jne() { assert_decode(Inst::Jne(0x100), &[0x85, 0x00]) }
+    fn decode_jne() { assert_decode(Inst::Jne(0x100), &[0xa5, 0x00]) }
 
     #[test]
-    fn decode_jl() { assert_decode(Inst::Jl(0x100), &[0x89, 0x00]) }
+    fn decode_jl() { assert_decode(Inst::Jl(0x100), &[0xa9, 0x00]) }
 
     #[test]
-    fn decode_jge() { assert_decode(Inst::Jge(0x100), &[0x8d, 0x00]) }
+    fn decode_jge() { assert_decode(Inst::Jge(0x100), &[0xad, 0x00]) }
 
     #[test]
-    fn decode_jcc() { assert_decode(Inst::Jcc(0x100), &[0x91, 0x00]) }
+    fn decode_jcc() { assert_decode(Inst::Jcc(0x100), &[0xb1, 0x00]) }
 
     #[test]
-    fn decode_jcs() { assert_decode(Inst::Jcs(0x100), &[0x95, 0x00]) }
+    fn decode_jcs() { assert_decode(Inst::Jcs(0x100), &[0xb5, 0x00]) }
 
     #[test]
-    fn decode_jvc() { assert_decode(Inst::Jvc(0x100), &[0x99, 0x00]) }
+    fn decode_jvc() { assert_decode(Inst::Jvc(0x100), &[0xb9, 0x00]) }
 
     #[test]
-    fn decode_jvs() { assert_decode(Inst::Jvs(0x100), &[0x9d, 0x00]) }
+    fn decode_jvs() { assert_decode(Inst::Jvs(0x100), &[0xbd, 0x00]) }
 
     #[test]
-    fn decode_jmp() { assert_decode(Inst::Jmp(0x8000), &[0xa0, 0x00, 0x80]) }
+    fn decode_jmp() { assert_decode(Inst::Jmp(0x8000), &[0x8a, 0x00, 0x80]) }
 
     #[test]
-    fn decode_rjmp() { assert_decode(Inst::Rjmp(0x100), &[0xa5, 0x00]) }
+    fn decode_rjmp() { assert_decode(Inst::Rjmp(0x100), &[0xe1, 0x00]) }
 
     #[test]
-    fn decode_ijmp() { assert_decode(Inst::Ijmp(AddrReg::A0), &[0xa8]) }
+    fn decode_ijmp() { assert_decode(Inst::Ijmp(AddrReg::A0), &[0x10]) }
 
     #[test]
-    fn decode_call() { assert_decode(Inst::Call(0x8000), &[0xac, 0x00, 0x80]) }
+    fn decode_call() { assert_decode(Inst::Call(0x8000), &[0x8b, 0x00, 0x80]) }
 
     #[test]
-    fn decode_rcall() { assert_decode(Inst::Rcall(0x100), &[0xb1, 0x00]) }
+    fn decode_rcall() { assert_decode(Inst::Rcall(0x100), &[0xe5, 0x00]) }
 
     #[test]
-    fn decode_icall() { assert_decode(Inst::Icall(AddrReg::A0), &[0xb4]) }
+    fn decode_icall() { assert_decode(Inst::Icall(AddrReg::A0), &[0x14]) }
 
     #[test]
-    fn decode_ret() { assert_decode(Inst::Ret, &[0xb8]) }
+    fn decode_ret() { assert_decode(Inst::Ret, &[0x02]) }
 
     #[test]
-    fn decode_reti() { assert_decode(Inst::Reti, &[0xbc]) }
+    fn decode_reti() { assert_decode(Inst::Reti, &[0x03]) }
 
     #[test]
     fn decode_nop() { assert_decode(Inst::Nop, &[0x00]) }
 
     #[test]
-    fn decode_halt() { assert_decode(Inst::Halt, &[0x14]) }
+    fn decode_halt() { assert_decode(Inst::Halt, &[0x3c]) }
 
     fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
         let mut w: Vec<u8> = Vec::with_capacity(16);
