@@ -8,7 +8,7 @@
 
 use cpu::clock::Cycle;
 use cpu::reg::Regs;
-use inst::{Inst, RuntimeInst};
+use inst::{Inst, RuntimeInst, Reg};
 use mem::Memory;
 
 pub trait ExecCtx {
@@ -22,11 +22,17 @@ pub trait ExecCtx {
 pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
     match inst {
         &Inst::Nop => exec_nop(ctx),
+        &Inst::Add(dst, src) => exec_add(ctx, &dst, &src, false),
         _ => unimplemented!(),
     }
 }
 
 fn exec_nop<M: Memory>(ctx: &mut ExecCtx<Mem=M>) -> Cycle {
+    ctx.regs().pc += 1;
+    4
+}
+
+fn exec_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: &Reg, src: &Reg, carry: bool) -> Cycle {
     ctx.regs().pc += 1;
     4
 }
