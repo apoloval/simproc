@@ -31,7 +31,7 @@ pub enum Inst<O: Operands> {
     Lsl(O::Reg, O::Reg),
     Lsr(O::Reg, O::Reg),
     Asr(O::Reg, O::Reg),
-    Not(O::Reg),
+    Neg(O::Reg),
     Comp(O::Reg),
     Inc(O::Reg),
     Incw(O::AddrReg),
@@ -144,7 +144,7 @@ impl RuntimeInst {
             &Inst::Lsl(ref r1, ref r2) => pack!(w, 0x87, regs r1, r2 in 0x00),
             &Inst::Lsr(ref r1, ref r2) => pack!(w, 0x88, regs r1, r2 in 0x00),
             &Inst::Asr(ref r1, ref r2) => pack!(w, 0x89, regs r1, r2 in 0x00),
-            &Inst::Not(ref r) => pack!(w, reg r in 0x40),
+            &Inst::Neg(ref r) => pack!(w, reg r in 0x40),
             &Inst::Comp(ref r) => pack!(w, reg r in 0x48),
             &Inst::Inc(ref r) => pack!(w, reg r in 0x50),
             &Inst::Incw(ref a) => pack!(w, reg a in 0x08),
@@ -195,7 +195,7 @@ impl RuntimeInst {
         let f6 = first & 0xfc;
         let f8 = first;
         match (f5, f6, f8) {
-            (0x40, _, _) => Some(Inst::Not(Self::decode_reg(first))),
+            (0x40, _, _) => Some(Inst::Neg(Self::decode_reg(first))),
             (0x48, _, _) => Some(Inst::Comp(Self::decode_reg(first))),
             (0x50, _, _) => Some(Inst::Inc(Self::decode_reg(first))),
             (0x58, _, _) => Some(Inst::Dec(Self::decode_reg(first))),
@@ -358,7 +358,7 @@ mod test {
     fn encode_asr() { assert_encode(Inst::Asr(Reg::R1, Reg::R2), &[0x89, 0x0a]); }
 
     #[test]
-    fn encode_not() { assert_encode(Inst::Not(Reg::R5), &[0x45]); }
+    fn encode_neg() { assert_encode(Inst::Neg(Reg::R5), &[0x45]); }
 
     #[test]
     fn encode_comp() { assert_encode(Inst::Comp(Reg::R1), &[0x49]); }
@@ -533,7 +533,7 @@ mod test {
     fn decode_asr() { assert_decode(Inst::Asr(Reg::R0, Reg::R1), &[0x89, 0x81]) }
 
     #[test]
-    fn decode_not() { assert_decode(Inst::Not(Reg::R0), &[0x40]) }
+    fn decode_neg() { assert_decode(Inst::Neg(Reg::R0), &[0x40]) }
 
     #[test]
     fn decode_comp() { assert_decode(Inst::Comp(Reg::R0), &[0x48]) }

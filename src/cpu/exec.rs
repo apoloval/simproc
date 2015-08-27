@@ -29,7 +29,7 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::And(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a & b),
         &Inst::Or(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a | b),
         &Inst::Xor(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a ^ b),
-        &Inst::Not(dst) => exec_unary_logic(ctx, dst, |a| (-(a as i8)) as u8),
+        &Inst::Neg(dst) => exec_unary_logic(ctx, dst, |a| (-(a as i8)) as u8),
         &Inst::Comp(dst) => exec_unary_logic(ctx, dst, |a| !a),
         _ => unimplemented!(),
     }
@@ -425,10 +425,10 @@ mod test {
     }
 
     #[test]
-    fn should_exec_not() {
+    fn should_exec_neg() {
         let mut ctx = TestCtx::new();
         ctx.regs.set_r0(0xf0);
-        exec(&Inst::Not(Reg::R0), &mut ctx);
+        exec(&Inst::Neg(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0x10);
         assert_eq!(ctx.regs.pc, 1);
         assert_eq!(ctx.regs.st.carry, false);
@@ -436,24 +436,24 @@ mod test {
     }
 
     #[test]
-    fn should_update_zero_after_exec_not() {
+    fn should_update_zero_after_exec_neg() {
         let mut ctx = TestCtx::new();
         ctx.regs.set_r0(0xf0);
-        exec(&Inst::Not(Reg::R0), &mut ctx);
+        exec(&Inst::Neg(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.zero, false);
         ctx.regs.set_r0(0x00);
-        exec(&Inst::Not(Reg::R0), &mut ctx);
+        exec(&Inst::Neg(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.zero, true);
     }
 
     #[test]
-    fn should_update_neg_after_exec_not() {
+    fn should_update_neg_after_exec_neg() {
         let mut ctx = TestCtx::new();
         ctx.regs.set_r0(0xf0);
-        exec(&Inst::Not(Reg::R0), &mut ctx);
+        exec(&Inst::Neg(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.neg, false);
         ctx.regs.set_r0(0x0f);
-        exec(&Inst::Not(Reg::R0), &mut ctx);
+        exec(&Inst::Neg(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.neg, true);
     }
 
