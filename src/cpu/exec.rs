@@ -8,7 +8,7 @@
 
 use cpu::clock::Cycle;
 use cpu::reg::Regs;
-use inst::{Inst, RuntimeInst, Reg};
+use inst::*;
 use mem::Memory;
 
 pub trait ExecCtx {
@@ -33,6 +33,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Com(dst) => exec_unary_logic(ctx, dst, |a| !a),
         &Inst::Inc(dst) => exec_inc(ctx, dst, true),
         &Inst::Dec(dst) => exec_inc(ctx, dst, false),
+        &Inst::Incw(dst) => exec_incw(ctx, dst, true),
+        &Inst::Decw(dst) => exec_incw(ctx, dst, false),
         _ => unimplemented!(),
     }
 }
@@ -122,6 +124,20 @@ fn exec_inc<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, positive: bool) -> Cy
     regs.pc += 1; 4
 }
 
+fn exec_incw<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, positive: bool) -> Cycle {
+    let mut regs = ctx.regs();
+    let val = regs.areg(dst) as i32;
+    let res = val + if positive { 1 } else { -1 };
+    regs.set_areg(dst, res as u16);
+
+    regs.st.carry = false;
+    regs.st.zero = is_zero(res as u16);
+    regs.st.neg = is_neg(res as u16);
+    regs.st.overflow = (val as u16) == if positive { 0x7fff } else { 0x8000 };
+
+    regs.pc += 1; 7
+}
+
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
 fn is_zero(n: u16) -> bool { n & 0x00ff == 0 }
 fn is_carry(n: u16) -> bool { n > 0xff }
@@ -131,7 +147,7 @@ fn same_sign(a: u16, b: u16) -> bool { a & 0x0080 == b & 0x0080 }
 mod test {
 
     use cpu::reg::Regs;
-    use inst::{Inst, Reg};
+    use inst::{AddrReg, Inst, Reg};
     use mem::*;
 
     use super::*;
@@ -589,6 +605,92 @@ mod test {
         assert_eq!(ctx.regs.st.overflow, false);
         ctx.regs.set_r0(0x80);
         exec(&Inst::Dec(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, true);
+    }
+
+    #[test]
+    fn should_exec_incw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        assert_eq!(exec(&Inst::Incw(AddrReg::A0), &mut ctx), 7);
+        assert_eq!(ctx.regs.a0(), 23);
+        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.st.carry, false);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_incw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_a0(-1i8 as u16);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_incw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_a0(-22i8 as u16);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_update_overflow_after_exec_incw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, false);
+        ctx.regs.set_a0(0x7fff);
+        exec(&Inst::Incw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, true);
+    }
+
+    #[test]
+    fn should_exec_decw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        assert_eq!(exec(&Inst::Decw(AddrReg::A0), &mut ctx), 7);
+        assert_eq!(ctx.regs.a0(), 21);
+        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.st.carry, false);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_decw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_a0(1);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_decw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_a0(-22i8 as u16);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_update_overflow_after_exec_decw() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(22);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, false);
+        ctx.regs.set_a0(0x8000);
+        exec(&Inst::Decw(AddrReg::A0), &mut ctx);
         assert_eq!(ctx.regs.st.overflow, true);
     }
 
