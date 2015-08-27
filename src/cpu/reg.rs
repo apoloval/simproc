@@ -9,8 +9,27 @@
 use inst::Reg;
 use mem::*;
 
+pub struct StatusReg {
+    pub carry: bool,
+    pub zero: bool,
+    pub neg: bool,
+    pub overflow: bool,
+    pub int: bool,
+}
+
+impl StatusReg {
+    fn new() -> Self { StatusReg {
+        carry: false,
+        zero: false,
+        neg: false,
+        overflow: false,
+        int: false,
+    }}
+}
+
 pub struct Regs {
     pub pc: Addr,
+    pub st: StatusReg,
     a0: Addr,
     a1: Addr,
     a2: Addr,
@@ -19,7 +38,7 @@ pub struct Regs {
 
 impl Regs {
     pub fn new() -> Self {
-        Regs { pc: 0, a0: 0, a1: 0, a2: 0, a3: 0, }
+        Regs { pc: 0, st: StatusReg::new(), a0: 0, a1: 0, a2: 0, a3: 0, }
     }
 
     pub fn a0(&self) -> Addr { self.a0 }
