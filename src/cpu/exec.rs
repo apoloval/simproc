@@ -26,9 +26,11 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Adc(dst, src) => exec_add(ctx, dst, src, true),
         &Inst::Sub(dst, src) => exec_sub(ctx, dst, src, false),
         &Inst::Sbc(dst, src) => exec_sub(ctx, dst, src, true),
-        &Inst::And(dst, src) => exec_logic(ctx, dst, src, |a, b| a & b),
-        &Inst::Or(dst, src) => exec_logic(ctx, dst, src, |a, b| a | b),
-        &Inst::Xor(dst, src) => exec_logic(ctx, dst, src, |a, b| a ^ b),
+        &Inst::And(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a & b),
+        &Inst::Or(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a | b),
+        &Inst::Xor(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a ^ b),
+        &Inst::Not(dst) => exec_unary_logic(ctx, dst, |a| (-(a as i8)) as u8),
+        &Inst::Comp(dst) => exec_unary_logic(ctx, dst, |a| !a),
         _ => unimplemented!(),
     }
 }
@@ -71,7 +73,23 @@ fn exec_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool
     else { regs.pc += 2; 7 }
 }
 
-fn exec_logic<M: Memory, L: Fn(u8, u8) -> u8>(
+fn exec_unary_logic<M: Memory, L: Fn(u8) -> u8>(
+    ctx: &mut ExecCtx<Mem=M>, dst: Reg, logic: L) -> Cycle
+{
+    let mut regs = ctx.regs();
+    let val = regs.reg(dst);
+    let res = logic(val) as u16;
+    regs.set_reg(dst, res as u8);
+
+    regs.st.carry = false;
+    regs.st.zero = is_zero(res);
+    regs.st.neg = is_neg(res);
+    regs.st.overflow = false;
+
+    regs.pc += 1; 4
+}
+
+fn exec_binary_logic<M: Memory, L: Fn(u8, u8) -> u8>(
     ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, logic: L) -> Cycle
 {
     let mut regs = ctx.regs();
@@ -403,6 +421,72 @@ mod test {
         assert_eq!(ctx.regs.st.neg, false);
         ctx.regs.set_r0(0xff); ctx.regs.set_r1(0x0f);
         exec(&Inst::Xor(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_exec_not() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Not(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.r0(), 0x10);
+        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.st.carry, false);
+        assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_not() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Not(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_r0(0x00);
+        exec(&Inst::Not(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_not() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Not(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_r0(0x0f);
+        exec(&Inst::Not(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_exec_comp() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Comp(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.r0(), 0x0f);
+        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.st.carry, false);
+        assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_comp() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Comp(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_r0(0xff);
+        exec(&Inst::Comp(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_comp() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(0xf0);
+        exec(&Inst::Comp(Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_r0(0x0f);
+        exec(&Inst::Comp(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.neg, true);
     }
 
