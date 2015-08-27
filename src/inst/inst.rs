@@ -28,9 +28,9 @@ pub enum Inst<O: Operands> {
     And(O::Reg, O::Reg),
     Or(O::Reg, O::Reg),
     Xor(O::Reg, O::Reg),
-    Lsl(O::Reg, O::Reg),
-    Lsr(O::Reg, O::Reg),
-    Asr(O::Reg, O::Reg),
+    Lsl(O::Reg),
+    Lsr(O::Reg),
+    Asr(O::Reg),
     Neg(O::Reg),
     Com(O::Reg),
     Inc(O::Reg),
@@ -99,6 +99,10 @@ macro_rules! pack {
         let r = $wrd.to_be() as u8;
         $w.write(&[$b, l, r])
     });
+    ($w:ident, $b1:expr, reg $r1:ident in $b2:expr) => ({
+        let regs = $b2 | $r1.encode();
+        $w.write(&[$b1, regs])
+    });
     ($w:ident, $b1:expr, regs $r1:ident, $r2:ident in $b2:expr) => ({
         let regs = $b2 | $r2.encode() | ($r1.encode() << 3);
         $w.write(&[$b1, regs])
@@ -141,9 +145,9 @@ impl RuntimeInst {
             &Inst::And(ref r1, ref r2) => pack!(w, 0x84, regs r1, r2 in 0x00),
             &Inst::Or(ref r1, ref r2) => pack!(w, 0x85, regs r1, r2 in 0x00),
             &Inst::Xor(ref r1, ref r2) => pack!(w, 0x86, regs r1, r2 in 0x00),
-            &Inst::Lsl(ref r1, ref r2) => pack!(w, 0x87, regs r1, r2 in 0x00),
-            &Inst::Lsr(ref r1, ref r2) => pack!(w, 0x88, regs r1, r2 in 0x00),
-            &Inst::Asr(ref r1, ref r2) => pack!(w, 0x89, regs r1, r2 in 0x00),
+            &Inst::Lsl(ref r1) => pack!(w, 0x87, reg r1 in 0x00),
+            &Inst::Lsr(ref r1) => pack!(w, 0x88, reg r1 in 0x00),
+            &Inst::Asr(ref r1) => pack!(w, 0x89, reg r1 in 0x00),
             &Inst::Neg(ref r) => pack!(w, reg r in 0x40),
             &Inst::Com(ref r) => pack!(w, reg r in 0x48),
             &Inst::Inc(ref r) => pack!(w, reg r in 0x50),
@@ -243,9 +247,9 @@ impl RuntimeInst {
             (_, _, 0x84) => Self::decode_reg_reg(Inst::And, next),
             (_, _, 0x85) => Self::decode_reg_reg(Inst::Or, next),
             (_, _, 0x86) => Self::decode_reg_reg(Inst::Xor, next),
-            (_, _, 0x87) => Self::decode_reg_reg(Inst::Lsl, next),
-            (_, _, 0x88) => Self::decode_reg_reg(Inst::Lsr, next),
-            (_, _, 0x89) => Self::decode_reg_reg(Inst::Asr, next),
+            (_, _, 0x87) => Self::decode_long_reg(Inst::Lsl, next),
+            (_, _, 0x88) => Self::decode_long_reg(Inst::Lsr, next),
+            (_, _, 0x89) => Self::decode_long_reg(Inst::Asr, next),
             (_, _, 0x8a) => Some(Inst::Jmp(Self::decode_word(next, get!(bytes.next())))),
             (_, _, 0x8b) => Some(Inst::Call(Self::decode_word(next, get!(bytes.next())))),
             (_, _, 0xc0) => Self::decode_reg_reg(Inst::Mov, next),
@@ -283,6 +287,11 @@ impl RuntimeInst {
     fn decode_reg_reg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(Reg, Reg) -> I {
         let (dst, src) = get!(Self::decode_regs(next));
         Some(inst(dst, src))
+    }
+
+    fn decode_long_reg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(Reg) -> I {
+        let dst = Self::decode_reg(next);
+        Some(inst(dst))
     }
 
     fn decode_reg_areg<F, I>(inst: F, next: u8) -> Option<I> where F: Fn(Reg, AddrReg) -> I {
@@ -349,13 +358,13 @@ mod test {
     fn encode_xor() { assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0x86, 0x0f]); }
 
     #[test]
-    fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3, Reg::R4), &[0x87, 0x1c]); }
+    fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3), &[0x87, 0x03]); }
 
     #[test]
-    fn encode_lsr() { assert_encode(Inst::Lsr(Reg::R6, Reg::R1), &[0x88, 0x31]); }
+    fn encode_lsr() { assert_encode(Inst::Lsr(Reg::R6), &[0x88, 0x06]); }
 
     #[test]
-    fn encode_asr() { assert_encode(Inst::Asr(Reg::R1, Reg::R2), &[0x89, 0x0a]); }
+    fn encode_asr() { assert_encode(Inst::Asr(Reg::R1), &[0x89, 0x01]); }
 
     #[test]
     fn encode_neg() { assert_encode(Inst::Neg(Reg::R5), &[0x45]); }
@@ -524,13 +533,13 @@ mod test {
     fn decode_xor() { assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0x86, 0x01]) }
 
     #[test]
-    fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R0, Reg::R1), &[0x87, 0x01]) }
+    fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R1), &[0x87, 0x01]) }
 
     #[test]
-    fn decode_lsr() { assert_decode(Inst::Lsr(Reg::R0, Reg::R1), &[0x88, 0x81]) }
+    fn decode_lsr() { assert_decode(Inst::Lsr(Reg::R1), &[0x88, 0x01]) }
 
     #[test]
-    fn decode_asr() { assert_decode(Inst::Asr(Reg::R0, Reg::R1), &[0x89, 0x81]) }
+    fn decode_asr() { assert_decode(Inst::Asr(Reg::R1), &[0x89, 0x01]) }
 
     #[test]
     fn decode_neg() { assert_decode(Inst::Neg(Reg::R0), &[0x40]) }

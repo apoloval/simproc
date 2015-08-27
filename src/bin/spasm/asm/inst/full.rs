@@ -47,12 +47,12 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::Or(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Xor(r1, r2) =>
                 Ok(Inst::Xor(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Lsl(r1, r2) =>
-                Ok(Inst::Lsl(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Lsr(r1, r2) =>
-                Ok(Inst::Lsr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
-            Inst::Asr(r1, r2) =>
-                Ok(Inst::Asr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
+            Inst::Lsl(r1) =>
+                Ok(Inst::Lsl(try!(self.expr_asm.to_reg(r1)))),
+            Inst::Lsr(r1) =>
+                Ok(Inst::Lsr(try!(self.expr_asm.to_reg(r1)))),
+            Inst::Asr(r1) =>
+                Ok(Inst::Asr(try!(self.expr_asm.to_reg(r1)))),
             Inst::Neg(r) =>
                 Ok(Inst::Neg(try!(self.expr_asm.to_reg(r)))),
             Inst::Com(r) =>
@@ -171,13 +171,13 @@ mod test {
     fn should_asm_xor() { should_asm_inst_reg_reg(Inst::Xor, Inst::Xor); }
 
     #[test]
-    fn should_asm_lsl() { should_asm_inst_reg_reg(Inst::Lsl, Inst::Lsl); }
+    fn should_asm_lsl() { should_asm_inst_reg(Inst::Lsl, Inst::Lsl); }
 
     #[test]
-    fn should_asm_lsr() { should_asm_inst_reg_reg(Inst::Lsr, Inst::Lsr); }
+    fn should_asm_lsr() { should_asm_inst_reg(Inst::Lsr, Inst::Lsr); }
 
     #[test]
-    fn should_asm_asr() { should_asm_inst_reg_reg(Inst::Asr, Inst::Asr); }
+    fn should_asm_asr() { should_asm_inst_reg(Inst::Asr, Inst::Asr); }
 
     #[test]
     fn should_asm_neg() { should_asm_inst_reg(Inst::Neg, Inst::Neg); }

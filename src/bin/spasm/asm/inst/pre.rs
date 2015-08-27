@@ -45,9 +45,9 @@ pub fn pre_assemble_inst(
         "and" => pre_assemble_binary(args, Inst::And),
         "or" => pre_assemble_binary(args, Inst::Or),
         "xor" => pre_assemble_binary(args, Inst::Xor),
-        "lsl" => pre_assemble_binary(args, Inst::Lsl),
-        "lsr" => pre_assemble_binary(args, Inst::Lsr),
-        "asr" => pre_assemble_binary(args, Inst::Asr),
+        "lsl" => pre_assemble_unary(args, Inst::Lsl),
+        "lsr" => pre_assemble_unary(args, Inst::Lsr),
+        "asr" => pre_assemble_unary(args, Inst::Asr),
         "neg" => pre_assemble_unary(args, Inst::Neg),
         "com" => pre_assemble_unary(args, Inst::Com),
         "inc" => pre_assemble_unary(args, Inst::Inc),
@@ -168,13 +168,13 @@ mod test {
     fn should_pre_assemble_xor() { should_pre_assemble_binary_inst("xor", Inst::Xor) }
 
     #[test]
-    fn should_pre_assemble_lsl() { should_pre_assemble_binary_inst("lsl", Inst::Lsl) }
+    fn should_pre_assemble_lsl() { should_pre_assemble_unary_inst("lsl", Inst::Lsl) }
 
     #[test]
-    fn should_pre_assemble_lsr() { should_pre_assemble_binary_inst("lsr", Inst::Lsr) }
+    fn should_pre_assemble_lsr() { should_pre_assemble_unary_inst("lsr", Inst::Lsr) }
 
     #[test]
-    fn should_pre_assemble_asr() { should_pre_assemble_binary_inst("asr", Inst::Asr) }
+    fn should_pre_assemble_asr() { should_pre_assemble_unary_inst("asr", Inst::Asr) }
 
     #[test]
     fn should_pre_assemble_neg() { should_pre_assemble_unary_inst("neg", Inst::Neg) }
