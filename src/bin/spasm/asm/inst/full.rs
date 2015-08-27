@@ -10,7 +10,7 @@ use simproc::inst::*;
 use simproc::mem::*;
 
 use asm::expr::*;
-use asm::inst::pre::*;
+use asm::inst::*;
 
 pub struct InstAssembler<E: ExprAssembler> {
     expr_asm: E,
@@ -84,6 +84,10 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::Push(try!(self.expr_asm.to_reg(r)))),
             Inst::Pop(r) =>
                 Ok(Inst::Pop(try!(self.expr_asm.to_reg(r)))),
+            Inst::In(r, p) =>
+                Ok(Inst::In(try!(self.expr_asm.to_reg(r)), try!(self.expr_asm.to_ioport(p)))),
+            Inst::Out(p, r) =>
+                Ok(Inst::Out(try!(self.expr_asm.to_ioport(p)), try!(self.expr_asm.to_reg(r)))),
 
             Inst::Je(a) =>
                 Ok(Inst::Je(try!(self.expr_asm.to_raddr(a, base)))),
@@ -118,10 +122,10 @@ impl<E: ExprAssembler> InstAssembler<E> {
             Inst::Reti =>
                 Ok(Inst::Reti),
 
-            Inst::Nop =>
-                Ok(Inst::Nop),
-            Inst::Halt =>
-                Ok(Inst::Halt),
+            Inst::Nop => Ok(Inst::Nop),
+            Inst::Halt => Ok(Inst::Halt),
+            Inst::Ei => Ok(Inst::Ei),
+            Inst::Di => Ok(Inst::Di),
         }
     }
 }
@@ -135,7 +139,7 @@ mod test {
     use simproc::mem::*;
 
     use asm::expr::*;
-    use asm::inst::pre::*;
+    use asm::inst::*;
 
     use super::*;
 
@@ -221,6 +225,12 @@ mod test {
     fn should_asm_pop() { should_asm_inst_reg(Inst::Pop, Inst::Pop); }
 
     #[test]
+    fn should_asm_in() { should_asm_inst_reg_ioport(Inst::In, Inst::In); }
+
+    #[test]
+    fn should_asm_out() { should_asm_inst_ioport_reg(Inst::Out, Inst::Out); }
+
+    #[test]
     fn should_asm_je() { should_asm_inst_raddr(Inst::Je, Inst::Je); }
 
     #[test]
@@ -274,12 +284,19 @@ mod test {
     #[test]
     fn should_asm_halt() { should_asm_nullary_inst(Inst::Halt, Inst::Halt); }
 
+    #[test]
+    fn should_asm_ei() { should_asm_nullary_inst(Inst::Ei, Inst::Ei); }
+
+    #[test]
+    fn should_asm_di() { should_asm_nullary_inst(Inst::Di, Inst::Di); }
+
     struct MockExprAssembler {
         next_reg: VecDeque<Result<Reg, ExprAssembleError>>,
         next_areg: VecDeque<Result<AddrReg, ExprAssembleError>>,
         next_imm: VecDeque<Result<Immediate, ExprAssembleError>>,
         next_addr: VecDeque<Result<Addr, ExprAssembleError>>,
         next_raddr: VecDeque<Result<RelAddr, ExprAssembleError>>,
+        next_ioport: VecDeque<Result<IoPort, ExprAssembleError>>,
     }
 
     impl MockExprAssembler {
@@ -290,6 +307,7 @@ mod test {
                 next_imm: VecDeque::new(),
                 next_addr: VecDeque::new(),
                 next_raddr: VecDeque::new(),
+                next_ioport: VecDeque::new(),
             }
         }
 
@@ -312,6 +330,10 @@ mod test {
         fn with_raddr(&mut self, raddr: Result<RelAddr, ExprAssembleError>) {
             self.next_raddr.push_back(raddr);
         }
+
+        fn with_ioport(&mut self, port: Result<IoPort, ExprAssembleError>) {
+            self.next_ioport.push_back(port);
+        }
     }
 
     impl ExprAssembler for MockExprAssembler {
@@ -329,6 +351,9 @@ mod test {
         }
         fn to_raddr(&mut self, _e: Expr, _base: Addr) -> Result<RelAddr, ExprAssembleError> {
             self.next_raddr.pop_front().unwrap()
+        }
+        fn to_ioport(&mut self, _e: Expr) -> Result<IoPort, ExprAssembleError> {
+            self.next_ioport.pop_front().unwrap()
         }
     }
 
@@ -437,6 +462,26 @@ mod test {
             pre, full,
             Reg::R0, Immediate(100),
             MockExprAssembler::with_reg, MockExprAssembler::with_imm);
+    }
+
+    fn should_asm_inst_reg_ioport<I1, I2>(pre: I1, full: I2) where
+        I1: Fn(Expr, Expr) -> PreAssembledInst,
+        I2: Fn(Reg, IoPort) -> RuntimeInst
+    {
+        should_asm_binary_inst(
+            pre, full,
+            Reg::R0, IoPort(100),
+            MockExprAssembler::with_reg, MockExprAssembler::with_ioport);
+    }
+
+    fn should_asm_inst_ioport_reg<I1, I2>(pre: I1, full: I2) where
+        I1: Fn(Expr, Expr) -> PreAssembledInst,
+        I2: Fn(IoPort, Reg) -> RuntimeInst
+    {
+        should_asm_binary_inst(
+            pre, full,
+            IoPort(100), Reg::R0,
+            MockExprAssembler::with_ioport, MockExprAssembler::with_reg);
     }
 
     fn should_asm_inst_reg_areg<I1, I2>(pre: I1, full: I2) where

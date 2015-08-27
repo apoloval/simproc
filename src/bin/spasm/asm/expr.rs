@@ -59,6 +59,7 @@ pub trait ExprAssembler {
     fn to_immediate(&mut self, e: Expr) -> Result<Immediate, ExprAssembleError>;
     fn to_addr(&mut self, e: Expr) -> Result<Addr, ExprAssembleError>;
     fn to_raddr(&mut self, e: Expr, base: Addr) -> Result<RelAddr, ExprAssembleError>;
+    fn to_ioport(&mut self, e: Expr) -> Result<IoPort, ExprAssembleError>;
 }
 
 pub struct StdExprAssembler<'a> {
@@ -162,6 +163,29 @@ impl<'a> ExprAssembler for StdExprAssembler<'a> {
             },
             other => Err(ExprAssembleError::TypeMismatch {
                 expected: "memory address".to_string(),
+                given: other,
+            })
+        }
+    }
+
+    fn to_ioport(&mut self, e: Expr) -> Result<IoPort, ExprAssembleError> {
+        fn validate(n: i64) -> Result<IoPort, ExprAssembleError> {
+            IoPort::from_i64(n).ok_or(ExprAssembleError::OutOfRange {
+                range: IoPort::range(),
+                given: n,
+            })
+        }
+
+        match e {
+            Expr::Number(n) => validate(n),
+            Expr::Ident(id) => {
+                match self.symbols.get(&id) {
+                    Some(n) => validate(*n),
+                    _ => Err(ExprAssembleError::Undefined { symbol: id }),
+                }
+            },
+            other => Err(ExprAssembleError::TypeMismatch {
+                expected: "IO port number".to_string(),
                 given: other,
             })
         }
@@ -306,6 +330,43 @@ mod test {
             asm.to_raddr(Expr::Reg(Reg::R0), 75),
             Err(ExprAssembleError::TypeMismatch {
                 expected: "memory address".to_string(),
+                given: Expr::Reg(Reg::R0),
+            }));
+    }
+
+    #[test]
+    fn should_asm_expr_to_ioport() {
+        let mut symbols = SymbolTable::new();
+        symbols.insert("foobar".to_string(), 100);
+        symbols.insert("toobig".to_string(), 1000);
+        let mut asm = StdExprAssembler::from_symbols(&symbols);
+        assert_eq!(
+            asm.to_ioport(Expr::Number(100)),
+            Ok(IoPort(100)));
+        assert_eq!(
+            asm.to_ioport(Expr::id("foobar")),
+            Ok(IoPort(100)));
+        assert_eq!(
+            asm.to_ioport(Expr::Number(1000)),
+            Err(ExprAssembleError::OutOfRange {
+                range: IoPort::range(),
+                given: 1000,
+            }));
+        assert_eq!(
+            asm.to_ioport(Expr::id("toobig")),
+            Err(ExprAssembleError::OutOfRange {
+                range: IoPort::range(),
+                given: 1000,
+            }));
+        assert_eq!(
+            asm.to_ioport(Expr::id("undefined")),
+            Err(ExprAssembleError::Undefined {
+                symbol: "undefined".to_string()
+            }));
+        assert_eq!(
+            asm.to_ioport(Expr::Reg(Reg::R0)),
+            Err(ExprAssembleError::TypeMismatch {
+                expected: "IO port number".to_string(),
                 given: Expr::Reg(Reg::R0),
             }));
     }

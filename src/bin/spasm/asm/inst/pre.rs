@@ -12,19 +12,7 @@ use std::fmt;
 use simproc::inst::*;
 
 use asm::expr::*;
-
-#[derive(Debug, PartialEq)]
-pub struct PreAssembledOperands;
-
-impl Operands for PreAssembledOperands {
-    type Immediate = Expr;
-    type Addr = Expr;
-    type RelAddr = Expr;
-    type Reg = Expr;
-    type AddrReg = Expr;
-}
-
-pub type PreAssembledInst = Inst<PreAssembledOperands>;
+use asm::inst::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MnemoAssembleError {
@@ -75,6 +63,8 @@ pub fn pre_assemble_inst(
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
         "pop" => pre_assemble_unary(args, Inst::Pop),
+        "in" => pre_assemble_binary(args, Inst::In),
+        "out" => pre_assemble_binary(args, Inst::Out),
         "je" => pre_assemble_unary(args, Inst::Je),
         "jne" => pre_assemble_unary(args, Inst::Jne),
         "jl" => pre_assemble_unary(args, Inst::Jl),
@@ -93,6 +83,8 @@ pub fn pre_assemble_inst(
         "reti" => pre_assemble_nullary(args, Inst::Reti),
         "nop" => pre_assemble_nullary(args, Inst::Nop),
         "halt" => pre_assemble_nullary(args, Inst::Halt),
+        "ei" => pre_assemble_nullary(args, Inst::Ei),
+        "di" => pre_assemble_nullary(args, Inst::Di),
         _ => Err(MnemoAssembleError::UnknownMnemo(mnemo.to_string()))
     }
 }
@@ -143,6 +135,7 @@ mod test {
 
     use simproc::inst::*;
 
+    use asm::inst::*;
     use asm::expr::*;
 
     use super::*;
@@ -229,6 +222,12 @@ mod test {
     fn should_pre_assemble_pop() { should_pre_assemble_unary_inst("pop", Inst::Pop) }
 
     #[test]
+    fn should_pre_assemble_in() { should_pre_assemble_binary_inst("in", Inst::In) }
+
+    #[test]
+    fn should_pre_assemble_out() { should_pre_assemble_binary_inst("out", Inst::Out) }
+
+    #[test]
     fn should_pre_assemble_je() { should_pre_assemble_unary_inst("je", Inst::Je) }
 
     #[test]
@@ -281,6 +280,12 @@ mod test {
 
     #[test]
     fn should_pre_assemble_halt() { should_pre_assemble_nullary_inst("halt", Inst::Halt) }
+
+    #[test]
+    fn should_pre_assemble_ei() { should_pre_assemble_nullary_inst("ei", Inst::Ei) }
+
+    #[test]
+    fn should_pre_assemble_di() { should_pre_assemble_nullary_inst("di", Inst::Di) }
 
     #[test]
     fn should_fail_pre_assemble_with_unknown_mnemo() {

@@ -25,6 +25,19 @@ impl Immediate {
     }
 }
 
+/// An IO port
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct IoPort(pub u8);
+
+impl IoPort {
+    pub fn range() -> Range<i64> { u8::MIN as i64 .. u8::MAX as i64 }
+
+    pub fn from_i64(n: i64) -> Option<IoPort> {
+        if n < u8::MIN as i64 || n > u8::MAX as i64 { None }
+        else { Some(IoPort(n as u8)) }
+    }
+}
+
 /// General purpose 8-bit Regs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg { R0, R1, R2, R3, R4, R5, R6, R7 }
@@ -119,6 +132,7 @@ pub trait Operands {
     type RelAddr;
     type Reg;
     type AddrReg;
+    type IoPort;
 }
 
 #[derive(Debug, PartialEq)]
@@ -130,4 +144,5 @@ impl Operands for RuntimeOperands {
     type RelAddr = RelAddr;
     type Reg = Reg;
     type AddrReg = AddrReg;
+    type IoPort = IoPort;
 }

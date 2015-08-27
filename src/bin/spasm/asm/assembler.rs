@@ -184,6 +184,6 @@ mod test {
         assert!(asm.write(&mut output).is_ok());
         assert_eq!(
             output,
-            vec![0x00, 0xa0, 0x00, 0x00]);
+            vec![0x00, 0x8a, 0x00, 0x00]);
     }
 }
