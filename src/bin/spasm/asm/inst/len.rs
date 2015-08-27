@@ -70,6 +70,8 @@ pub fn inst_len(inst: &PreAssembledInst) -> usize {
         &Inst::Reti => 1,
         &Inst::Nop => 1,
         &Inst::Halt => 1,
+        &Inst::Ei => 1,
+        &Inst::Di => 1,
     }
 }
 

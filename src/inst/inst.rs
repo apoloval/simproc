@@ -72,6 +72,8 @@ pub enum Inst<O: Operands> {
     // Others
     Nop,
     Halt,
+    Ei,
+    Di,
 }
 
 pub type RuntimeInst = Inst<RuntimeOperands>;
@@ -180,6 +182,8 @@ impl RuntimeInst {
             &Inst::Reti => pack!(w, 0x03),
             &Inst::Nop => pack!(w, 0x00),
             &Inst::Halt => pack!(w, 0x3c),
+            &Inst::Ei => pack!(w, 0x04),
+            &Inst::Di => pack!(w, 0x05),
         }
     }
 
@@ -229,6 +233,8 @@ impl RuntimeInst {
             (_, _, 0x00) => Some(Inst::Nop),
             (_, _, 0x02) => Some(Inst::Ret),
             (_, _, 0x03) => Some(Inst::Reti),
+            (_, _, 0x04) => Some(Inst::Ei),
+            (_, _, 0x05) => Some(Inst::Di),
             (_, _, 0x3c) => Some(Inst::Halt),
             (_, _, 0x80) => Self::decode_reg_reg(Inst::Add, next),
             (_, _, 0x81) => Self::decode_reg_reg(Inst::Adc, next),
@@ -469,6 +475,12 @@ mod test {
     fn encode_halt() { assert_encode(Inst::Halt, &[0x3c]); }
 
     #[test]
+    fn encode_ei() { assert_encode(Inst::Ei, &[0x04]); }
+
+    #[test]
+    fn encode_di() { assert_encode(Inst::Di, &[0x05]); }
+
+    #[test]
     fn decode_add() {
         assert_decode(Inst::Add(Reg::R0, Reg::R1), &[0x21]);
         assert_decode(Inst::Add(Reg::R0, Reg::R4), &[0x80, 0x04]);
@@ -634,6 +646,12 @@ mod test {
 
     #[test]
     fn decode_halt() { assert_decode(Inst::Halt, &[0x3c]) }
+
+    #[test]
+    fn decode_ei() { assert_decode(Inst::Ei, &[0x04]) }
+
+    #[test]
+    fn decode_di() { assert_decode(Inst::Di, &[0x05]) }
 
     fn assert_encode(inst: RuntimeInst, bytes: &[u8]) {
         let mut w: Vec<u8> = Vec::with_capacity(16);

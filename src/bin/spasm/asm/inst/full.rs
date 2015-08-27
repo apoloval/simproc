@@ -122,10 +122,10 @@ impl<E: ExprAssembler> InstAssembler<E> {
             Inst::Reti =>
                 Ok(Inst::Reti),
 
-            Inst::Nop =>
-                Ok(Inst::Nop),
-            Inst::Halt =>
-                Ok(Inst::Halt),
+            Inst::Nop => Ok(Inst::Nop),
+            Inst::Halt => Ok(Inst::Halt),
+            Inst::Ei => Ok(Inst::Ei),
+            Inst::Di => Ok(Inst::Di),
         }
     }
 }
@@ -283,6 +283,12 @@ mod test {
 
     #[test]
     fn should_asm_halt() { should_asm_nullary_inst(Inst::Halt, Inst::Halt); }
+
+    #[test]
+    fn should_asm_ei() { should_asm_nullary_inst(Inst::Ei, Inst::Ei); }
+
+    #[test]
+    fn should_asm_di() { should_asm_nullary_inst(Inst::Di, Inst::Di); }
 
     struct MockExprAssembler {
         next_reg: VecDeque<Result<Reg, ExprAssembleError>>,

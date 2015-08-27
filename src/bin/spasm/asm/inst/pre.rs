@@ -83,6 +83,8 @@ pub fn pre_assemble_inst(
         "reti" => pre_assemble_nullary(args, Inst::Reti),
         "nop" => pre_assemble_nullary(args, Inst::Nop),
         "halt" => pre_assemble_nullary(args, Inst::Halt),
+        "ei" => pre_assemble_nullary(args, Inst::Ei),
+        "di" => pre_assemble_nullary(args, Inst::Di),
         _ => Err(MnemoAssembleError::UnknownMnemo(mnemo.to_string()))
     }
 }
@@ -278,6 +280,12 @@ mod test {
 
     #[test]
     fn should_pre_assemble_halt() { should_pre_assemble_nullary_inst("halt", Inst::Halt) }
+
+    #[test]
+    fn should_pre_assemble_ei() { should_pre_assemble_nullary_inst("ei", Inst::Ei) }
+
+    #[test]
+    fn should_pre_assemble_di() { should_pre_assemble_nullary_inst("di", Inst::Di) }
 
     #[test]
     fn should_fail_pre_assemble_with_unknown_mnemo() {
