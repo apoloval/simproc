@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use inst::Reg;
+use inst::{AddrReg, Reg};
 use mem::*;
 
 pub struct StatusReg {
@@ -46,10 +46,28 @@ impl Regs {
     pub fn a2(&self) -> Addr { self.a2 }
     pub fn a3(&self) -> Addr { self.a3 }
 
+    pub fn areg(&self, reg: AddrReg) -> Addr {
+        match reg {
+            AddrReg::A0 => self.a0(),
+            AddrReg::A1 => self.a1(),
+            AddrReg::A2 => self.a2(),
+            AddrReg::A3 => self.a3(),
+        }
+    }
+
     pub fn set_a0(&mut self, n: Addr) { self.a0 = n }
     pub fn set_a1(&mut self, n: Addr) { self.a1 = n }
     pub fn set_a2(&mut self, n: Addr) { self.a2 = n }
     pub fn set_a3(&mut self, n: Addr) { self.a3 = n }
+
+    pub fn set_areg(&mut self, reg: AddrReg, n: Addr) {
+        match reg {
+            AddrReg::A0 => self.set_a0(n),
+            AddrReg::A1 => self.set_a1(n),
+            AddrReg::A2 => self.set_a2(n),
+            AddrReg::A3 => self.set_a3(n),
+        }
+    }
 
     pub fn r0(&self) -> u8 { self.a0 as u8 }
     pub fn r1(&self) -> u8 { (self.a0 >> 8) as u8 }
@@ -99,7 +117,7 @@ impl Regs {
 #[cfg(test)]
 mod test {
 
-    use inst::Reg;
+    use inst::{AddrReg, Reg};
 
     use super::*;
 
@@ -149,6 +167,38 @@ mod test {
         assert_eq!(regs.a3(), 0x01ff);
         regs.set_r7(0xaa);
         assert_eq!(regs.a3(), 0xaaff);
+    }
+
+    #[test]
+    fn should_get_areg() {
+        let mut regs = Regs::new();
+        regs.set_a0(0x1000);
+        assert_eq!(regs.areg(AddrReg::A0), 0x1000);
+
+        regs.set_a1(0x1001);
+        assert_eq!(regs.areg(AddrReg::A1), 0x1001);
+
+        regs.set_a2(0x1002);
+        assert_eq!(regs.areg(AddrReg::A2), 0x1002);
+
+        regs.set_a3(0x1003);
+        assert_eq!(regs.areg(AddrReg::A3), 0x1003);
+    }
+
+    #[test]
+    fn should_set_areg() {
+        let mut regs = Regs::new();
+        regs.set_areg(AddrReg::A0, 0x1000);
+        assert_eq!(regs.a0(), 0x1000);
+
+        regs.set_areg(AddrReg::A1, 0x1001);
+        assert_eq!(regs.a1(), 0x1001);
+
+        regs.set_areg(AddrReg::A2, 0x1002);
+        assert_eq!(regs.a2(), 0x1002);
+
+        regs.set_areg(AddrReg::A3, 0x1003);
+        assert_eq!(regs.a3(), 0x1003);
     }
 
     #[test]
