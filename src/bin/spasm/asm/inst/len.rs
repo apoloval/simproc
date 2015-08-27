@@ -33,7 +33,7 @@ pub fn inst_len(inst: &PreAssembledInst) -> usize {
         &Inst::Lsr(_, _) => 2,
         &Inst::Asr(_, _) => 2,
         &Inst::Neg(_) => 1,
-        &Inst::Comp(_) => 1,
+        &Inst::Com(_) => 1,
         &Inst::Inc(_) => 1,
         &Inst::Incw(_) => 1,
         &Inst::Dec(_) => 1,

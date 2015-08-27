@@ -49,7 +49,7 @@ pub fn pre_assemble_inst(
         "lsr" => pre_assemble_binary(args, Inst::Lsr),
         "asr" => pre_assemble_binary(args, Inst::Asr),
         "neg" => pre_assemble_unary(args, Inst::Neg),
-        "comp" => pre_assemble_unary(args, Inst::Comp),
+        "com" => pre_assemble_unary(args, Inst::Com),
         "inc" => pre_assemble_unary(args, Inst::Inc),
         "incw" => pre_assemble_unary(args, Inst::Incw),
         "dec" => pre_assemble_unary(args, Inst::Dec),
@@ -180,7 +180,7 @@ mod test {
     fn should_pre_assemble_neg() { should_pre_assemble_unary_inst("neg", Inst::Neg) }
 
     #[test]
-    fn should_pre_assemble_comp() { should_pre_assemble_unary_inst("comp", Inst::Comp) }
+    fn should_pre_assemble_com() { should_pre_assemble_unary_inst("com", Inst::Com) }
 
     #[test]
     fn should_pre_assemble_inc() { should_pre_assemble_unary_inst("inc", Inst::Inc) }

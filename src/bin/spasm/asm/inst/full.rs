@@ -55,8 +55,8 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::Asr(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Neg(r) =>
                 Ok(Inst::Neg(try!(self.expr_asm.to_reg(r)))),
-            Inst::Comp(r) =>
-                Ok(Inst::Comp(try!(self.expr_asm.to_reg(r)))),
+            Inst::Com(r) =>
+                Ok(Inst::Com(try!(self.expr_asm.to_reg(r)))),
             Inst::Inc(r) =>
                 Ok(Inst::Inc(try!(self.expr_asm.to_reg(r)))),
             Inst::Incw(r) =>
@@ -183,7 +183,7 @@ mod test {
     fn should_asm_neg() { should_asm_inst_reg(Inst::Neg, Inst::Neg); }
 
     #[test]
-    fn should_asm_comp() { should_asm_inst_reg(Inst::Comp, Inst::Comp); }
+    fn should_asm_com() { should_asm_inst_reg(Inst::Com, Inst::Com); }
 
     #[test]
     fn should_asm_inc() { should_asm_inst_reg(Inst::Inc, Inst::Inc); }
