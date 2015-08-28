@@ -21,7 +21,6 @@ pub trait ExecCtx {
 /// It returns the number of cycles that correspond to that instruction execution.
 pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
     match inst {
-        &Inst::Nop => exec_nop(ctx),
         &Inst::Add(dst, src) => exec_add(ctx, dst, src, false),
         &Inst::Adc(dst, src) => exec_add(ctx, dst, src, true),
         &Inst::Sub(dst, src) => exec_sub(ctx, dst, src, false),
@@ -62,12 +61,12 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Icall(src) => exec_ijmp(ctx, src, true),
         &Inst::Ret => exec_ret(ctx, false),
         &Inst::Reti => exec_ret(ctx, true),
+        &Inst::Nop => exec_nop(ctx),
+        &Inst::Halt => exec_halt(),
+        &Inst::Ei => exec_set_int(ctx, true),
+        &Inst::Di => exec_set_int(ctx, false),
         _ => unimplemented!(),
     }
-}
-
-fn exec_nop<M: Memory>(ctx: &mut ExecCtx<Mem=M>) -> Cycle {
-    ctx.regs().pc += 1; 4
 }
 
 fn exec_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool) -> Cycle {
@@ -281,6 +280,17 @@ fn exec_ret<M: Memory>(ctx: &mut ExecCtx<Mem=M>, enable_int: bool) -> Cycle {
     10
 }
 
+fn exec_nop<M: Memory>(ctx: &mut ExecCtx<Mem=M>) -> Cycle {
+    ctx.regs().pc += 1; 4
+}
+
+fn exec_halt() -> Cycle { 4 }
+
+fn exec_set_int<M: Memory>(ctx: &mut ExecCtx<Mem=M>, enabled: bool) -> Cycle {
+    ctx.regs().st.int = enabled;
+    ctx.regs().pc += 1; 4
+}
+
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
 fn is_zero(n: u16) -> bool { n & 0x00ff == 0 }
 fn is_carry(n: u16) -> bool { n > 0xff }
@@ -295,13 +305,6 @@ mod test {
     use mem::*;
 
     use super::*;
-
-    #[test]
-    fn should_exec_nop() {
-        let mut ctx = TestCtx::new();
-        exec(&Inst::Nop, &mut ctx);
-        assert_eq!(ctx.regs.pc, 1);
-    }
 
     #[test]
     fn should_exec_add() {
@@ -1283,6 +1286,36 @@ mod test {
         assert_eq!(exec(&Inst::Reti, &mut ctx), 10);
         assert_eq!(ctx.regs.pc, 0x5060);
         assert_eq!(ctx.regs.st.int, true);
+    }
+
+    #[test]
+    fn should_exec_nop() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::Nop, &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+    }
+
+    #[test]
+    fn should_exec_halt() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Halt, &mut ctx), 4);
+        assert_eq!(ctx.regs.pc, 0);
+    }
+
+    #[test]
+    fn should_exec_ei() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.int = false;
+        assert_eq!(exec(&Inst::Ei, &mut ctx), 4);
+        assert_eq!(ctx.regs.st.int, true);
+    }
+
+    #[test]
+    fn should_exec_di() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.int = true;
+        assert_eq!(exec(&Inst::Di, &mut ctx), 4);
+        assert_eq!(ctx.regs.st.int, false);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
