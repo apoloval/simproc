@@ -58,6 +58,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Rjmp(offset) => exec_rjmp(ctx, offset, |_| true),
         &Inst::Jmp(addr) => exec_jmp(ctx, addr, false),
         &Inst::Call(addr) => exec_jmp(ctx, addr, true),
+        &Inst::Ijmp(src) => exec_ijmp(ctx, src, false),
+        &Inst::Icall(src) => exec_ijmp(ctx, src, true),
         _ => unimplemented!(),
     }
 }
@@ -259,6 +261,11 @@ fn exec_jmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, addr: Addr, is_call: bool) -> C
         ctx.regs().sp = sp;
         16
     } else { 10 }
+}
+
+fn exec_ijmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, src: AddrReg, is_call: bool) -> Cycle {
+    let addr = ctx.regs().areg(src);
+    exec_jmp(ctx, addr, is_call) - 6
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -1218,6 +1225,26 @@ mod test {
         ctx.regs.sp = 0x1002;
         ctx.regs.pc = 0x5060;
         assert_eq!(exec(&Inst::Call(0x1000), &mut ctx), 16);
+        assert_eq!(ctx.regs.pc, 0x1000);
+        assert_eq!(ctx.mem().read(0x1000), 0x63);
+        assert_eq!(ctx.mem().read(0x1001), 0x50);
+    }
+
+    #[test]
+    fn should_exec_ijmp() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a0(0x1000);
+        assert_eq!(exec(&Inst::Ijmp(AddrReg::A0), &mut ctx), 4);
+        assert_eq!(ctx.regs.pc, 0x1000);
+    }
+
+    #[test]
+    fn should_exec_icall() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.sp = 0x1002;
+        ctx.regs.pc = 0x5060;
+        ctx.regs.set_a0(0x1000);
+        assert_eq!(exec(&Inst::Icall(AddrReg::A0), &mut ctx), 10);
         assert_eq!(ctx.regs.pc, 0x1000);
         assert_eq!(ctx.mem().read(0x1000), 0x63);
         assert_eq!(ctx.mem().read(0x1001), 0x50);
