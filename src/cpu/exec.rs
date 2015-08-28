@@ -38,6 +38,7 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Lsl(dst) => exec_shift(ctx, dst, |a| a << 1, |a| a & 0x80 > 0),
         &Inst::Lsr(dst) => exec_shift(ctx, dst, |a| a >> 1, |a| a & 0x01 > 0),
         &Inst::Asr(dst) => exec_shift(ctx, dst, |a| (a >> 1) | (a & 0x80), |a| a & 0x01 > 0),
+        &Inst::Mov(dst, src) => exec_mov(ctx, dst, src),
         _ => unimplemented!(),
     }
 }
@@ -155,6 +156,14 @@ fn exec_shift<M: Memory, F: Fn(u8) -> u8, G: Fn(u8) -> bool>(
     regs.st.overflow = regs.st.neg ^ regs.st.carry;
 
     regs.pc += 2; 4
+}
+
+fn exec_mov<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg) -> Cycle {
+    let mut regs = ctx.regs();
+    let from = regs.reg(src);
+    regs.set_reg(dst, from);
+    if src == Reg::R0 && dst.encode() < 4 { regs.pc += 1; 4 }
+    else { regs.pc += 2; 7 }
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -872,6 +881,31 @@ mod test {
         ctx.regs.set_r0(0x81);
         exec(&Inst::Asr(Reg::R0), &mut ctx);
         assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_exec_mov() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r1(42);
+        exec(&Inst::Mov(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.r0(), 42);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_mov() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::Mov(Reg::R1, Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::Mov(Reg::R1, Reg::R2), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+    }
+
+    #[test]
+    fn should_compute_cycles_after_exec_mov() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Mov(Reg::R1, Reg::R0), &mut ctx), 4);
+        assert_eq!(exec(&Inst::Mov(Reg::R4, Reg::R0), &mut ctx), 7);
+        assert_eq!(exec(&Inst::Mov(Reg::R0, Reg::R1), &mut ctx), 7);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
