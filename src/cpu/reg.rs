@@ -30,6 +30,7 @@ impl StatusReg {
 pub struct Regs {
     pub pc: Addr,
     pub st: StatusReg,
+    pub sp: Addr,
     a0: Addr,
     a1: Addr,
     a2: Addr,
@@ -38,7 +39,7 @@ pub struct Regs {
 
 impl Regs {
     pub fn new() -> Self {
-        Regs { pc: 0, st: StatusReg::new(), a0: 0, a1: 0, a2: 0, a3: 0, }
+        Regs { pc: 0, st: StatusReg::new(), sp: 0xffff, a0: 0, a1: 0, a2: 0, a3: 0, }
     }
 
     pub fn a0(&self) -> Addr { self.a0 }
