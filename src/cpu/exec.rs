@@ -7,9 +7,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use cpu::clock::Cycle;
-use cpu::reg::Regs;
+use cpu::reg::{Regs, StatusReg};
 use inst::*;
-use mem::{Addr, Memory};
+use mem::{Addr, Memory, RelAddr};
 
 pub trait ExecCtx {
     type Mem: Memory;
@@ -47,6 +47,15 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
         &Inst::Push(src) => exec_push(ctx, src),
         &Inst::Pop(dst) => exec_pop(ctx, dst),
+        &Inst::Je(offset) => exec_rjmp(ctx, offset, |st| !st.zero),
+        &Inst::Jne(offset) => exec_rjmp(ctx, offset, |st| st.zero),
+        &Inst::Jl(offset) => exec_rjmp(ctx, offset, |st| !st.neg),
+        &Inst::Jge(offset) => exec_rjmp(ctx, offset, |st| st.neg),
+        &Inst::Jcc(offset) => exec_rjmp(ctx, offset, |st| !st.carry),
+        &Inst::Jcs(offset) => exec_rjmp(ctx, offset, |st| st.carry),
+        &Inst::Jvc(offset) => exec_rjmp(ctx, offset, |st| !st.overflow),
+        &Inst::Jvs(offset) => exec_rjmp(ctx, offset, |st| st.overflow),
+        &Inst::Rjmp(offset) => exec_rjmp(ctx, offset, |_| true),
         _ => unimplemented!(),
     }
 }
@@ -228,6 +237,14 @@ fn exec_pop<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg) -> Cycle {
     ctx.regs().set_reg(dst, val);
     ctx.regs().sp = (addr as i32 + 1) as u16;
     ctx.regs().pc += 1; 7
+}
+
+fn exec_rjmp<M: Memory, F: Fn(&StatusReg) -> bool>(
+    ctx: &mut ExecCtx<Mem=M>, offset: RelAddr, f: F) -> Cycle
+{
+    let inc = if f(&ctx.regs().st) { offset as i32 } else { 1 };
+    let pc = ctx.regs().pc as i32;
+    ctx.regs().pc = (pc + inc) as u16; 7
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -1076,6 +1093,101 @@ mod test {
         assert_eq!(ctx.regs.sp, 0x1001);
         assert_eq!(ctx.regs.r0(), 42);
         assert_eq!(ctx.regs.pc, 1);
+    }
+
+    #[test]
+    fn should_exec_je() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.zero = true;
+        assert_eq!(exec(&Inst::Je(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.zero = false;
+        assert_eq!(exec(&Inst::Je(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jne() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.zero = false;
+        assert_eq!(exec(&Inst::Jne(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.zero = true;
+        assert_eq!(exec(&Inst::Jne(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jl() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.neg = true;
+        assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.neg = false;
+        assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jge() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.neg = false;
+        assert_eq!(exec(&Inst::Jge(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.neg = true;
+        assert_eq!(exec(&Inst::Jge(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jcc() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.carry = true;
+        assert_eq!(exec(&Inst::Jcc(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.carry = false;
+        assert_eq!(exec(&Inst::Jcc(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jcs() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.carry = false;
+        assert_eq!(exec(&Inst::Jcs(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.carry = true;
+        assert_eq!(exec(&Inst::Jcs(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jvc() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.overflow = true;
+        assert_eq!(exec(&Inst::Jvc(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.overflow = false;
+        assert_eq!(exec(&Inst::Jvc(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_jvs() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.st.overflow = false;
+        assert_eq!(exec(&Inst::Jvs(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 1);
+        ctx.regs.st.overflow = true;
+        assert_eq!(exec(&Inst::Jvs(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 101);
+    }
+
+    #[test]
+    fn should_exec_rjmp() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Rjmp(100), &mut ctx), 7);
+        assert_eq!(ctx.regs.pc, 100);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
