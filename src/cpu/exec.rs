@@ -56,6 +56,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Jvc(offset) => exec_rjmp(ctx, offset, |st| !st.overflow),
         &Inst::Jvs(offset) => exec_rjmp(ctx, offset, |st| st.overflow),
         &Inst::Rjmp(offset) => exec_rjmp(ctx, offset, |_| true),
+        &Inst::Jmp(addr) => exec_jmp(ctx, addr, false),
+        &Inst::Call(addr) => exec_jmp(ctx, addr, true),
         _ => unimplemented!(),
     }
 }
@@ -247,10 +249,23 @@ fn exec_rjmp<M: Memory, F: Fn(&StatusReg) -> bool>(
     ctx.regs().pc = (pc + inc) as u16; 7
 }
 
+fn exec_jmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, addr: Addr, is_call: bool) -> Cycle {
+    let cont = add(ctx.regs().pc, 3);
+    ctx.regs().pc = addr;
+    if is_call {
+        let sp = add(ctx.regs().sp, -2);
+        ctx.mem().write(sp, cont as u8);
+        ctx.mem().write(sp + 1, (cont >> 8) as u8);
+        ctx.regs().sp = sp;
+        16
+    } else { 10 }
+}
+
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
 fn is_zero(n: u16) -> bool { n & 0x00ff == 0 }
 fn is_carry(n: u16) -> bool { n > 0xff }
 fn same_sign(a: u16, b: u16) -> bool { a & 0x0080 == b & 0x0080 }
+fn add(n: u16, inc: i16) -> u16 { (n as i32 + inc as i32) as u16 }
 
 #[cfg(test)]
 mod test {
@@ -1188,6 +1203,24 @@ mod test {
         let mut ctx = TestCtx::new();
         assert_eq!(exec(&Inst::Rjmp(100), &mut ctx), 7);
         assert_eq!(ctx.regs.pc, 100);
+    }
+
+    #[test]
+    fn should_exec_jmp() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Jmp(0x1000), &mut ctx), 10);
+        assert_eq!(ctx.regs.pc, 0x1000);
+    }
+
+    #[test]
+    fn should_exec_call() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.sp = 0x1002;
+        ctx.regs.pc = 0x5060;
+        assert_eq!(exec(&Inst::Call(0x1000), &mut ctx), 16);
+        assert_eq!(ctx.regs.pc, 0x1000);
+        assert_eq!(ctx.mem().read(0x1000), 0x63);
+        assert_eq!(ctx.mem().read(0x1001), 0x50);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
