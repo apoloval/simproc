@@ -39,6 +39,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Lsr(dst) => exec_shift(ctx, dst, |a| a >> 1, |a| a & 0x01 > 0),
         &Inst::Asr(dst) => exec_shift(ctx, dst, |a| (a >> 1) | (a & 0x80), |a| a & 0x01 > 0),
         &Inst::Mov(dst, src) => exec_mov(ctx, dst, src),
+        &Inst::Ld(dst, src) => exec_ld(ctx, dst, src),
+        &Inst::St(dst, src) => exec_st(ctx, dst, src),
         _ => unimplemented!(),
     }
 }
@@ -164,6 +166,22 @@ fn exec_mov<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg) -> Cycle {
     regs.set_reg(dst, from);
     if src == Reg::R0 && dst.encode() < 4 { regs.pc += 1; 4 }
     else { regs.pc += 2; 7 }
+}
+
+fn exec_ld<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: AddrReg) -> Cycle {
+    let addr = ctx.regs().areg(src);
+    let val = ctx.mem().read(addr);
+    ctx.regs().set_reg(dst, val);
+    if dst == Reg::R0 { ctx.regs().pc += 1; 7 }
+    else { ctx.regs().pc += 2; 10 }
+}
+
+fn exec_st<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, src: Reg) -> Cycle {
+    let addr = ctx.regs().areg(dst);
+    let val = ctx.regs().reg(src);
+    ctx.mem().write(addr, val);
+    if src == Reg::R0 { ctx.regs().pc += 1; 7 }
+    else { ctx.regs().pc += 2; 10 }
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -906,6 +924,56 @@ mod test {
         assert_eq!(exec(&Inst::Mov(Reg::R1, Reg::R0), &mut ctx), 4);
         assert_eq!(exec(&Inst::Mov(Reg::R4, Reg::R0), &mut ctx), 7);
         assert_eq!(exec(&Inst::Mov(Reg::R0, Reg::R1), &mut ctx), 7);
+    }
+
+    #[test]
+    fn should_exec_ld() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a1(0x1000);
+        ctx.mem().write(0x1000, 42);
+        exec(&Inst::Ld(Reg::R0, AddrReg::A1), &mut ctx);
+        assert_eq!(ctx.regs.r0(), 42);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_ld() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::Ld(Reg::R0, AddrReg::A1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::Ld(Reg::R1, AddrReg::A1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+    }
+
+    #[test]
+    fn should_compute_cycles_after_exec_ld() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Ld(Reg::R0, AddrReg::A1), &mut ctx), 7);
+        assert_eq!(exec(&Inst::Ld(Reg::R1, AddrReg::A1), &mut ctx), 10);
+    }
+
+    #[test]
+    fn should_exec_st() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_a1(0x1000);
+        ctx.regs.set_r0(42);
+        exec(&Inst::St(AddrReg::A1, Reg::R0), &mut ctx);
+        assert_eq!(ctx.mem.read(0x1000), 42);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_st() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::St(AddrReg::A1, Reg::R0), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::St(AddrReg::A1, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+    }
+
+    #[test]
+    fn should_compute_cycles_after_exec_st() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::St(AddrReg::A1, Reg::R0), &mut ctx), 7);
+        assert_eq!(exec(&Inst::St(AddrReg::A1, Reg::R1), &mut ctx), 10);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
