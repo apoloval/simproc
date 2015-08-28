@@ -42,6 +42,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Ld(dst, src) => exec_ld(ctx, dst, src),
         &Inst::St(dst, src) => exec_st(ctx, dst, src),
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
+        &Inst::Push(src) => exec_push(ctx, src),
+        &Inst::Pop(dst) => exec_pop(ctx, dst),
         _ => unimplemented!(),
     }
 }
@@ -190,6 +192,22 @@ fn exec_ldsp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, src: AddrReg) -> Cycle {
     let addr = regs.areg(src);
     regs.sp = addr;
     regs.pc += 1; 4
+}
+
+fn exec_push<M: Memory>(ctx: &mut ExecCtx<Mem=M>, src: Reg) -> Cycle {
+    let val = ctx.regs().reg(src);
+    let addr = (ctx.regs().sp as i32 - 1) as u16;
+    ctx.mem().write(addr, val);
+    ctx.regs().sp = addr;
+    ctx.regs().pc += 1; 7
+}
+
+fn exec_pop<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg) -> Cycle {
+    let addr = ctx.regs().sp;
+    let val = ctx.mem().read(addr);
+    ctx.regs().set_reg(dst, val);
+    ctx.regs().sp = (addr as i32 + 1) as u16;
+    ctx.regs().pc += 1; 7
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -990,6 +1008,28 @@ mod test {
         ctx.regs.set_a1(0x1000);
         assert_eq!(exec(&Inst::Ldsp(AddrReg::A1), &mut ctx), 4);
         assert_eq!(ctx.regs.sp, 0x1000);
+    }
+
+    #[test]
+    fn should_exec_push() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.sp = 0x1001;
+        ctx.regs.set_r0(42);
+        assert_eq!(exec(&Inst::Push(Reg::R0), &mut ctx), 7);
+        assert_eq!(ctx.regs.sp, 0x1000);
+        assert_eq!(ctx.mem().read(0x1000), 42);
+        assert_eq!(ctx.regs.pc, 1);
+    }
+
+    #[test]
+    fn should_exec_pop() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.sp = 0x1000;
+        ctx.mem().write(0x1000, 42);
+        assert_eq!(exec(&Inst::Pop(Reg::R0), &mut ctx), 7);
+        assert_eq!(ctx.regs.sp, 0x1001);
+        assert_eq!(ctx.regs.r0(), 42);
+        assert_eq!(ctx.regs.pc, 1);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
