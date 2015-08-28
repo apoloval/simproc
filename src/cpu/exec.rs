@@ -60,6 +60,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Call(addr) => exec_jmp(ctx, addr, true),
         &Inst::Ijmp(src) => exec_ijmp(ctx, src, false),
         &Inst::Icall(src) => exec_ijmp(ctx, src, true),
+        &Inst::Ret => exec_ret(ctx, false),
+        &Inst::Reti => exec_ret(ctx, true),
         _ => unimplemented!(),
     }
 }
@@ -266,6 +268,17 @@ fn exec_jmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, addr: Addr, is_call: bool) -> C
 fn exec_ijmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, src: AddrReg, is_call: bool) -> Cycle {
     let addr = ctx.regs().areg(src);
     exec_jmp(ctx, addr, is_call) - 6
+}
+
+fn exec_ret<M: Memory>(ctx: &mut ExecCtx<Mem=M>, enable_int: bool) -> Cycle {
+    let sp = ctx.regs().sp;
+    let al = ctx.mem().read(sp) as u16;
+    let ah = (ctx.mem().read(add(sp, 1)) as u16) << 8;
+    let addr = al | ah;
+    ctx.regs().pc = addr;
+    ctx.regs().sp = add(sp, 2);
+    if enable_int { ctx.regs().st.int = true; }
+    10
 }
 
 fn is_neg(n: u16) -> bool { n & 0x0080 > 0 }
@@ -1248,6 +1261,28 @@ mod test {
         assert_eq!(ctx.regs.pc, 0x1000);
         assert_eq!(ctx.mem().read(0x1000), 0x63);
         assert_eq!(ctx.mem().read(0x1001), 0x50);
+    }
+
+    #[test]
+    fn should_exec_ret() {
+        let mut ctx = TestCtx::new();
+        ctx.mem().write(0x1000, 0x60);
+        ctx.mem().write(0x1001, 0x50);
+        ctx.regs.sp = 0x1000;
+        assert_eq!(exec(&Inst::Ret, &mut ctx), 10);
+        assert_eq!(ctx.regs.pc, 0x5060);
+    }
+
+    #[test]
+    fn should_exec_reti() {
+        let mut ctx = TestCtx::new();
+        ctx.mem().write(0x1000, 0x60);
+        ctx.mem().write(0x1001, 0x50);
+        ctx.regs.sp = 0x1000;
+        ctx.regs.st.int = false;
+        assert_eq!(exec(&Inst::Reti, &mut ctx), 10);
+        assert_eq!(ctx.regs.pc, 0x5060);
+        assert_eq!(ctx.regs.st.int, true);
     }
 
     struct TestCtx { mem: RamPage, regs: Regs, }
