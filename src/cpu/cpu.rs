@@ -15,27 +15,33 @@ use time::precise_time_ns;
 
 use cpu::clock::*;
 use cpu::exec::*;
+use cpu::io::*;
 use cpu::reg::*;
 use inst::*;
 use mem::*;
 
-pub struct Cpu<M: Memory> {
+pub struct Cpu<'a, M: Memory> {
     clock: ClockFreq,
+    io: Io<'a>,
     mem: Rc<RefCell<M>>,
     regs: Regs,
 }
 
-impl<M: Memory> Cpu<M> {
+impl<'a, M: Memory> Cpu<'a, M> {
 
     /// Initialize the CPU with the given memory.
     pub fn with_memory(mem: M) -> Self { Cpu {
+        clock: ClockFreq::default(),
+        io: Io::new(),
         mem: Rc::new(RefCell::new(mem)),
         regs: Regs::new(),
-        clock: ClockFreq::default(),
     }}
 
     /// Returns the clock frequency for this CPU
     pub fn clock(&self) -> &ClockFreq { &self.clock }
+
+    /// Returns the IO subsystem for this CPU
+    pub fn io(&mut self) -> &Io { &mut self.io }
 
     /// Returns a shared adapter to the memory attached to this CPU.
     pub fn mem(&self) -> Mem<M> { Mem { mem: self.mem.clone() } }
@@ -51,7 +57,10 @@ impl<M: Memory> Cpu<M> {
             let fetch = self.inst_fetch().bytes().map(|r| r.ok().unwrap());
             RuntimeInst::decode(fetch).unwrap_or(Inst::Nop)
         };
-        let cycles = exec(&inst, &mut self.exec_ctx());
+        let cycles = {
+            let mut ctx = self.exec_ctx();
+            exec(&inst, &mut ctx)
+        };
         let end = start + self.clock.cycles(cycles).num_nanoseconds().unwrap() as u64;
         loop {
             let now = precise_time_ns();
@@ -59,26 +68,29 @@ impl<M: Memory> Cpu<M> {
         }
     }
 
-    fn exec_ctx<'a>(&'a mut self) -> Ctx<'a, M> { Ctx {
+    fn exec_ctx<'b>(&'b mut self) -> Ctx<'b, 'a, M> { Ctx {
         mem: self.mem(),
         regs: &mut self.regs,
+        io: &mut self.io,
     }}
 
-    fn inst_fetch<'a>(&'a mut self) -> InstFetch<M> { InstFetch {
+    fn inst_fetch(&mut self) -> InstFetch<M> { InstFetch {
         mem: self.mem(),
         pc: self.regs.pc,
     }}
 }
 
-pub struct Ctx<'a, M: Memory> {
+pub struct Ctx<'a, 'b: 'a, M: Memory> {
     mem: Mem<M>,
     regs: &'a mut Regs,
+    io: &'a mut Io<'b>,
 }
 
-impl<'a, M: Memory> ExecCtx for Ctx<'a, M> {
+impl<'a, 'b: 'a, M: Memory> ExecCtx<'b> for Ctx<'a, 'b, M> {
     type Mem = Mem<M>;
     fn mem(&mut self) -> &mut Mem<M> { &mut self.mem }
     fn regs(&mut self) -> &mut Regs { self.regs }
+    fn io(&mut self) -> &mut Io<'b> { self.io }
 }
 
 /// An adapter to the memory attached to the CPU

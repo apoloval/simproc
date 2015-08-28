@@ -7,14 +7,16 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use cpu::clock::Cycle;
+use cpu::io::*;
 use cpu::reg::{Regs, StatusReg};
 use inst::*;
 use mem::{Addr, Memory, RelAddr};
 
-pub trait ExecCtx {
+pub trait ExecCtx<'a> {
     type Mem: Memory;
     fn mem(&mut self) -> &mut Self::Mem;
     fn regs(&mut self) -> &mut Regs;
+    fn io(&mut self) -> &mut Io<'a>;
 }
 
 /// Execute the given instruction over the given context
@@ -300,6 +302,7 @@ fn add(n: u16, inc: i16) -> u16 { (n as i32 + inc as i32) as u16 }
 #[cfg(test)]
 mod test {
 
+    use cpu::io::*;
     use cpu::reg::Regs;
     use inst::*;
     use mem::*;
@@ -1318,15 +1321,16 @@ mod test {
         assert_eq!(ctx.regs.st.int, false);
     }
 
-    struct TestCtx { mem: RamPage, regs: Regs, }
+    struct TestCtx<'a> { mem: RamPage, regs: Regs, io: Io<'a>, }
 
-    impl TestCtx {
-        fn new() -> Self { TestCtx { mem: RamPage::new(), regs: Regs::new() }}
+    impl<'a> TestCtx<'a> {
+        fn new() -> Self { TestCtx { mem: RamPage::new(), regs: Regs::new(), io: Io::new() }}
     }
 
-    impl ExecCtx for TestCtx {
+    impl<'a> ExecCtx<'a> for TestCtx<'a> {
         type Mem = RamPage;
         fn mem(&mut self) -> &mut RamPage { &mut self.mem }
         fn regs(&mut self) -> &mut Regs { &mut self.regs }
+        fn io(&mut self) -> &mut Io<'a> { &mut self.io }
     }
 }
