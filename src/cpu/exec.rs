@@ -41,6 +41,7 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Mov(dst, src) => exec_mov(ctx, dst, src),
         &Inst::Ld(dst, src) => exec_ld(ctx, dst, src),
         &Inst::Ldd(dst, addr) => exec_ldd(ctx, dst, addr),
+        &Inst::Ldi(dst, Immediate(val)) => exec_ldi(ctx, dst, val),
         &Inst::St(dst, src) => exec_st(ctx, dst, src),
         &Inst::Std(dst, src) => exec_std(ctx, dst, src),
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
@@ -187,6 +188,11 @@ fn exec_ldd<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Addr) -> Cycle {
     ctx.regs().pc += 2; 10
 }
 
+fn exec_ldi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, val: u8) -> Cycle {
+    ctx.regs().set_reg(dst, val);
+    ctx.regs().pc += 2; 7
+}
+
 fn exec_st<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, src: Reg) -> Cycle {
     let addr = ctx.regs().areg(dst);
     let val = ctx.regs().reg(src);
@@ -233,7 +239,7 @@ fn same_sign(a: u16, b: u16) -> bool { a & 0x0080 == b & 0x0080 }
 mod test {
 
     use cpu::reg::Regs;
-    use inst::{AddrReg, Inst, Reg};
+    use inst::*;
     use mem::*;
 
     use super::*;
@@ -996,6 +1002,14 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.mem().write(0x1000, 42);
         assert_eq!(exec(&Inst::Ldd(Reg::R0, 0x1000), &mut ctx), 10);
+        assert_eq!(ctx.regs.r0(), 42);
+        assert_eq!(ctx.regs.pc, 2);
+    }
+
+    #[test]
+    fn should_exec_ldi() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Ldi(Reg::R0, Immediate(42)), &mut ctx), 7);
         assert_eq!(ctx.regs.r0(), 42);
         assert_eq!(ctx.regs.pc, 2);
     }
