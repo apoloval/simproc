@@ -9,7 +9,7 @@
 use cpu::clock::Cycle;
 use cpu::reg::Regs;
 use inst::*;
-use mem::Memory;
+use mem::{Addr, Memory};
 
 pub trait ExecCtx {
     type Mem: Memory;
@@ -40,7 +40,9 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Asr(dst) => exec_shift(ctx, dst, |a| (a >> 1) | (a & 0x80), |a| a & 0x01 > 0),
         &Inst::Mov(dst, src) => exec_mov(ctx, dst, src),
         &Inst::Ld(dst, src) => exec_ld(ctx, dst, src),
+        &Inst::Ldd(dst, addr) => exec_ldd(ctx, dst, addr),
         &Inst::St(dst, src) => exec_st(ctx, dst, src),
+        &Inst::Std(dst, src) => exec_std(ctx, dst, src),
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
         &Inst::Push(src) => exec_push(ctx, src),
         &Inst::Pop(dst) => exec_pop(ctx, dst),
@@ -179,12 +181,24 @@ fn exec_ld<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: AddrReg) -> Cycle
     else { ctx.regs().pc += 2; 10 }
 }
 
+fn exec_ldd<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Addr) -> Cycle {
+    let val = ctx.mem().read(src);
+    ctx.regs().set_reg(dst, val);
+    ctx.regs().pc += 2; 10
+}
+
 fn exec_st<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, src: Reg) -> Cycle {
     let addr = ctx.regs().areg(dst);
     let val = ctx.regs().reg(src);
     ctx.mem().write(addr, val);
     if src == Reg::R0 { ctx.regs().pc += 1; 7 }
     else { ctx.regs().pc += 2; 10 }
+}
+
+fn exec_std<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Addr, src: Reg) -> Cycle {
+    let val = ctx.regs().reg(src);
+    ctx.mem().write(dst, val);
+    ctx.regs().pc += 2; 10
 }
 
 fn exec_ldsp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, src: AddrReg) -> Cycle {
@@ -978,6 +992,15 @@ mod test {
     }
 
     #[test]
+    fn should_exec_ldd() {
+        let mut ctx = TestCtx::new();
+        ctx.mem().write(0x1000, 42);
+        assert_eq!(exec(&Inst::Ldd(Reg::R0, 0x1000), &mut ctx), 10);
+        assert_eq!(ctx.regs.r0(), 42);
+        assert_eq!(ctx.regs.pc, 2);
+    }
+
+    #[test]
     fn should_exec_st() {
         let mut ctx = TestCtx::new();
         ctx.regs.set_a1(0x1000);
@@ -1000,6 +1023,15 @@ mod test {
         let mut ctx = TestCtx::new();
         assert_eq!(exec(&Inst::St(AddrReg::A1, Reg::R0), &mut ctx), 7);
         assert_eq!(exec(&Inst::St(AddrReg::A1, Reg::R1), &mut ctx), 10);
+    }
+
+    #[test]
+    fn should_exec_std() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(42);
+        assert_eq!(exec(&Inst::Std(0x1000, Reg::R0), &mut ctx), 10);
+        assert_eq!(ctx.mem().read(0x1000), 42);
+        assert_eq!(ctx.regs.pc, 2);
     }
 
     #[test]
