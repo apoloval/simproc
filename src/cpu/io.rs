@@ -49,13 +49,11 @@ mod test {
     #[test]
     fn should_read_from_attached() {
         let mut val = 42;
-        {
-            let mut io = Io::new();
-            let dev = FakeDev { val: &mut val };
-            io.attach(10, dev);
+        let mut io = Io::new();
+        let dev = FakeDev { val: &mut val };
+        io.attach(10, dev);
 
-            assert_eq!(io.read(10), 42);
-        }
+        assert_eq!(io.read(10), 42);
     }
 
     #[test]

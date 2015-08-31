@@ -1155,13 +1155,11 @@ mod test {
     #[test]
     fn should_exec_in() {
         let mut val = 42;
-        {
-            let mut ctx = TestCtx::new();
-            ctx.bind_io(0x10, &mut val);
-            assert_eq!(exec(&Inst::In(Reg::R0, IoPort(0x10)), &mut ctx), 7);
-            assert_eq!(ctx.regs.r0(), 42);
-            assert_eq!(ctx.regs.pc, 2);
-        }
+        let mut ctx = TestCtx::new();
+        ctx.bind_io(0x10, &mut val);
+        assert_eq!(exec(&Inst::In(Reg::R0, IoPort(0x10)), &mut ctx), 7);
+        assert_eq!(ctx.regs.r0(), 42);
+        assert_eq!(ctx.regs.pc, 2);
     }
 
     #[test]
