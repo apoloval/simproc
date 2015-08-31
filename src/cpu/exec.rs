@@ -48,6 +48,8 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
         &Inst::Push(src) => exec_push(ctx, src),
         &Inst::Pop(dst) => exec_pop(ctx, dst),
+        &Inst::In(dst, port) => exec_in(ctx, dst, port),
+        &Inst::Out(port, src) => exec_out(ctx, port, src),
         &Inst::Je(offset) => exec_rjmp(ctx, offset, |st| !st.zero),
         &Inst::Jne(offset) => exec_rjmp(ctx, offset, |st| st.zero),
         &Inst::Jl(offset) => exec_rjmp(ctx, offset, |st| !st.neg),
@@ -244,6 +246,20 @@ fn exec_pop<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg) -> Cycle {
     ctx.regs().set_reg(dst, val);
     ctx.regs().sp = (addr as i32 + 1) as u16;
     ctx.regs().pc += 1; 7
+}
+
+fn exec_in<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, port: IoPort) -> Cycle {
+    let IoPort(p) = port;
+    let val = ctx.io().read(p);
+    ctx.regs().set_reg(dst, val);
+    ctx.regs().pc += 2; 7
+}
+
+fn exec_out<M: Memory>(ctx: &mut ExecCtx<Mem=M>, port: IoPort, src: Reg) -> Cycle {
+    let IoPort(p) = port;
+    let val = ctx.regs().reg(src);
+    ctx.io().write(p, val);
+    ctx.regs().pc += 2; 7
 }
 
 fn exec_rjmp<M: Memory, F: Fn(&StatusReg) -> bool>(
@@ -1137,6 +1153,31 @@ mod test {
     }
 
     #[test]
+    fn should_exec_in() {
+        let mut val = 42;
+        {
+            let mut ctx = TestCtx::new();
+            ctx.bind_io(0x10, &mut val);
+            assert_eq!(exec(&Inst::In(Reg::R0, IoPort(0x10)), &mut ctx), 7);
+            assert_eq!(ctx.regs.r0(), 42);
+            assert_eq!(ctx.regs.pc, 2);
+        }
+    }
+
+    #[test]
+    fn should_exec_out() {
+        let mut val = 0;
+        {
+            let mut ctx = TestCtx::new();
+            ctx.bind_io(0x10, &mut val);
+            ctx.regs.set_r0(42);
+            assert_eq!(exec(&Inst::Out(IoPort(0x10), Reg::R0), &mut ctx), 7);
+            assert_eq!(ctx.regs.pc, 2);
+        }
+        assert_eq!(val, 42);
+    }
+
+    #[test]
     fn should_exec_je() {
         let mut ctx = TestCtx::new();
         ctx.regs.st.zero = true;
@@ -1321,10 +1362,14 @@ mod test {
         assert_eq!(ctx.regs.st.int, false);
     }
 
-    struct TestCtx<'a> { mem: RamPage, regs: Regs, io: Io<'a>, }
+    struct TestCtx<'a> { mem: RamPage, regs: Regs, io: Io<'a> }
 
     impl<'a> TestCtx<'a> {
         fn new() -> Self { TestCtx { mem: RamPage::new(), regs: Regs::new(), io: Io::new() }}
+        fn bind_io(&mut self, port: u8, val: &'a mut u8) {
+            let dev = TestDev { val: val };
+            self.io.attach(port, dev);
+        }
     }
 
     impl<'a> ExecCtx<'a> for TestCtx<'a> {
@@ -1332,5 +1377,12 @@ mod test {
         fn mem(&mut self) -> &mut RamPage { &mut self.mem }
         fn regs(&mut self) -> &mut Regs { &mut self.regs }
         fn io(&mut self) -> &mut Io<'a> { &mut self.io }
+    }
+
+    struct TestDev<'a> { val: &'a mut u8 }
+
+    impl<'a> IoDevice for TestDev<'a> {
+        fn read(&mut self) -> u8 { *self.val }
+        fn write(&mut self, val: u8) { *self.val = val }
     }
 }
