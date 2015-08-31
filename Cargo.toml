@@ -20,3 +20,7 @@ name = "simproc"
 [[bin]]
 name = "spasm"
 path = "src/bin/spasm/main.rs"
+
+[[bin]]
+name = "spm"
+path = "src/bin/spm/main.rs"

@@ -41,7 +41,7 @@ impl<'a, M: Memory> Cpu<'a, M> {
     pub fn clock(&self) -> &ClockFreq { &self.clock }
 
     /// Returns the IO subsystem for this CPU
-    pub fn io(&mut self) -> &Io { &mut self.io }
+    pub fn io<'b>(&'b mut self) -> &'b mut Io<'a> { &mut self.io }
 
     /// Returns a shared adapter to the memory attached to this CPU.
     pub fn mem(&self) -> Mem<M> { Mem { mem: self.mem.clone() } }
@@ -50,7 +50,6 @@ impl<'a, M: Memory> Cpu<'a, M> {
     pub fn regs(&self) -> &Regs { &self.regs }
 
     /// Run one step, executing a single instruction
-    /// It returns how much time such step took.
     pub fn step(&mut self) {
         let start = precise_time_ns();
         let inst = {
