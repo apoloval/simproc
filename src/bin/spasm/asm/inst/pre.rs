@@ -60,6 +60,7 @@ pub fn pre_assemble_inst(
         "ldd" => pre_assemble_binary(args, Inst::Ldd),
         "std" => pre_assemble_binary(args, Inst::Std),
         "ldi" => pre_assemble_binary(args, Inst::Ldi),
+        "ldw" => pre_assemble_binary(args, Inst::Ldw),
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
         "pop" => pre_assemble_unary(args, Inst::Pop),
@@ -211,6 +212,9 @@ mod test {
 
     #[test]
     fn should_pre_assemble_ldi() { should_pre_assemble_binary_inst("ldi", Inst::Ldi) }
+
+    #[test]
+    fn should_pre_assemble_ldw() { should_pre_assemble_binary_inst("ldw", Inst::Ldw) }
 
     #[test]
     fn should_pre_assemble_ldsp() { should_pre_assemble_unary_inst("ldsp", Inst::Ldsp) }
