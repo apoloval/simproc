@@ -43,6 +43,7 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Ld(dst, src) => exec_ld(ctx, dst, src),
         &Inst::Ldd(dst, addr) => exec_ldd(ctx, dst, addr),
         &Inst::Ldi(dst, Immediate(val)) => exec_ldi(ctx, dst, val),
+        &Inst::Ldw(dst, addr) => exec_ldw(ctx, dst, addr),
         &Inst::St(dst, src) => exec_st(ctx, dst, src),
         &Inst::Std(dst, src) => exec_std(ctx, dst, src),
         &Inst::Ldsp(src) => exec_ldsp(ctx, src),
@@ -209,6 +210,11 @@ fn exec_ldd<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Addr) -> Cycle {
 fn exec_ldi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, val: u8) -> Cycle {
     ctx.regs().set_reg(dst, val);
     ctx.regs().pc += 2; 7
+}
+
+fn exec_ldw<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, addr: Addr) -> Cycle {
+    ctx.regs().set_areg(dst, addr);
+    ctx.regs().pc += 3; 10
 }
 
 fn exec_st<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, src: Reg) -> Cycle {
@@ -1086,6 +1092,14 @@ mod test {
         assert_eq!(exec(&Inst::Ldi(Reg::R0, Immediate(42)), &mut ctx), 7);
         assert_eq!(ctx.regs.r0(), 42);
         assert_eq!(ctx.regs.pc, 2);
+    }
+
+    #[test]
+    fn should_exec_ldw() {
+        let mut ctx = TestCtx::new();
+        assert_eq!(exec(&Inst::Ldw(AddrReg::A0, 0x1000), &mut ctx), 10);
+        assert_eq!(ctx.regs.a0(), 0x1000);
+        assert_eq!(ctx.regs.pc, 3);
     }
 
     #[test]

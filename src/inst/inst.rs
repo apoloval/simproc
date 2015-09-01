@@ -45,6 +45,7 @@ pub enum Inst<O: Operands> {
     Ldd(O::Reg, O::Addr),
     Std(O::Addr, O::Reg),
     Ldi(O::Reg, O::Immediate),
+    Ldw(O::AddrReg, O::Addr),
     Ldsp(O::AddrReg),
     Push(O::Reg),
     Pop(O::Reg),
@@ -163,6 +164,7 @@ impl RuntimeInst {
             &Inst::Ldd(ref r, a) => pack!(w, reg r in 0xc8, word a),
             &Inst::Std(a, ref r) => pack!(w, reg r in 0xd0, word a),
             &Inst::Ldi(ref r, Immediate(k)) => pack!(w, reg r in 0xd8, byte k),
+            &Inst::Ldw(ref a, addr) => pack!(w, reg a in 0xc4, word addr),
             &Inst::Ldsp(ref r) => pack!(w, reg r in 0x6c),
             &Inst::Push(ref r) => pack!(w, reg r in 0x70),
             &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
@@ -232,6 +234,7 @@ impl RuntimeInst {
             (_, 0xb4, _) => Some(Inst::Jcs(Self::decode_offset(first, next))),
             (_, 0xb8, _) => Some(Inst::Jvc(Self::decode_offset(first, next))),
             (_, 0xbc, _) => Some(Inst::Jvs(Self::decode_offset(first, next))),
+            (_, 0xc4, _) => Some(Inst::Ldw(Self::decode_areg(first), Self::decode_word(next, get!(bytes.next())))),
             (_, 0xe0, _) => Some(Inst::Rjmp(Self::decode_offset(first, next))),
             (_, 0xe4, _) => Some(Inst::Rcall(Self::decode_offset(first, next))),
             (_, _, 0x00) => Some(Inst::Nop),
@@ -415,6 +418,9 @@ mod test {
     fn encode_ldi() { assert_encode(Inst::Ldi(Reg::R2, Immediate(-13i8 as u8)), &[0xda, 0xf3]); }
 
     #[test]
+    fn encode_ldw() { assert_encode(Inst::Ldw(AddrReg::A1, 0x1020), &[0xc5, 0x20, 0x10]); }
+
+    #[test]
     fn encode_ldsp() { assert_encode(Inst::Ldsp(AddrReg::A1), &[0x6d]); }
 
     #[test]
@@ -586,6 +592,9 @@ mod test {
 
     #[test]
     fn decode_ldi() { assert_decode(Inst::Ldi(Reg::R0, Immediate(7)), &[0xd8, 0x07]) }
+
+    #[test]
+    fn decode_ldw() { assert_decode(Inst::Ldw(AddrReg::A0, 0x1020), &[0xc4, 0x20, 0x10]) }
 
     #[test]
     fn decode_ldsp() { assert_decode(Inst::Ldsp(AddrReg::A0), &[0x6c]) }

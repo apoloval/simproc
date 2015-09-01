@@ -47,6 +47,7 @@ pub fn inst_len(inst: &PreAssembledInst) -> usize {
         &Inst::Ldd(_, _) => 3,
         &Inst::Std(_, _) => 3,
         &Inst::Ldi(_, _) => 2,
+        &Inst::Ldw(_, _) => 3,
         &Inst::Ldsp(_) => 1,
         &Inst::Push(_) => 1,
         &Inst::In(_, _) => 2,

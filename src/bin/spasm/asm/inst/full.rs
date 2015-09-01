@@ -74,6 +74,8 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::St(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Ldd(r1, r2) =>
                 Ok(Inst::Ldd(try!(self.expr_asm.to_reg(r1)), try!(self.expr_asm.to_addr(r2)))),
+            Inst::Ldw(r1, addr) =>
+                Ok(Inst::Ldw(try!(self.expr_asm.to_areg(r1)), try!(self.expr_asm.to_addr(addr)))),
             Inst::Std(r1, r2) =>
                 Ok(Inst::Std(try!(self.expr_asm.to_addr(r1)), try!(self.expr_asm.to_reg(r2)))),
             Inst::Ldi(r, l) =>
@@ -214,6 +216,9 @@ mod test {
 
     #[test]
     fn should_asm_ldi() { should_asm_inst_reg_imm(Inst::Ldi, Inst::Ldi); }
+
+    #[test]
+    fn should_asm_ldw() { should_asm_inst_areg_addr(Inst::Ldw, Inst::Ldw); }
 
     #[test]
     fn should_asm_ldsp() { should_asm_inst_areg(Inst::Ldsp, Inst::Ldsp); }
@@ -512,6 +517,16 @@ mod test {
             pre, full,
             Reg::R0, 100,
             MockExprAssembler::with_reg, MockExprAssembler::with_addr);
+    }
+
+    fn should_asm_inst_areg_addr<I1, I2>(pre: I1, full: I2) where
+        I1: Fn(Expr, Expr) -> PreAssembledInst,
+        I2: Fn(AddrReg, Addr) -> RuntimeInst
+    {
+        should_asm_binary_inst(
+            pre, full,
+            AddrReg::A0, 100,
+            MockExprAssembler::with_areg, MockExprAssembler::with_addr);
     }
 
     fn should_asm_inst_addr_reg<I1, I2>(pre: I1, full: I2) where
