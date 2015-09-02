@@ -283,7 +283,8 @@ impl RuntimeInst {
     }
 
     fn decode_offset(first: u8, next: u8) -> RelAddr {
-        let buf = [ first & 0x3, next];
+        let msb = if first & 0x02 > 0 { first | 0xfc } else { first & 0x03 };
+        let buf = [ msb , next ];
         BigEndian::read_i16(&buf)
     }
 
@@ -639,7 +640,7 @@ mod test {
     fn decode_jmp() { assert_decode(Inst::Jmp(0x8000), &[0x8a, 0x00, 0x80]) }
 
     #[test]
-    fn decode_rjmp() { assert_decode(Inst::Rjmp(0x100), &[0xe1, 0x00]) }
+    fn decode_rjmp() { assert_decode(Inst::Rjmp(-2), &[0xe3, 0xfe]) }
 
     #[test]
     fn decode_ijmp() { assert_decode(Inst::Ijmp(AddrReg::A0), &[0x10]) }
