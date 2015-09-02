@@ -138,7 +138,7 @@ fn exec_binary_logic<M: Memory, L: Fn(u8, u8) -> u8>(
     regs.st.neg = is_neg(res);
     regs.st.overflow = false;
 
-    regs.pc += 1; 4
+    regs.pc += 2; 4
 }
 
 fn exec_inc<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, positive: bool) -> Cycle {
@@ -271,7 +271,7 @@ fn exec_out<M: Memory>(ctx: &mut ExecCtx<Mem=M>, port: IoPort, src: Reg) -> Cycl
 fn exec_rjmp<M: Memory, F: Fn(&StatusReg) -> bool>(
     ctx: &mut ExecCtx<Mem=M>, offset: RelAddr, f: F) -> Cycle
 {
-    let inc = if f(&ctx.regs().st) { offset as i32 } else { 1 };
+    let inc = if f(&ctx.regs().st) { offset as i32 } else { 2 };
     let pc = ctx.regs().pc as i32;
     ctx.regs().pc = (pc + inc) as u16; 7
 }
@@ -533,7 +533,7 @@ mod test {
         exec(&Inst::And(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0x0f);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
     }
@@ -567,7 +567,7 @@ mod test {
         exec(&Inst::Or(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0xff);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
     }
@@ -601,7 +601,7 @@ mod test {
         exec(&Inst::Xor(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0xff);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
     }
@@ -1194,10 +1194,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.zero = true;
         assert_eq!(exec(&Inst::Je(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.zero = false;
         assert_eq!(exec(&Inst::Je(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1205,10 +1205,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.zero = false;
         assert_eq!(exec(&Inst::Jne(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.zero = true;
         assert_eq!(exec(&Inst::Jne(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1216,10 +1216,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.neg = true;
         assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.neg = false;
         assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1227,10 +1227,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.neg = false;
         assert_eq!(exec(&Inst::Jge(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.neg = true;
         assert_eq!(exec(&Inst::Jge(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1238,10 +1238,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.carry = true;
         assert_eq!(exec(&Inst::Jcc(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.carry = false;
         assert_eq!(exec(&Inst::Jcc(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1249,10 +1249,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.carry = false;
         assert_eq!(exec(&Inst::Jcs(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.carry = true;
         assert_eq!(exec(&Inst::Jcs(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1260,10 +1260,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.overflow = true;
         assert_eq!(exec(&Inst::Jvc(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.overflow = false;
         assert_eq!(exec(&Inst::Jvc(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
@@ -1271,10 +1271,10 @@ mod test {
         let mut ctx = TestCtx::new();
         ctx.regs.st.overflow = false;
         assert_eq!(exec(&Inst::Jvs(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 1);
+        assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.overflow = true;
         assert_eq!(exec(&Inst::Jvs(100), &mut ctx), 7);
-        assert_eq!(ctx.regs.pc, 101);
+        assert_eq!(ctx.regs.pc, 102);
     }
 
     #[test]
