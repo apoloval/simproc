@@ -50,8 +50,8 @@ pub fn pre_assemble_inst(
         "asr" => pre_assemble_unary(args, Inst::Asr),
         "neg" => pre_assemble_unary(args, Inst::Neg),
         "com" => pre_assemble_unary(args, Inst::Com),
+        "inc" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Incw),
         "inc" => pre_assemble_unary(args, Inst::Inc),
-        "incw" => pre_assemble_unary(args, Inst::Incw),
         "dec" => pre_assemble_unary(args, Inst::Dec),
         "decw" => pre_assemble_unary(args, Inst::Decw),
         "mov" => pre_assemble_binary(args, Inst::Mov),
@@ -93,6 +93,13 @@ pub fn pre_assemble_inst(
 fn is_reg(args: &ExprList, i: usize) -> bool {
     match args.get(i) {
         Some(&Expr::Reg(_)) => true,
+        _ => false,
+    }
+}
+
+fn is_areg(args: &ExprList, i: usize) -> bool {
+    match args.get(i) {
+        Some(&Expr::AddrReg(_)) => true,
         _ => false,
     }
 }
@@ -195,10 +202,10 @@ mod test {
     fn should_pre_assemble_com() { should_pre_assemble_unary_inst("com", Inst::Com) }
 
     #[test]
-    fn should_pre_assemble_inc() { should_pre_assemble_unary_inst("inc", Inst::Inc) }
-
-    #[test]
-    fn should_pre_assemble_incw() { should_pre_assemble_unary_inst("incw", Inst::Incw) }
+    fn should_pre_assemble_inc() {
+        should_pre_assemble_unary_inst_with_ops("inc", Expr::Reg(Reg::R0), Inst::Inc);
+        should_pre_assemble_unary_inst_with_ops("inc", Expr::AddrReg(AddrReg::A0), Inst::Incw);
+    }
 
     #[test]
     fn should_pre_assemble_dec() { should_pre_assemble_unary_inst("dec", Inst::Dec) }
@@ -321,9 +328,15 @@ mod test {
     fn should_pre_assemble_unary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr) -> PreAssembledInst
     {
+        should_pre_assemble_unary_inst_with_ops(mnemo, Expr::Reg(Reg::R0), inst);
+    }
+
+    fn should_pre_assemble_unary_inst_with_ops<F>(mnemo: &str, e1: Expr, inst: F)
+        where F: FnOnce(Expr) -> PreAssembledInst
+    {
         assert_eq!(
-            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0))),
-            Ok(inst(Expr::Reg(Reg::R0))));
+            pre_assemble_inst(mnemo, vec!(e1.clone())),
+            Ok(inst(e1.clone())));
         assert_eq!(
             pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 0 }));
