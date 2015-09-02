@@ -39,9 +39,9 @@ pub fn pre_assemble_inst(
         "add" if is_reg(&args, 1) => pre_assemble_binary(args, Inst::Add),
         "add" => pre_assemble_binary(args, Inst::Addi),
         "adc" => pre_assemble_binary(args, Inst::Adc),
-        "sub" => pre_assemble_binary(args, Inst::Sub),
+        "sub" if is_reg(&args, 1) => pre_assemble_binary(args, Inst::Sub),
+        "sub" => pre_assemble_binary(args, Inst::Subi),
         "sbc" => pre_assemble_binary(args, Inst::Sbc),
-        "subi" => pre_assemble_binary(args, Inst::Subi),
         "and" => pre_assemble_binary(args, Inst::And),
         "or" => pre_assemble_binary(args, Inst::Or),
         "xor" => pre_assemble_binary(args, Inst::Xor),
@@ -160,13 +160,15 @@ mod test {
     fn should_pre_assemble_adc() { should_pre_assemble_binary_inst("adc", Inst::Adc) }
 
     #[test]
-    fn should_pre_assemble_sub() { should_pre_assemble_binary_inst("sub", Inst::Sub) }
+    fn should_pre_assemble_sub() {
+        should_pre_assemble_binary_inst_with_ops(
+            "sub", Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), Inst::Sub);
+        should_pre_assemble_binary_inst_with_ops(
+            "sub", Expr::Reg(Reg::R0), Expr::Number(42), Inst::Subi);
+    }
 
     #[test]
     fn should_pre_assemble_sbc() { should_pre_assemble_binary_inst("sbc", Inst::Sbc) }
-
-    #[test]
-    fn should_pre_assemble_subi() { should_pre_assemble_binary_inst("subi", Inst::Subi) }
 
     #[test]
     fn should_pre_assemble_and() { should_pre_assemble_binary_inst("and", Inst::And) }
