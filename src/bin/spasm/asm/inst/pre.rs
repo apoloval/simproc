@@ -52,8 +52,8 @@ pub fn pre_assemble_inst(
         "com" => pre_assemble_unary(args, Inst::Com),
         "inc" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Incw),
         "inc" => pre_assemble_unary(args, Inst::Inc),
+        "dec" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Decw),
         "dec" => pre_assemble_unary(args, Inst::Dec),
-        "decw" => pre_assemble_unary(args, Inst::Decw),
         "mov" => pre_assemble_binary(args, Inst::Mov),
         "ld" => pre_assemble_binary(args, Inst::Ld),
         "st" => pre_assemble_binary(args, Inst::St),
@@ -208,10 +208,10 @@ mod test {
     }
 
     #[test]
-    fn should_pre_assemble_dec() { should_pre_assemble_unary_inst("dec", Inst::Dec) }
-
-    #[test]
-    fn should_pre_assemble_decw() { should_pre_assemble_unary_inst("decw", Inst::Decw) }
+    fn should_pre_assemble_dec() {
+        should_pre_assemble_unary_inst_with_ops("dec", Expr::Reg(Reg::R0), Inst::Dec);
+        should_pre_assemble_unary_inst_with_ops("dec", Expr::AddrReg(AddrReg::A0), Inst::Decw);
+    }
 
     #[test]
     fn should_pre_assemble_mov() { should_pre_assemble_binary_inst("mov", Inst::Mov) }
