@@ -58,8 +58,8 @@ pub fn pre_assemble_inst(
         "ld" if is_areg(&args, 0) => pre_assemble_binary(args, Inst::Ldw),
         "ld" if !is_areg(&args, 1) => pre_assemble_binary(args, Inst::Ldd),
         "ld" => pre_assemble_binary(args, Inst::Ld),
+        "st" if !is_areg(&args, 0) => pre_assemble_binary(args, Inst::Std),
         "st" => pre_assemble_binary(args, Inst::St),
-        "std" => pre_assemble_binary(args, Inst::Std),
         "ldi" => pre_assemble_binary(args, Inst::Ldi),
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
@@ -227,10 +227,12 @@ mod test {
     }
 
     #[test]
-    fn should_pre_assemble_st() { should_pre_assemble_binary_inst("st", Inst::St) }
-
-    #[test]
-    fn should_pre_assemble_std() { should_pre_assemble_binary_inst("std", Inst::Std) }
+    fn should_pre_assemble_st() {
+        should_pre_assemble_binary_inst_with_ops(
+            "st", Expr::AddrReg(AddrReg::A0), Expr::Reg(Reg::R0), Inst::St);
+        should_pre_assemble_binary_inst_with_ops(
+            "st", Expr::Number(0x1234), Expr::AddrReg(AddrReg::A0), Inst::Std);
+    }
 
     #[test]
     fn should_pre_assemble_ldi() { should_pre_assemble_binary_inst("ldi", Inst::Ldi) }
