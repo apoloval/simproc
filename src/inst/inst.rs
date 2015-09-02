@@ -143,8 +143,11 @@ impl RuntimeInst {
             &Inst::Sbc(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x2c),
             &Inst::Sbc(ref r1, ref r2) => pack!(w, 0x83, regs r1, r2 in 0x00),
             &Inst::Subi(ref r, Immediate(k)) => pack!(w, reg r in 0x98, byte k),
+            &Inst::And(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x30),
             &Inst::And(ref r1, ref r2) => pack!(w, 0x84, regs r1, r2 in 0x00),
+            &Inst::Or(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x34),
             &Inst::Or(ref r1, ref r2) => pack!(w, 0x85, regs r1, r2 in 0x00),
+            &Inst::Xor(ref r1, ref r2) if Self::is_onebyte(r1, r2) => pack!(w, reg r2 in 0x38),
             &Inst::Xor(ref r1, ref r2) => pack!(w, 0x86, regs r1, r2 in 0x00),
             &Inst::Lsl(ref r1) => pack!(w, 0x87, reg r1 in 0x00),
             &Inst::Lsr(ref r1) => pack!(w, 0x88, reg r1 in 0x00),
@@ -353,13 +356,25 @@ mod test {
     fn encode_subi() { assert_encode(Inst::Subi(Reg::R3, Immediate(100)), &[0x9b, 0x64]); }
 
     #[test]
-    fn encode_and() { assert_encode(Inst::And(Reg::R3, Reg::R5), &[0x84, 0x1d]); }
+    fn encode_and() {
+        assert_encode(Inst::And(Reg::R0, Reg::R1), &[0x31]);
+        assert_encode(Inst::And(Reg::R0, Reg::R4), &[0x84, 0x04]);
+        assert_encode(Inst::And(Reg::R3, Reg::R5), &[0x84, 0x1d]);
+    }
 
     #[test]
-    fn encode_or() { assert_encode(Inst::Or(Reg::R3, Reg::R5), &[0x85, 0x1d]); }
+    fn encode_or() {
+        assert_encode(Inst::Or(Reg::R0, Reg::R1), &[0x35]);
+        assert_encode(Inst::Or(Reg::R0, Reg::R4), &[0x85, 0x04]);
+        assert_encode(Inst::Or(Reg::R3, Reg::R5), &[0x85, 0x1d]);
+    }
 
     #[test]
-    fn encode_xor() { assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0x86, 0x0f]); }
+    fn encode_xor() {
+        assert_encode(Inst::Xor(Reg::R0, Reg::R1), &[0x39]);
+        assert_encode(Inst::Xor(Reg::R0, Reg::R4), &[0x86, 0x04]);
+        assert_encode(Inst::Xor(Reg::R1, Reg::R7), &[0x86, 0x0f]);
+    }
 
     #[test]
     fn encode_lsl() { assert_encode(Inst::Lsl(Reg::R3), &[0x87, 0x03]); }
