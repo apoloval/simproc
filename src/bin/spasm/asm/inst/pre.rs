@@ -36,12 +36,12 @@ pub fn pre_assemble_inst(
     args: ExprList) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     match mnemo.to_ascii_lowercase().trim() {
-        "add" => pre_assemble_binary(args, Inst::Add),
+        "add" if is_reg(&args, 1) => pre_assemble_binary(args, Inst::Add),
+        "add" => pre_assemble_binary(args, Inst::Addi),
         "adc" => pre_assemble_binary(args, Inst::Adc),
-        "addi" => pre_assemble_binary(args, Inst::Addi),
-        "sub" => pre_assemble_binary(args, Inst::Sub),
+        "sub" if is_reg(&args, 1) => pre_assemble_binary(args, Inst::Sub),
+        "sub" => pre_assemble_binary(args, Inst::Subi),
         "sbc" => pre_assemble_binary(args, Inst::Sbc),
-        "subi" => pre_assemble_binary(args, Inst::Subi),
         "and" => pre_assemble_binary(args, Inst::And),
         "or" => pre_assemble_binary(args, Inst::Or),
         "xor" => pre_assemble_binary(args, Inst::Xor),
@@ -50,17 +50,17 @@ pub fn pre_assemble_inst(
         "asr" => pre_assemble_unary(args, Inst::Asr),
         "neg" => pre_assemble_unary(args, Inst::Neg),
         "com" => pre_assemble_unary(args, Inst::Com),
+        "inc" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Incw),
         "inc" => pre_assemble_unary(args, Inst::Inc),
-        "incw" => pre_assemble_unary(args, Inst::Incw),
+        "dec" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Decw),
         "dec" => pre_assemble_unary(args, Inst::Dec),
-        "decw" => pre_assemble_unary(args, Inst::Decw),
         "mov" => pre_assemble_binary(args, Inst::Mov),
+        "ld" if is_areg(&args, 0) => pre_assemble_binary(args, Inst::Ldw),
+        "ld" if !is_areg(&args, 1) => pre_assemble_binary(args, Inst::Ldd),
         "ld" => pre_assemble_binary(args, Inst::Ld),
+        "st" if !is_areg(&args, 0) => pre_assemble_binary(args, Inst::Std),
         "st" => pre_assemble_binary(args, Inst::St),
-        "ldd" => pre_assemble_binary(args, Inst::Ldd),
-        "std" => pre_assemble_binary(args, Inst::Std),
         "ldi" => pre_assemble_binary(args, Inst::Ldi),
-        "ldw" => pre_assemble_binary(args, Inst::Ldw),
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
         "pop" => pre_assemble_unary(args, Inst::Pop),
@@ -87,6 +87,20 @@ pub fn pre_assemble_inst(
         "ei" => pre_assemble_nullary(args, Inst::Ei),
         "di" => pre_assemble_nullary(args, Inst::Di),
         _ => Err(MnemoAssembleError::UnknownMnemo(mnemo.to_string()))
+    }
+}
+
+fn is_reg(args: &ExprList, i: usize) -> bool {
+    match args.get(i) {
+        Some(&Expr::Reg(_)) => true,
+        _ => false,
+    }
+}
+
+fn is_areg(args: &ExprList, i: usize) -> bool {
+    match args.get(i) {
+        Some(&Expr::AddrReg(_)) => true,
+        _ => false,
     }
 }
 
@@ -142,22 +156,26 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_pre_assemble_add() { should_pre_assemble_binary_inst("add", Inst::Add) }
+    fn should_pre_assemble_add() {
+        should_pre_assemble_binary_inst_with_ops(
+            "add", Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), Inst::Add);
+        should_pre_assemble_binary_inst_with_ops(
+            "add", Expr::Reg(Reg::R0), Expr::Number(42), Inst::Addi);
+    }
 
     #[test]
     fn should_pre_assemble_adc() { should_pre_assemble_binary_inst("adc", Inst::Adc) }
 
     #[test]
-    fn should_pre_assemble_addi() { should_pre_assemble_binary_inst("addi", Inst::Addi) }
-
-    #[test]
-    fn should_pre_assemble_sub() { should_pre_assemble_binary_inst("sub", Inst::Sub) }
+    fn should_pre_assemble_sub() {
+        should_pre_assemble_binary_inst_with_ops(
+            "sub", Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), Inst::Sub);
+        should_pre_assemble_binary_inst_with_ops(
+            "sub", Expr::Reg(Reg::R0), Expr::Number(42), Inst::Subi);
+    }
 
     #[test]
     fn should_pre_assemble_sbc() { should_pre_assemble_binary_inst("sbc", Inst::Sbc) }
-
-    #[test]
-    fn should_pre_assemble_subi() { should_pre_assemble_binary_inst("subi", Inst::Subi) }
 
     #[test]
     fn should_pre_assemble_and() { should_pre_assemble_binary_inst("and", Inst::And) }
@@ -184,37 +202,40 @@ mod test {
     fn should_pre_assemble_com() { should_pre_assemble_unary_inst("com", Inst::Com) }
 
     #[test]
-    fn should_pre_assemble_inc() { should_pre_assemble_unary_inst("inc", Inst::Inc) }
+    fn should_pre_assemble_inc() {
+        should_pre_assemble_unary_inst_with_ops("inc", Expr::Reg(Reg::R0), Inst::Inc);
+        should_pre_assemble_unary_inst_with_ops("inc", Expr::AddrReg(AddrReg::A0), Inst::Incw);
+    }
 
     #[test]
-    fn should_pre_assemble_incw() { should_pre_assemble_unary_inst("incw", Inst::Incw) }
-
-    #[test]
-    fn should_pre_assemble_dec() { should_pre_assemble_unary_inst("dec", Inst::Dec) }
-
-    #[test]
-    fn should_pre_assemble_decw() { should_pre_assemble_unary_inst("decw", Inst::Decw) }
+    fn should_pre_assemble_dec() {
+        should_pre_assemble_unary_inst_with_ops("dec", Expr::Reg(Reg::R0), Inst::Dec);
+        should_pre_assemble_unary_inst_with_ops("dec", Expr::AddrReg(AddrReg::A0), Inst::Decw);
+    }
 
     #[test]
     fn should_pre_assemble_mov() { should_pre_assemble_binary_inst("mov", Inst::Mov) }
 
     #[test]
-    fn should_pre_assemble_ld() { should_pre_assemble_binary_inst("ld", Inst::Ld) }
+    fn should_pre_assemble_ld() {
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::Reg(Reg::R0), Expr::AddrReg(AddrReg::A0), Inst::Ld);
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::Reg(Reg::R0), Expr::Number(0x1234), Inst::Ldd);
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::AddrReg(AddrReg::A0), Expr::Number(0x1234), Inst::Ldw);
+    }
 
     #[test]
-    fn should_pre_assemble_st() { should_pre_assemble_binary_inst("st", Inst::St) }
-
-    #[test]
-    fn should_pre_assemble_ldd() { should_pre_assemble_binary_inst("ldd", Inst::Ldd) }
-
-    #[test]
-    fn should_pre_assemble_std() { should_pre_assemble_binary_inst("std", Inst::Std) }
+    fn should_pre_assemble_st() {
+        should_pre_assemble_binary_inst_with_ops(
+            "st", Expr::AddrReg(AddrReg::A0), Expr::Reg(Reg::R0), Inst::St);
+        should_pre_assemble_binary_inst_with_ops(
+            "st", Expr::Number(0x1234), Expr::AddrReg(AddrReg::A0), Inst::Std);
+    }
 
     #[test]
     fn should_pre_assemble_ldi() { should_pre_assemble_binary_inst("ldi", Inst::Ldi) }
-
-    #[test]
-    fn should_pre_assemble_ldw() { should_pre_assemble_binary_inst("ldw", Inst::Ldw) }
 
     #[test]
     fn should_pre_assemble_ldsp() { should_pre_assemble_unary_inst("ldsp", Inst::Ldsp) }
@@ -310,9 +331,15 @@ mod test {
     fn should_pre_assemble_unary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr) -> PreAssembledInst
     {
+        should_pre_assemble_unary_inst_with_ops(mnemo, Expr::Reg(Reg::R0), inst);
+    }
+
+    fn should_pre_assemble_unary_inst_with_ops<F>(mnemo: &str, e1: Expr, inst: F)
+        where F: FnOnce(Expr) -> PreAssembledInst
+    {
         assert_eq!(
-            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0))),
-            Ok(inst(Expr::Reg(Reg::R0))));
+            pre_assemble_inst(mnemo, vec!(e1.clone())),
+            Ok(inst(e1.clone())));
         assert_eq!(
             pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 1, given: 0 }));
@@ -324,9 +351,16 @@ mod test {
     fn should_pre_assemble_binary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr, Expr) -> PreAssembledInst
     {
+        should_pre_assemble_binary_inst_with_ops(
+            mnemo, Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), inst);
+    }
+
+    fn should_pre_assemble_binary_inst_with_ops<F>(mnemo: &str, e1: Expr, e2: Expr, inst: F)
+        where F: FnOnce(Expr, Expr) -> PreAssembledInst
+    {
         assert_eq!(
-            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
-            Ok(inst(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))));
+            pre_assemble_inst(mnemo, vec!(e1.clone(), e2.clone())),
+            Ok(inst(e1.clone(), e2.clone())));
         assert_eq!(
             pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 0 }));
