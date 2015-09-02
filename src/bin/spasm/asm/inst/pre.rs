@@ -55,12 +55,12 @@ pub fn pre_assemble_inst(
         "dec" if is_areg(&args, 0) => pre_assemble_unary(args, Inst::Decw),
         "dec" => pre_assemble_unary(args, Inst::Dec),
         "mov" => pre_assemble_binary(args, Inst::Mov),
+        "ld" if is_areg(&args, 0) => pre_assemble_binary(args, Inst::Ldw),
+        "ld" if !is_areg(&args, 1) => pre_assemble_binary(args, Inst::Ldd),
         "ld" => pre_assemble_binary(args, Inst::Ld),
         "st" => pre_assemble_binary(args, Inst::St),
-        "ldd" => pre_assemble_binary(args, Inst::Ldd),
         "std" => pre_assemble_binary(args, Inst::Std),
         "ldi" => pre_assemble_binary(args, Inst::Ldi),
-        "ldw" => pre_assemble_binary(args, Inst::Ldw),
         "ldsp" => pre_assemble_unary(args, Inst::Ldsp),
         "push" => pre_assemble_unary(args, Inst::Push),
         "pop" => pre_assemble_unary(args, Inst::Pop),
@@ -217,22 +217,23 @@ mod test {
     fn should_pre_assemble_mov() { should_pre_assemble_binary_inst("mov", Inst::Mov) }
 
     #[test]
-    fn should_pre_assemble_ld() { should_pre_assemble_binary_inst("ld", Inst::Ld) }
+    fn should_pre_assemble_ld() {
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::Reg(Reg::R0), Expr::AddrReg(AddrReg::A0), Inst::Ld);
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::Reg(Reg::R0), Expr::Number(0x1234), Inst::Ldd);
+        should_pre_assemble_binary_inst_with_ops(
+            "ld", Expr::AddrReg(AddrReg::A0), Expr::Number(0x1234), Inst::Ldw);
+    }
 
     #[test]
     fn should_pre_assemble_st() { should_pre_assemble_binary_inst("st", Inst::St) }
-
-    #[test]
-    fn should_pre_assemble_ldd() { should_pre_assemble_binary_inst("ldd", Inst::Ldd) }
 
     #[test]
     fn should_pre_assemble_std() { should_pre_assemble_binary_inst("std", Inst::Std) }
 
     #[test]
     fn should_pre_assemble_ldi() { should_pre_assemble_binary_inst("ldi", Inst::Ldi) }
-
-    #[test]
-    fn should_pre_assemble_ldw() { should_pre_assemble_binary_inst("ldw", Inst::Ldw) }
 
     #[test]
     fn should_pre_assemble_ldsp() { should_pre_assemble_unary_inst("ldsp", Inst::Ldsp) }
