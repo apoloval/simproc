@@ -36,9 +36,9 @@ pub fn pre_assemble_inst(
     args: ExprList) -> Result<PreAssembledInst, MnemoAssembleError>
 {
     match mnemo.to_ascii_lowercase().trim() {
-        "add" => pre_assemble_binary(args, Inst::Add),
+        "add" if is_reg(&args, 1) => pre_assemble_binary(args, Inst::Add),
+        "add" => pre_assemble_binary(args, Inst::Addi),
         "adc" => pre_assemble_binary(args, Inst::Adc),
-        "addi" => pre_assemble_binary(args, Inst::Addi),
         "sub" => pre_assemble_binary(args, Inst::Sub),
         "sbc" => pre_assemble_binary(args, Inst::Sbc),
         "subi" => pre_assemble_binary(args, Inst::Subi),
@@ -87,6 +87,13 @@ pub fn pre_assemble_inst(
         "ei" => pre_assemble_nullary(args, Inst::Ei),
         "di" => pre_assemble_nullary(args, Inst::Di),
         _ => Err(MnemoAssembleError::UnknownMnemo(mnemo.to_string()))
+    }
+}
+
+fn is_reg(args: &ExprList, i: usize) -> bool {
+    match args.get(i) {
+        Some(&Expr::Reg(_)) => true,
+        _ => false,
     }
 }
 
@@ -142,13 +149,15 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_pre_assemble_add() { should_pre_assemble_binary_inst("add", Inst::Add) }
+    fn should_pre_assemble_add() {
+        should_pre_assemble_binary_inst_with_ops(
+            "add", Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), Inst::Add);
+        should_pre_assemble_binary_inst_with_ops(
+            "add", Expr::Reg(Reg::R0), Expr::Number(42), Inst::Addi);
+    }
 
     #[test]
     fn should_pre_assemble_adc() { should_pre_assemble_binary_inst("adc", Inst::Adc) }
-
-    #[test]
-    fn should_pre_assemble_addi() { should_pre_assemble_binary_inst("addi", Inst::Addi) }
 
     #[test]
     fn should_pre_assemble_sub() { should_pre_assemble_binary_inst("sub", Inst::Sub) }
@@ -324,9 +333,16 @@ mod test {
     fn should_pre_assemble_binary_inst<F>(mnemo: &str, inst: F)
         where F: FnOnce(Expr, Expr) -> PreAssembledInst
     {
+        should_pre_assemble_binary_inst_with_ops(
+            mnemo, Expr::Reg(Reg::R0), Expr::Reg(Reg::R1), inst);
+    }
+
+    fn should_pre_assemble_binary_inst_with_ops<F>(mnemo: &str, e1: Expr, e2: Expr, inst: F)
+        where F: FnOnce(Expr, Expr) -> PreAssembledInst
+    {
         assert_eq!(
-            pre_assemble_inst(mnemo, vec!(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))),
-            Ok(inst(Expr::Reg(Reg::R0), Expr::Reg(Reg::R1))));
+            pre_assemble_inst(mnemo, vec!(e1.clone(), e2.clone())),
+            Ok(inst(e1.clone(), e2.clone())));
         assert_eq!(
             pre_assemble_inst(mnemo, vec![]),
             Err(MnemoAssembleError::BadArgumentCount { expected: 2, given: 0 }));
