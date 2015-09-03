@@ -56,7 +56,7 @@ pub enum Inst<O: Operands> {
     Jnz(O::RelAddr),
     Jz(O::RelAddr),
     Jp(O::RelAddr),
-    Jge(O::RelAddr),
+    Jn(O::RelAddr),
     Jcc(O::RelAddr),
     Jcs(O::RelAddr),
     Jvc(O::RelAddr),
@@ -176,7 +176,7 @@ impl RuntimeInst {
             &Inst::Jnz(o) => pack!(w, offset o in 0xa0),
             &Inst::Jz(o) => pack!(w, offset o in 0xa4),
             &Inst::Jp(o) => pack!(w, offset o in 0xa8),
-            &Inst::Jge(o) => pack!(w, offset o in 0xac),
+            &Inst::Jn(o) => pack!(w, offset o in 0xac),
             &Inst::Jcc(o) => pack!(w, offset o in 0xb0),
             &Inst::Jcs(o) => pack!(w, offset o in 0xb4),
             &Inst::Jvc(o) => pack!(w, offset o in 0xb8),
@@ -235,7 +235,7 @@ impl RuntimeInst {
             (_, 0xa0, _) => Some(Inst::Jnz(Self::decode_offset(first, next))),
             (_, 0xa4, _) => Some(Inst::Jz(Self::decode_offset(first, next))),
             (_, 0xa8, _) => Some(Inst::Jp(Self::decode_offset(first, next))),
-            (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
+            (_, 0xac, _) => Some(Inst::Jn(Self::decode_offset(first, next))),
             (_, 0xb0, _) => Some(Inst::Jcc(Self::decode_offset(first, next))),
             (_, 0xb4, _) => Some(Inst::Jcs(Self::decode_offset(first, next))),
             (_, 0xb8, _) => Some(Inst::Jvc(Self::decode_offset(first, next))),
@@ -464,7 +464,7 @@ mod test {
     fn encode_jp() { assert_encode(Inst::Jp(2), &[0xa8, 0x02]); }
 
     #[test]
-    fn encode_jge() { assert_encode(Inst::Jge(-2), &[0xaf, 0xfe]); }
+    fn encode_jn() { assert_encode(Inst::Jn(-2), &[0xaf, 0xfe]); }
 
     #[test]
     fn encode_jcc() { assert_encode(Inst::Jcc(3), &[0xb0, 0x03]); }
@@ -652,7 +652,7 @@ mod test {
     fn decode_jp() { assert_decode(Inst::Jp(0x100), &[0xa9, 0x00]) }
 
     #[test]
-    fn decode_jge() { assert_decode(Inst::Jge(0x100), &[0xad, 0x00]) }
+    fn decode_jn() { assert_decode(Inst::Jn(0x100), &[0xad, 0x00]) }
 
     #[test]
     fn decode_jcc() { assert_decode(Inst::Jcc(0x100), &[0xb1, 0x00]) }

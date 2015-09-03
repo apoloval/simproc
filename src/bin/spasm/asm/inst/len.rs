@@ -56,7 +56,7 @@ pub fn inst_len(inst: &PreAssembledInst) -> usize {
         &Inst::Jnz(_) => 2,
         &Inst::Jz(_) => 2,
         &Inst::Jp(_) => 2,
-        &Inst::Jge(_) => 2,
+        &Inst::Jn(_) => 2,
         &Inst::Jcc(_) => 2,
         &Inst::Jcs(_) => 2,
         &Inst::Jvc(_) => 2,
