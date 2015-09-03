@@ -48,6 +48,7 @@ pub enum Token {
     Minus,
     Number(i64),
     Reg(Reg),
+    String(String),
     Unknown(String),
 }
 
@@ -67,6 +68,7 @@ impl fmt::Display for Token {
             &Token::Minus => write!(fmt, "-"),
             &Token::Number(n) => write!(fmt, "number {}", n),
             &Token::Reg(reg) => write!(fmt, "register {}", reg),
+            &Token::String(ref s) => write!(fmt, "string \"{}\"", s),
             &Token::Unknown(ref token) => write!(fmt, "unknown token `{}`", token),
         }
     }
@@ -202,6 +204,12 @@ impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
             ':' => { self.take(1); Some(Token::Colon) },
             ',' => { self.take(1); Some(Token::Comma) },
             '-' => { self.take(1); Some(Token::Minus) },
+            '"' => {
+                self.take(1);
+                let s = self.take_while(|c| *c != '\n' && *c != '"');
+                if self.next_char() == Some('"') { self.take(1); }
+                Some(Token::String(s))
+            },
             '0' => {
                 let zero = self.take(1);
                 let num = match self.next_char() {
@@ -301,6 +309,31 @@ mod test {
         let mut scanner = Scanner::scan("-".chars());
         assert_eq!(Some(Token::Minus), scanner.next());
         assert_eq!(Some(Token::Eol(sline!(1, "-"))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string() {
+        let mut scanner = Scanner::scan("\"foobar\"".chars());
+        assert_eq!(Some(Token::String("foobar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foobar\""))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_eol_ending() {
+        let mut scanner = Scanner::scan("\"foobar\n".chars());
+        assert_eq!(Some(Token::String("foobar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foobar"))), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(2, ""))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_eof_ending() {
+        let mut scanner = Scanner::scan("\"foobar".chars());
+        assert_eq!(Some(Token::String("foobar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foobar"))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
