@@ -182,6 +182,27 @@ impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
     fn decode_dec(s: &str) -> i64 {
         FromStr::from_str(s).ok().unwrap()
     }
+
+    fn escape(s: String) -> String {
+        let mut r = String::with_capacity(256);
+        let mut chars = s.chars();
+        loop {
+            match chars.next() {
+                Some('\\') => {
+                    match chars.next() {
+                        Some('n') => r.push('\n'),
+                        Some('r') => r.push('\r'),
+                        Some('t') => r.push('\t'),
+                        Some('\\') => r.push('\\'),
+                        Some(other) => { r.push('\\'); r.push(other) },
+                        None => { r.push('\\'); return r; }
+                    }
+                },
+                Some(other) => { r.push(other) },
+                None => return r,
+            }
+        }
+    }
 }
 
 impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
@@ -206,7 +227,7 @@ impl<I : Iterator<Item=ScannerInput>> Iterator for Scanner<I> {
             '-' => { self.take(1); Some(Token::Minus) },
             '"' => {
                 self.take(1);
-                let s = self.take_while(|c| *c != '\n' && *c != '"');
+                let s = Self::escape(self.take_while(|c| *c != '\n' && *c != '"'));
                 if self.next_char() == Some('"') { self.take(1); }
                 Some(Token::String(s))
             },
@@ -334,6 +355,38 @@ mod test {
         let mut scanner = Scanner::scan("\"foobar".chars());
         assert_eq!(Some(Token::String("foobar".to_string())), scanner.next());
         assert_eq!(Some(Token::Eol(sline!(1, "\"foobar"))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_scaped_eol() {
+        let mut scanner = Scanner::scan("\"foo\\nbar\"".chars());
+        assert_eq!(Some(Token::String("foo\nbar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foo\\nbar\""))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_scaped_tab() {
+        let mut scanner = Scanner::scan("\"foo\\tbar\"".chars());
+        assert_eq!(Some(Token::String("foo\tbar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foo\\tbar\""))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_scaped_cr() {
+        let mut scanner = Scanner::scan("\"foo\\rbar\"".chars());
+        assert_eq!(Some(Token::String("foo\rbar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foo\\rbar\""))), scanner.next());
+        assert_eq!(None, scanner.next());
+    }
+
+    #[test]
+    fn should_scan_string_with_scaped_slash() {
+        let mut scanner = Scanner::scan("\"foo\\\\nbar\"".chars());
+        assert_eq!(Some(Token::String("foo\\nbar".to_string())), scanner.next());
+        assert_eq!(Some(Token::Eol(sline!(1, "\"foo\\\\nbar\""))), scanner.next());
         assert_eq!(None, scanner.next());
     }
 
