@@ -54,7 +54,7 @@ pub enum Inst<O: Operands> {
 
     // Branching instructions
     Jnz(O::RelAddr),
-    Jne(O::RelAddr),
+    Jz(O::RelAddr),
     Jl(O::RelAddr),
     Jge(O::RelAddr),
     Jcc(O::RelAddr),
@@ -174,7 +174,7 @@ impl RuntimeInst {
             &Inst::In(ref r, IoPort(p)) => pack!(w, reg r in 0xf0, byte p),
             &Inst::Out(IoPort(p), ref r) => pack!(w, reg r in 0xf8, byte p),
             &Inst::Jnz(o) => pack!(w, offset o in 0xa0),
-            &Inst::Jne(o) => pack!(w, offset o in 0xa4),
+            &Inst::Jz(o) => pack!(w, offset o in 0xa4),
             &Inst::Jl(o) => pack!(w, offset o in 0xa8),
             &Inst::Jge(o) => pack!(w, offset o in 0xac),
             &Inst::Jcc(o) => pack!(w, offset o in 0xb0),
@@ -233,7 +233,7 @@ impl RuntimeInst {
             (_, 0x68, _) => Some(Inst::St(Self::decode_areg(first), Reg::R0)),
             (_, 0x6c, _) => Some(Inst::Ldsp(Self::decode_areg(first))),
             (_, 0xa0, _) => Some(Inst::Jnz(Self::decode_offset(first, next))),
-            (_, 0xa4, _) => Some(Inst::Jne(Self::decode_offset(first, next))),
+            (_, 0xa4, _) => Some(Inst::Jz(Self::decode_offset(first, next))),
             (_, 0xa8, _) => Some(Inst::Jl(Self::decode_offset(first, next))),
             (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
             (_, 0xb0, _) => Some(Inst::Jcc(Self::decode_offset(first, next))),
@@ -458,7 +458,7 @@ mod test {
     fn encode_jnz() { assert_encode(Inst::Jnz(1), &[0xa0, 0x01]); }
 
     #[test]
-    fn encode_jne() { assert_encode(Inst::Jne(-1), &[0xa7, 0xff]); }
+    fn encode_jz() { assert_encode(Inst::Jz(-1), &[0xa7, 0xff]); }
 
     #[test]
     fn encode_jl() { assert_encode(Inst::Jl(2), &[0xa8, 0x02]); }
@@ -646,7 +646,7 @@ mod test {
     fn decode_jnz() { assert_decode(Inst::Jnz(0x100), &[0xa1, 0x00]) }
 
     #[test]
-    fn decode_jne() { assert_decode(Inst::Jne(0x100), &[0xa5, 0x00]) }
+    fn decode_jz() { assert_decode(Inst::Jz(0x100), &[0xa5, 0x00]) }
 
     #[test]
     fn decode_jl() { assert_decode(Inst::Jl(0x100), &[0xa9, 0x00]) }
