@@ -53,15 +53,16 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Pop(dst) => exec_pop(ctx, dst),
         &Inst::In(dst, port) => exec_in(ctx, dst, port),
         &Inst::Out(port, src) => exec_out(ctx, port, src),
-        &Inst::Je(offset) => exec_rjmp(ctx, offset, |st| !st.zero),
-        &Inst::Jne(offset) => exec_rjmp(ctx, offset, |st| st.zero),
-        &Inst::Jl(offset) => exec_rjmp(ctx, offset, |st| !st.neg),
-        &Inst::Jge(offset) => exec_rjmp(ctx, offset, |st| st.neg),
-        &Inst::Jcc(offset) => exec_rjmp(ctx, offset, |st| !st.carry),
-        &Inst::Jcs(offset) => exec_rjmp(ctx, offset, |st| st.carry),
-        &Inst::Jvc(offset) => exec_rjmp(ctx, offset, |st| !st.overflow),
-        &Inst::Jvs(offset) => exec_rjmp(ctx, offset, |st| st.overflow),
-        &Inst::Rjmp(offset) => exec_rjmp(ctx, offset, |_| true),
+        &Inst::Je(offset) => exec_rjmp(ctx, offset, |st| !st.zero, false),
+        &Inst::Jne(offset) => exec_rjmp(ctx, offset, |st| st.zero, false),
+        &Inst::Jl(offset) => exec_rjmp(ctx, offset, |st| !st.neg, false),
+        &Inst::Jge(offset) => exec_rjmp(ctx, offset, |st| st.neg, false),
+        &Inst::Jcc(offset) => exec_rjmp(ctx, offset, |st| !st.carry, false),
+        &Inst::Jcs(offset) => exec_rjmp(ctx, offset, |st| st.carry, false),
+        &Inst::Jvc(offset) => exec_rjmp(ctx, offset, |st| !st.overflow, false),
+        &Inst::Jvs(offset) => exec_rjmp(ctx, offset, |st| st.overflow, false),
+        &Inst::Rjmp(offset) => exec_rjmp(ctx, offset, |_| true, false),
+        &Inst::Rcall(offset) => exec_rjmp(ctx, offset, |_| true, true),
         &Inst::Jmp(addr) => exec_jmp(ctx, addr, false),
         &Inst::Call(addr) => exec_jmp(ctx, addr, true),
         &Inst::Ijmp(src) => exec_ijmp(ctx, src, false),
@@ -72,7 +73,6 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Halt => exec_halt(),
         &Inst::Ei => exec_set_int(ctx, true),
         &Inst::Di => exec_set_int(ctx, false),
-        _ => unimplemented!(),
     }
 }
 
@@ -290,11 +290,19 @@ fn exec_out<M: Memory>(ctx: &mut ExecCtx<Mem=M>, port: IoPort, src: Reg) -> Cycl
 }
 
 fn exec_rjmp<M: Memory, F: Fn(&StatusReg) -> bool>(
-    ctx: &mut ExecCtx<Mem=M>, offset: RelAddr, f: F) -> Cycle
+    ctx: &mut ExecCtx<Mem=M>, offset: RelAddr, f: F, is_call: bool) -> Cycle
 {
-    let inc = if f(&ctx.regs().st) { offset as i32 } else { 2 };
     let pc = ctx.regs().pc as i32;
-    ctx.regs().pc = (pc + inc) as u16; 7
+    let cont = add(pc as u16, 2);
+    let inc = if f(&ctx.regs().st) { offset as i32 } else { 2 };
+    ctx.regs().pc = (pc + inc) as u16;
+    if is_call {
+        let sp = add(ctx.regs().sp, -2);
+        ctx.mem().write(sp, cont as u8);
+        ctx.mem().write(sp + 1, (cont >> 8) as u8);
+        ctx.regs().sp = sp;
+        13
+    } else { 7 }
 }
 
 fn exec_jmp<M: Memory>(ctx: &mut ExecCtx<Mem=M>, addr: Addr, is_call: bool) -> Cycle {
@@ -1438,6 +1446,17 @@ mod test {
         let mut ctx = TestCtx::new();
         assert_eq!(exec(&Inst::Rjmp(100), &mut ctx), 7);
         assert_eq!(ctx.regs.pc, 100);
+    }
+
+    #[test]
+    fn should_exec_rcall() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.sp = 0x1002;
+        ctx.regs.pc = 0x5060;
+        assert_eq!(exec(&Inst::Rcall(0x10), &mut ctx), 13);
+        assert_eq!(ctx.regs.pc, 0x5070);
+        assert_eq!(ctx.mem().read(0x1000), 0x62);
+        assert_eq!(ctx.mem().read(0x1001), 0x50);
     }
 
     #[test]
