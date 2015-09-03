@@ -46,5 +46,6 @@ them in the `target/release` directory after a successful build.
 into binary machine code. Execute `spasm --help` to know how to use it.
 
 * `spm` is the SimProc Machine. It is a very simple machine with SP-80 CPU that
-maps stdout to the IO port 0x10. In other words, you can write SP-80 code that
-writes to your terminal using `out` instruction.
+maps stdin and stdout to the IO port 0x10. In other words, you can write SP-80
+code that reads and writes from and to your terminal using `in` and `out`
+instructions.

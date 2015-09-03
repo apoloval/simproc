@@ -6,7 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::io::Write;
+use std::io::{stdin, Read, Write};
+use std::sync::mpsc::{channel, Receiver};
+use std::thread;
 
 use simproc::cpu::{Cpu, IoDevice};
 use simproc::mem::{MemBank, RamPage, RomPage};
@@ -18,20 +20,35 @@ pub struct Machine<'a> {
 }
 
 struct Console<W: Write> {
-    output: W
+    output: W,
+    input: Receiver<u8>,
 }
 
 impl<W: Write> Console<W> {
     pub fn with_output(output: W) -> Self {
-        Console { output: output }
+        let (tx, rx) = channel();
+        thread::spawn(move|| {
+            for byte in stdin().bytes() {
+                if let Ok(b) = byte {
+                    tx.send(b).unwrap();
+                }
+            }
+        });
+        Console { output: output, input: rx }
     }
 }
 
 impl<W: Write> IoDevice for Console<W> {
-    fn read(&mut self) -> u8 { unimplemented!() }
+    fn read(&mut self) -> u8 {
+        match self.input.try_recv() {
+            Ok(byte) => byte,
+            _ => 0,
+        }
+    }
     fn write(&mut self, val: u8) {
         let buf = [ val ];
         self.output.write(&buf).unwrap();
+        self.output.flush().unwrap();
     }
 }
 
