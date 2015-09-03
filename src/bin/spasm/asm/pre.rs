@@ -160,7 +160,7 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
             },
             Ok(Direct::Db(args)) => {
                 let base = *memptr;
-                let nbytes = args.len();
+                let nbytes = Self::data_len(&args, 1);
                 match offset_addr(*memptr, nbytes) {
                     Some(newaddr) => {
                         *memptr = newaddr;
@@ -175,6 +175,18 @@ impl<I: Iterator<Item=PreAssemblerInput>> PreAssembler<I> {
             },
             Err(e) => Err(PreAssembleError::Direct(line, e)),
         }
+    }
+
+    fn data_len(args: &ExprList, unit_size: usize) -> usize {
+        let mut size = 0;
+        for a in args {
+            match a {
+                &Expr::Number(_) | &Expr::Ident(_) => { size += unit_size },
+                &Expr::String(ref s) => { size += unit_size * s.len() },
+                _ => {},
+            }
+        }
+        size
     }
 }
 

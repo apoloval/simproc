@@ -87,6 +87,11 @@ impl PreAssembledData {
                     let n = *try!(symbols.get(id).ok_or(DataAssemblyError::Undefined(id.clone())));
                     try!(full_assemble_number(&self.size, n, &mut result));
                 },
+                Expr::String(ref s) => {
+                    for c in s.bytes() {
+                        try!(full_assemble_number(&self.size, c as i64, &mut result));
+                    }
+                },
                 other => return Err(DataAssemblyError::TypeMismatch { given: other }),
             }
         }
@@ -140,6 +145,15 @@ mod test {
         assert_eq!(
             data.full_assemble(&symbols),
             Ok(vec![1, 2]));
+    }
+
+    #[test]
+    fn should_assemble_data_from_string() {
+        let symbols = SymbolTable::new();
+        let data = pdata!(DataSize::Byte, Expr::Number(1), Expr::String("foo".to_string()));
+        assert_eq!(
+            data.full_assemble(&symbols),
+            Ok(vec![1, 102, 111, 111]));
     }
 
     #[test]

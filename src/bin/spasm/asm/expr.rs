@@ -20,6 +20,7 @@ pub enum Expr {
     Reg(Reg),
     AddrReg(AddrReg),
     Ident(String),
+    String(String),
 }
 
 impl Expr {
