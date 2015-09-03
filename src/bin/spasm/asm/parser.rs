@@ -126,6 +126,7 @@ impl<I: Iterator<Item=ParserInput>> Parser<I> {
     		Token::Reg(reg) => Ok(Expr::Reg(reg)),
     		Token::Number(n) => Ok(Expr::Number(n)),
             Token::Ident(id) => Ok(Expr::Ident(id)),
+            Token::String(s) => Ok(Expr::String(s)),
             Token::Eol(line) => Err(SyntaxError::UnexpectedToken(line.clone(), Token::Eol(line))),
     		other => Err(SyntaxError::UnexpectedToken(self.discard_until_eol(), other)),
     	}
