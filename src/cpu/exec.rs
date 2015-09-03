@@ -138,7 +138,8 @@ fn exec_binary_logic<M: Memory, L: Fn(u8, u8) -> u8>(
     regs.st.neg = is_neg(res);
     regs.st.overflow = false;
 
-    regs.pc += 2; 4
+    if dst == Reg::R0 && src.encode() < 4 { regs.pc += 1; 4 }
+    else { regs.pc += 2; 7 }
 }
 
 fn exec_inc<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, positive: bool) -> Cycle {
@@ -533,9 +534,19 @@ mod test {
         exec(&Inst::And(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0x0f);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_and() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::And(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::And(Reg::R0, Reg::R4), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+        exec(&Inst::And(Reg::R1, Reg::R2), &mut ctx);
+        assert_eq!(ctx.regs.pc, 5);
     }
 
     #[test]
@@ -567,9 +578,19 @@ mod test {
         exec(&Inst::Or(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0xff);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_or() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::Or(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::Or(Reg::R0, Reg::R4), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+        exec(&Inst::Or(Reg::R1, Reg::R2), &mut ctx);
+        assert_eq!(ctx.regs.pc, 5);
     }
 
     #[test]
@@ -601,9 +622,19 @@ mod test {
         exec(&Inst::Xor(Reg::R0, Reg::R1), &mut ctx);
         assert_eq!(ctx.regs.r0(), 0xff);
         assert_eq!(ctx.regs.r1(), 0x0f);
-        assert_eq!(ctx.regs.pc, 2);
         assert_eq!(ctx.regs.st.carry, false);
         assert_eq!(ctx.regs.st.overflow, false);
+    }
+
+    #[test]
+    fn should_update_pc_after_exec_xor() {
+        let mut ctx = TestCtx::new();
+        exec(&Inst::Xor(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.pc, 1);
+        exec(&Inst::Xor(Reg::R0, Reg::R4), &mut ctx);
+        assert_eq!(ctx.regs.pc, 3);
+        exec(&Inst::Xor(Reg::R1, Reg::R2), &mut ctx);
+        assert_eq!(ctx.regs.pc, 5);
     }
 
     #[test]
