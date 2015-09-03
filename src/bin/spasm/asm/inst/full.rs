@@ -95,8 +95,8 @@ impl<E: ExprAssembler> InstAssembler<E> {
                 Ok(Inst::Jnz(try!(self.expr_asm.to_raddr(a, base)))),
             Inst::Jz(a) =>
                 Ok(Inst::Jz(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jl(a) =>
-                Ok(Inst::Jl(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jp(a) =>
+                Ok(Inst::Jp(try!(self.expr_asm.to_raddr(a, base)))),
             Inst::Jge(a) =>
                 Ok(Inst::Jge(try!(self.expr_asm.to_raddr(a, base)))),
             Inst::Jcc(a) =>
@@ -242,7 +242,7 @@ mod test {
     fn should_asm_jz() { should_asm_inst_raddr(Inst::Jz, Inst::Jz); }
 
     #[test]
-    fn should_asm_jl() { should_asm_inst_raddr(Inst::Jl, Inst::Jl); }
+    fn should_asm_jp() { should_asm_inst_raddr(Inst::Jp, Inst::Jp); }
 
     #[test]
     fn should_asm_jge() { should_asm_inst_raddr(Inst::Jge, Inst::Jge); }

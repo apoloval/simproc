@@ -68,7 +68,7 @@ pub fn pre_assemble_inst(
         "out" => pre_assemble_binary(args, Inst::Out),
         "jnz" => pre_assemble_unary(args, Inst::Jnz),
         "jz" => pre_assemble_unary(args, Inst::Jz),
-        "jl" => pre_assemble_unary(args, Inst::Jl),
+        "jp" => pre_assemble_unary(args, Inst::Jp),
         "jge" => pre_assemble_unary(args, Inst::Jge),
         "jcc" => pre_assemble_unary(args, Inst::Jcc),
         "jcs" => pre_assemble_unary(args, Inst::Jcs),
@@ -259,7 +259,7 @@ mod test {
     fn should_pre_assemble_jz() { should_pre_assemble_unary_inst("jz", Inst::Jz) }
 
     #[test]
-    fn should_pre_assemble_jl() { should_pre_assemble_unary_inst("jl", Inst::Jl) }
+    fn should_pre_assemble_jp() { should_pre_assemble_unary_inst("jp", Inst::Jp) }
 
     #[test]
     fn should_pre_assemble_jge() { should_pre_assemble_unary_inst("jge", Inst::Jge) }

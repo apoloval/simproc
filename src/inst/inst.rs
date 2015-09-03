@@ -55,7 +55,7 @@ pub enum Inst<O: Operands> {
     // Branching instructions
     Jnz(O::RelAddr),
     Jz(O::RelAddr),
-    Jl(O::RelAddr),
+    Jp(O::RelAddr),
     Jge(O::RelAddr),
     Jcc(O::RelAddr),
     Jcs(O::RelAddr),
@@ -175,7 +175,7 @@ impl RuntimeInst {
             &Inst::Out(IoPort(p), ref r) => pack!(w, reg r in 0xf8, byte p),
             &Inst::Jnz(o) => pack!(w, offset o in 0xa0),
             &Inst::Jz(o) => pack!(w, offset o in 0xa4),
-            &Inst::Jl(o) => pack!(w, offset o in 0xa8),
+            &Inst::Jp(o) => pack!(w, offset o in 0xa8),
             &Inst::Jge(o) => pack!(w, offset o in 0xac),
             &Inst::Jcc(o) => pack!(w, offset o in 0xb0),
             &Inst::Jcs(o) => pack!(w, offset o in 0xb4),
@@ -234,7 +234,7 @@ impl RuntimeInst {
             (_, 0x6c, _) => Some(Inst::Ldsp(Self::decode_areg(first))),
             (_, 0xa0, _) => Some(Inst::Jnz(Self::decode_offset(first, next))),
             (_, 0xa4, _) => Some(Inst::Jz(Self::decode_offset(first, next))),
-            (_, 0xa8, _) => Some(Inst::Jl(Self::decode_offset(first, next))),
+            (_, 0xa8, _) => Some(Inst::Jp(Self::decode_offset(first, next))),
             (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
             (_, 0xb0, _) => Some(Inst::Jcc(Self::decode_offset(first, next))),
             (_, 0xb4, _) => Some(Inst::Jcs(Self::decode_offset(first, next))),
@@ -461,7 +461,7 @@ mod test {
     fn encode_jz() { assert_encode(Inst::Jz(-1), &[0xa7, 0xff]); }
 
     #[test]
-    fn encode_jl() { assert_encode(Inst::Jl(2), &[0xa8, 0x02]); }
+    fn encode_jp() { assert_encode(Inst::Jp(2), &[0xa8, 0x02]); }
 
     #[test]
     fn encode_jge() { assert_encode(Inst::Jge(-2), &[0xaf, 0xfe]); }
@@ -649,7 +649,7 @@ mod test {
     fn decode_jz() { assert_decode(Inst::Jz(0x100), &[0xa5, 0x00]) }
 
     #[test]
-    fn decode_jl() { assert_decode(Inst::Jl(0x100), &[0xa9, 0x00]) }
+    fn decode_jp() { assert_decode(Inst::Jp(0x100), &[0xa9, 0x00]) }
 
     #[test]
     fn decode_jge() { assert_decode(Inst::Jge(0x100), &[0xad, 0x00]) }

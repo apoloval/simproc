@@ -55,7 +55,7 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
         &Inst::Out(port, src) => exec_out(ctx, port, src),
         &Inst::Jnz(offset) => exec_rjmp(ctx, offset, |st| !st.zero, false),
         &Inst::Jz(offset) => exec_rjmp(ctx, offset, |st| st.zero, false),
-        &Inst::Jl(offset) => exec_rjmp(ctx, offset, |st| !st.neg, false),
+        &Inst::Jp(offset) => exec_rjmp(ctx, offset, |st| !st.neg, false),
         &Inst::Jge(offset) => exec_rjmp(ctx, offset, |st| st.neg, false),
         &Inst::Jcc(offset) => exec_rjmp(ctx, offset, |st| !st.carry, false),
         &Inst::Jcs(offset) => exec_rjmp(ctx, offset, |st| st.carry, false),
@@ -1376,13 +1376,13 @@ mod test {
     }
 
     #[test]
-    fn should_exec_jl() {
+    fn should_exec_jp() {
         let mut ctx = TestCtx::new();
         ctx.regs.st.neg = true;
-        assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
+        assert_eq!(exec(&Inst::Jp(100), &mut ctx), 7);
         assert_eq!(ctx.regs.pc, 2);
         ctx.regs.st.neg = false;
-        assert_eq!(exec(&Inst::Jl(100), &mut ctx), 7);
+        assert_eq!(exec(&Inst::Jp(100), &mut ctx), 7);
         assert_eq!(ctx.regs.pc, 102);
     }
 
