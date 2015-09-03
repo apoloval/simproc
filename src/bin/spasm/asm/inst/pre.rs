@@ -66,10 +66,10 @@ pub fn pre_assemble_inst(
         "pop" => pre_assemble_unary(args, Inst::Pop),
         "in" => pre_assemble_binary(args, Inst::In),
         "out" => pre_assemble_binary(args, Inst::Out),
-        "je" => pre_assemble_unary(args, Inst::Je),
-        "jne" => pre_assemble_unary(args, Inst::Jne),
-        "jl" => pre_assemble_unary(args, Inst::Jl),
-        "jge" => pre_assemble_unary(args, Inst::Jge),
+        "jnz" => pre_assemble_unary(args, Inst::Jnz),
+        "jz" => pre_assemble_unary(args, Inst::Jz),
+        "jp" => pre_assemble_unary(args, Inst::Jp),
+        "jn" => pre_assemble_unary(args, Inst::Jn),
         "jcc" => pre_assemble_unary(args, Inst::Jcc),
         "jcs" => pre_assemble_unary(args, Inst::Jcs),
         "jvc" => pre_assemble_unary(args, Inst::Jvc),
@@ -253,16 +253,16 @@ mod test {
     fn should_pre_assemble_out() { should_pre_assemble_binary_inst("out", Inst::Out) }
 
     #[test]
-    fn should_pre_assemble_je() { should_pre_assemble_unary_inst("je", Inst::Je) }
+    fn should_pre_assemble_jnz() { should_pre_assemble_unary_inst("jnz", Inst::Jnz) }
 
     #[test]
-    fn should_pre_assemble_jne() { should_pre_assemble_unary_inst("jne", Inst::Jne) }
+    fn should_pre_assemble_jz() { should_pre_assemble_unary_inst("jz", Inst::Jz) }
 
     #[test]
-    fn should_pre_assemble_jl() { should_pre_assemble_unary_inst("jl", Inst::Jl) }
+    fn should_pre_assemble_jp() { should_pre_assemble_unary_inst("jp", Inst::Jp) }
 
     #[test]
-    fn should_pre_assemble_jge() { should_pre_assemble_unary_inst("jge", Inst::Jge) }
+    fn should_pre_assemble_jn() { should_pre_assemble_unary_inst("jn", Inst::Jn) }
 
     #[test]
     fn should_pre_assemble_jcc() { should_pre_assemble_unary_inst("jcc", Inst::Jcc) }

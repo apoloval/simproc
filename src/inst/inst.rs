@@ -53,10 +53,10 @@ pub enum Inst<O: Operands> {
     Out(O::IoPort, O::Reg),
 
     // Branching instructions
-    Je(O::RelAddr),
-    Jne(O::RelAddr),
-    Jl(O::RelAddr),
-    Jge(O::RelAddr),
+    Jnz(O::RelAddr),
+    Jz(O::RelAddr),
+    Jp(O::RelAddr),
+    Jn(O::RelAddr),
     Jcc(O::RelAddr),
     Jcs(O::RelAddr),
     Jvc(O::RelAddr),
@@ -173,10 +173,10 @@ impl RuntimeInst {
             &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
             &Inst::In(ref r, IoPort(p)) => pack!(w, reg r in 0xf0, byte p),
             &Inst::Out(IoPort(p), ref r) => pack!(w, reg r in 0xf8, byte p),
-            &Inst::Je(o) => pack!(w, offset o in 0xa0),
-            &Inst::Jne(o) => pack!(w, offset o in 0xa4),
-            &Inst::Jl(o) => pack!(w, offset o in 0xa8),
-            &Inst::Jge(o) => pack!(w, offset o in 0xac),
+            &Inst::Jnz(o) => pack!(w, offset o in 0xa0),
+            &Inst::Jz(o) => pack!(w, offset o in 0xa4),
+            &Inst::Jp(o) => pack!(w, offset o in 0xa8),
+            &Inst::Jn(o) => pack!(w, offset o in 0xac),
             &Inst::Jcc(o) => pack!(w, offset o in 0xb0),
             &Inst::Jcs(o) => pack!(w, offset o in 0xb4),
             &Inst::Jvc(o) => pack!(w, offset o in 0xb8),
@@ -232,10 +232,10 @@ impl RuntimeInst {
             (_, 0x64, _) => Some(Inst::Ld(Reg::R0, Self::decode_areg(first))),
             (_, 0x68, _) => Some(Inst::St(Self::decode_areg(first), Reg::R0)),
             (_, 0x6c, _) => Some(Inst::Ldsp(Self::decode_areg(first))),
-            (_, 0xa0, _) => Some(Inst::Je(Self::decode_offset(first, next))),
-            (_, 0xa4, _) => Some(Inst::Jne(Self::decode_offset(first, next))),
-            (_, 0xa8, _) => Some(Inst::Jl(Self::decode_offset(first, next))),
-            (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
+            (_, 0xa0, _) => Some(Inst::Jnz(Self::decode_offset(first, next))),
+            (_, 0xa4, _) => Some(Inst::Jz(Self::decode_offset(first, next))),
+            (_, 0xa8, _) => Some(Inst::Jp(Self::decode_offset(first, next))),
+            (_, 0xac, _) => Some(Inst::Jn(Self::decode_offset(first, next))),
             (_, 0xb0, _) => Some(Inst::Jcc(Self::decode_offset(first, next))),
             (_, 0xb4, _) => Some(Inst::Jcs(Self::decode_offset(first, next))),
             (_, 0xb8, _) => Some(Inst::Jvc(Self::decode_offset(first, next))),
@@ -455,16 +455,16 @@ mod test {
     fn encode_out() { assert_encode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]); }
 
     #[test]
-    fn encode_je() { assert_encode(Inst::Je(1), &[0xa0, 0x01]); }
+    fn encode_jnz() { assert_encode(Inst::Jnz(1), &[0xa0, 0x01]); }
 
     #[test]
-    fn encode_jne() { assert_encode(Inst::Jne(-1), &[0xa7, 0xff]); }
+    fn encode_jz() { assert_encode(Inst::Jz(-1), &[0xa7, 0xff]); }
 
     #[test]
-    fn encode_jl() { assert_encode(Inst::Jl(2), &[0xa8, 0x02]); }
+    fn encode_jp() { assert_encode(Inst::Jp(2), &[0xa8, 0x02]); }
 
     #[test]
-    fn encode_jge() { assert_encode(Inst::Jge(-2), &[0xaf, 0xfe]); }
+    fn encode_jn() { assert_encode(Inst::Jn(-2), &[0xaf, 0xfe]); }
 
     #[test]
     fn encode_jcc() { assert_encode(Inst::Jcc(3), &[0xb0, 0x03]); }
@@ -643,16 +643,16 @@ mod test {
     fn decode_out() { assert_decode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]) }
 
     #[test]
-    fn decode_je() { assert_decode(Inst::Je(0x100), &[0xa1, 0x00]) }
+    fn decode_jnz() { assert_decode(Inst::Jnz(0x100), &[0xa1, 0x00]) }
 
     #[test]
-    fn decode_jne() { assert_decode(Inst::Jne(0x100), &[0xa5, 0x00]) }
+    fn decode_jz() { assert_decode(Inst::Jz(0x100), &[0xa5, 0x00]) }
 
     #[test]
-    fn decode_jl() { assert_decode(Inst::Jl(0x100), &[0xa9, 0x00]) }
+    fn decode_jp() { assert_decode(Inst::Jp(0x100), &[0xa9, 0x00]) }
 
     #[test]
-    fn decode_jge() { assert_decode(Inst::Jge(0x100), &[0xad, 0x00]) }
+    fn decode_jn() { assert_decode(Inst::Jn(0x100), &[0xad, 0x00]) }
 
     #[test]
     fn decode_jcc() { assert_decode(Inst::Jcc(0x100), &[0xb1, 0x00]) }

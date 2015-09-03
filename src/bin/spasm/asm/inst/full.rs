@@ -91,14 +91,14 @@ impl<E: ExprAssembler> InstAssembler<E> {
             Inst::Out(p, r) =>
                 Ok(Inst::Out(try!(self.expr_asm.to_ioport(p)), try!(self.expr_asm.to_reg(r)))),
 
-            Inst::Je(a) =>
-                Ok(Inst::Je(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jne(a) =>
-                Ok(Inst::Jne(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jl(a) =>
-                Ok(Inst::Jl(try!(self.expr_asm.to_raddr(a, base)))),
-            Inst::Jge(a) =>
-                Ok(Inst::Jge(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jnz(a) =>
+                Ok(Inst::Jnz(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jz(a) =>
+                Ok(Inst::Jz(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jp(a) =>
+                Ok(Inst::Jp(try!(self.expr_asm.to_raddr(a, base)))),
+            Inst::Jn(a) =>
+                Ok(Inst::Jn(try!(self.expr_asm.to_raddr(a, base)))),
             Inst::Jcc(a) =>
                 Ok(Inst::Jcc(try!(self.expr_asm.to_raddr(a, base)))),
             Inst::Jcs(a) =>
@@ -236,16 +236,16 @@ mod test {
     fn should_asm_out() { should_asm_inst_ioport_reg(Inst::Out, Inst::Out); }
 
     #[test]
-    fn should_asm_je() { should_asm_inst_raddr(Inst::Je, Inst::Je); }
+    fn should_asm_jnz() { should_asm_inst_raddr(Inst::Jnz, Inst::Jnz); }
 
     #[test]
-    fn should_asm_jne() { should_asm_inst_raddr(Inst::Jne, Inst::Jne); }
+    fn should_asm_jz() { should_asm_inst_raddr(Inst::Jz, Inst::Jz); }
 
     #[test]
-    fn should_asm_jl() { should_asm_inst_raddr(Inst::Jl, Inst::Jl); }
+    fn should_asm_jp() { should_asm_inst_raddr(Inst::Jp, Inst::Jp); }
 
     #[test]
-    fn should_asm_jge() { should_asm_inst_raddr(Inst::Jge, Inst::Jge); }
+    fn should_asm_jn() { should_asm_inst_raddr(Inst::Jn, Inst::Jn); }
 
     #[test]
     fn should_asm_jcc() { should_asm_inst_raddr(Inst::Jcc, Inst::Jcc); }
