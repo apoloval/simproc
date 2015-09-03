@@ -66,7 +66,7 @@ pub fn pre_assemble_inst(
         "pop" => pre_assemble_unary(args, Inst::Pop),
         "in" => pre_assemble_binary(args, Inst::In),
         "out" => pre_assemble_binary(args, Inst::Out),
-        "je" => pre_assemble_unary(args, Inst::Je),
+        "jnz" => pre_assemble_unary(args, Inst::Jnz),
         "jne" => pre_assemble_unary(args, Inst::Jne),
         "jl" => pre_assemble_unary(args, Inst::Jl),
         "jge" => pre_assemble_unary(args, Inst::Jge),
@@ -253,7 +253,7 @@ mod test {
     fn should_pre_assemble_out() { should_pre_assemble_binary_inst("out", Inst::Out) }
 
     #[test]
-    fn should_pre_assemble_je() { should_pre_assemble_unary_inst("je", Inst::Je) }
+    fn should_pre_assemble_jnz() { should_pre_assemble_unary_inst("jnz", Inst::Jnz) }
 
     #[test]
     fn should_pre_assemble_jne() { should_pre_assemble_unary_inst("jne", Inst::Jne) }

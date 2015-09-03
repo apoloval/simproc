@@ -53,7 +53,7 @@ pub enum Inst<O: Operands> {
     Out(O::IoPort, O::Reg),
 
     // Branching instructions
-    Je(O::RelAddr),
+    Jnz(O::RelAddr),
     Jne(O::RelAddr),
     Jl(O::RelAddr),
     Jge(O::RelAddr),
@@ -173,7 +173,7 @@ impl RuntimeInst {
             &Inst::Pop(ref r) => pack!(w, reg r in 0x78),
             &Inst::In(ref r, IoPort(p)) => pack!(w, reg r in 0xf0, byte p),
             &Inst::Out(IoPort(p), ref r) => pack!(w, reg r in 0xf8, byte p),
-            &Inst::Je(o) => pack!(w, offset o in 0xa0),
+            &Inst::Jnz(o) => pack!(w, offset o in 0xa0),
             &Inst::Jne(o) => pack!(w, offset o in 0xa4),
             &Inst::Jl(o) => pack!(w, offset o in 0xa8),
             &Inst::Jge(o) => pack!(w, offset o in 0xac),
@@ -232,7 +232,7 @@ impl RuntimeInst {
             (_, 0x64, _) => Some(Inst::Ld(Reg::R0, Self::decode_areg(first))),
             (_, 0x68, _) => Some(Inst::St(Self::decode_areg(first), Reg::R0)),
             (_, 0x6c, _) => Some(Inst::Ldsp(Self::decode_areg(first))),
-            (_, 0xa0, _) => Some(Inst::Je(Self::decode_offset(first, next))),
+            (_, 0xa0, _) => Some(Inst::Jnz(Self::decode_offset(first, next))),
             (_, 0xa4, _) => Some(Inst::Jne(Self::decode_offset(first, next))),
             (_, 0xa8, _) => Some(Inst::Jl(Self::decode_offset(first, next))),
             (_, 0xac, _) => Some(Inst::Jge(Self::decode_offset(first, next))),
@@ -455,7 +455,7 @@ mod test {
     fn encode_out() { assert_encode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]); }
 
     #[test]
-    fn encode_je() { assert_encode(Inst::Je(1), &[0xa0, 0x01]); }
+    fn encode_jnz() { assert_encode(Inst::Jnz(1), &[0xa0, 0x01]); }
 
     #[test]
     fn encode_jne() { assert_encode(Inst::Jne(-1), &[0xa7, 0xff]); }
@@ -643,7 +643,7 @@ mod test {
     fn decode_out() { assert_decode(Inst::Out(IoPort(100), Reg::R0), &[0xf8, 0x64]) }
 
     #[test]
-    fn decode_je() { assert_decode(Inst::Je(0x100), &[0xa1, 0x00]) }
+    fn decode_jnz() { assert_decode(Inst::Jnz(0x100), &[0xa1, 0x00]) }
 
     #[test]
     fn decode_jne() { assert_decode(Inst::Jne(0x100), &[0xa5, 0x00]) }
