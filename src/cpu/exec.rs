@@ -25,8 +25,10 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
     match inst {
         &Inst::Add(dst, src) => exec_add(ctx, dst, src, false),
         &Inst::Adc(dst, src) => exec_add(ctx, dst, src, true),
+        &Inst::Addi(dst, Immediate(k)) => exec_addi(ctx, dst, k),
         &Inst::Sub(dst, src) => exec_sub(ctx, dst, src, false),
         &Inst::Sbc(dst, src) => exec_sub(ctx, dst, src, true),
+        &Inst::Subi(dst, Immediate(k)) => exec_subi(ctx, dst, k),
         &Inst::And(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a & b),
         &Inst::Or(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a | b),
         &Inst::Xor(dst, src) => exec_binary_logic(ctx, dst, src, |a, b| a ^ b),
@@ -75,9 +77,21 @@ pub fn exec<M: Memory>(inst: &RuntimeInst, ctx: &mut ExecCtx<Mem=M>) -> Cycle {
 }
 
 fn exec_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool) -> Cycle {
+    let rhs = ctx.regs().reg(src);
+    do_add(ctx, dst, rhs, carry);
+    if dst == Reg::R0 && src.encode() < 4 { ctx.regs().pc += 1; 4 }
+    else { ctx.regs().pc += 2; 7 }
+}
+
+fn exec_addi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8) -> Cycle {
+    do_add(ctx, dst, src, false);
+    ctx.regs().pc += 2; 7
+}
+
+fn do_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8, carry: bool) {
     let mut regs = ctx.regs();
     let lhs = regs.reg(dst) as u16;
-    let rhs = regs.reg(src) as u16;
+    let rhs = src as u16;
     let c = if carry && regs.st.carry { 1 } else { 0 };
     let res = lhs + rhs + c;
     regs.set_reg(dst, res as u8);
@@ -86,15 +100,24 @@ fn exec_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool
     regs.st.zero = is_zero(res);
     regs.st.neg = is_neg(res);
     regs.st.overflow = same_sign(lhs, rhs) && !same_sign(lhs, res);
-
-    if dst == Reg::R0 && src.encode() < 4 { regs.pc += 1; 4 }
-    else { regs.pc += 2; 7 }
 }
 
 fn exec_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool) -> Cycle {
+    let rhs = ctx.regs().reg(src);
+    do_sub(ctx, dst, rhs, carry);
+    if dst == Reg::R0 && src.encode() < 4 { ctx.regs().pc += 1; 4 }
+    else { ctx.regs().pc += 2; 7 }
+}
+
+fn exec_subi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8) -> Cycle {
+    do_sub(ctx, dst, src, false);
+    ctx.regs().pc += 2; 7
+}
+
+fn do_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8, carry: bool) {
     let mut regs = ctx.regs();
     let lhs = regs.reg(dst) as i16;
-    let rhs = regs.reg(src) as i16;
+    let rhs = src as i16;
     let c = if carry && regs.st.carry { 1 } else { 0 };
     let res = (lhs - rhs - c) as u16;
     regs.set_reg(dst, res as u8);
@@ -103,9 +126,6 @@ fn exec_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, carry: bool
     regs.st.zero = is_zero(res);
     regs.st.neg = is_neg(res);
     regs.st.overflow = !same_sign(lhs as u16, rhs as u16) && !same_sign(lhs as u16, res);
-
-    if dst == Reg::R0 && src.encode() < 4 { regs.pc += 1; 4 }
-    else { regs.pc += 2; 7 }
 }
 
 fn exec_unary_logic<M: Memory, L: Fn(u8) -> u8>(
@@ -411,6 +431,58 @@ mod test {
     }
 
     #[test]
+    fn should_exec_addi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        assert_eq!(exec(&Inst::Addi(Reg::R0, Immediate(7)), &mut ctx), 7);
+        assert_eq!(ctx.regs.r0(), 29);
+        assert_eq!(ctx.regs.pc, 2);
+    }
+
+    #[test]
+    fn should_update_carry_after_exec_addi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Addi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.carry, false);
+        exec(&Inst::Addi(Reg::R0, Immediate(250)), &mut ctx);
+        assert_eq!(ctx.regs.st.carry, true);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_addi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Addi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_r0(5);
+        exec(&Inst::Addi(Reg::R0, Immediate(-5i8 as u8)), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_addi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Addi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_r0(1);
+        exec(&Inst::Addi(Reg::R0, Immediate(-7i8 as u8)), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_update_overflow_after_exec_addi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Addi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, false);
+        ctx.regs.set_r0(120);
+        exec(&Inst::Addi(Reg::R0, Immediate(120)), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, true);
+    }
+
+    #[test]
     fn should_exec_adc() {
         let mut ctx = TestCtx::new();
         ctx.regs.set_r0(22); ctx.regs.set_r1(7);
@@ -506,6 +578,59 @@ mod test {
         assert_eq!(ctx.regs.st.overflow, true);
         ctx.regs.set_r0(-120i8 as u8); ctx.regs.set_r1(120);
         exec(&Inst::Sub(Reg::R0, Reg::R1), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, true);
+    }
+
+    #[test]
+    fn should_exec_subi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        assert_eq!(exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx), 7);
+        assert_eq!(ctx.regs.r0(), 15);
+        assert_eq!(ctx.regs.pc, 2);
+    }
+
+    #[test]
+    fn should_update_carry_after_exec_subi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.carry, false);
+        ctx.regs.set_r0(-100i8 as u8);
+        exec(&Inst::Subi(Reg::R0, Immediate(250)), &mut ctx);
+        assert_eq!(ctx.regs.st.carry, true);
+    }
+
+    #[test]
+    fn should_update_zero_after_exec_subi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, false);
+        ctx.regs.set_r0(5);
+        exec(&Inst::Subi(Reg::R0, Immediate(5)), &mut ctx);
+        assert_eq!(ctx.regs.st.zero, true);
+    }
+
+    #[test]
+    fn should_update_neg_after_exec_subi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, false);
+        ctx.regs.set_r0(1);
+        exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.neg, true);
+    }
+
+    #[test]
+    fn should_update_overflow_after_exec_subi() {
+        let mut ctx = TestCtx::new();
+        ctx.regs.set_r0(22);
+        exec(&Inst::Subi(Reg::R0, Immediate(7)), &mut ctx);
+        assert_eq!(ctx.regs.st.overflow, false);
+        ctx.regs.set_r0(-120i8 as u8);
+        exec(&Inst::Subi(Reg::R0, Immediate(120)), &mut ctx);
         assert_eq!(ctx.regs.st.overflow, true);
     }
 
