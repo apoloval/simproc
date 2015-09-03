@@ -225,6 +225,9 @@ impl RuntimeInst {
             (_, 0x24, _) => Some(Inst::Adc(Reg::R0, Self::decode_short_reg(first))),
             (_, 0x28, _) => Some(Inst::Sub(Reg::R0, Self::decode_short_reg(first))),
             (_, 0x2c, _) => Some(Inst::Sbc(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x30, _) => Some(Inst::And(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x34, _) => Some(Inst::Or(Reg::R0, Self::decode_short_reg(first))),
+            (_, 0x38, _) => Some(Inst::Xor(Reg::R0, Self::decode_short_reg(first))),
             (_, 0x60, _) => Some(Inst::Mov(Self::decode_short_reg(first), Reg::R0)),
             (_, 0x64, _) => Some(Inst::Ld(Reg::R0, Self::decode_areg(first))),
             (_, 0x68, _) => Some(Inst::St(Self::decode_areg(first), Reg::R0)),
@@ -546,13 +549,25 @@ mod test {
     fn decode_subi() { assert_decode(Inst::Subi(Reg::R0, Immediate(7)), &[0x98, 0x07]) }
 
     #[test]
-    fn decode_and() { assert_decode(Inst::And(Reg::R0, Reg::R1), &[0x84, 0x01]) }
+    fn decode_and() {
+        assert_decode(Inst::And(Reg::R0, Reg::R1), &[0x31]);
+        assert_decode(Inst::And(Reg::R0, Reg::R4), &[0x84, 0x04]);
+        assert_decode(Inst::And(Reg::R1, Reg::R2), &[0x84, 0x0a]);
+    }
 
     #[test]
-    fn decode_or() { assert_decode(Inst::Or(Reg::R0, Reg::R1), &[0x85, 0x81]) }
+    fn decode_or() {
+        assert_decode(Inst::Or(Reg::R0, Reg::R1), &[0x35]);
+        assert_decode(Inst::Or(Reg::R0, Reg::R4), &[0x85, 0x04]);
+        assert_decode(Inst::Or(Reg::R1, Reg::R2), &[0x85, 0x0a]);
+    }
 
     #[test]
-    fn decode_xor() { assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0x86, 0x01]) }
+    fn decode_xor() {
+        assert_decode(Inst::Xor(Reg::R0, Reg::R1), &[0x39]);
+        assert_decode(Inst::Xor(Reg::R0, Reg::R4), &[0x86, 0x04]);
+        assert_decode(Inst::Xor(Reg::R1, Reg::R2), &[0x86, 0x0a]);
+    }
 
     #[test]
     fn decode_lsl() { assert_decode(Inst::Lsl(Reg::R1), &[0x87, 0x01]) }
