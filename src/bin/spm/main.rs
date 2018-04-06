@@ -7,7 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 extern crate docopt;
-extern crate rustc_serialize;
+#[macro_use] extern crate serde_derive;
 extern crate simproc;
 
 mod args;

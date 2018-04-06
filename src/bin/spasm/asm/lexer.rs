@@ -12,7 +12,6 @@ use std::iter::{IntoIterator, Peekable};
 use std::str::FromStr;
 
 use byteorder::{BigEndian, ReadBytesExt};
-use rustc_serialize::hex::FromHex;
 
 use simproc::inst::{AddrReg, Reg};
 
@@ -175,8 +174,8 @@ impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
 
     fn decode_hex(s: &str) -> i64 {
         if s.starts_with("0x") { return Self::decode_hex(&s[2..]) }
-        let buff = format!("{:0>16}", s).from_hex().ok().unwrap();
-        (&buff[..]).read_i64::<BigEndian>().ok().unwrap()
+        if s.is_empty() { return 0 }
+        i64::from_str_radix(s, 16).ok().unwrap()
     }
 
     fn decode_dec(s: &str) -> i64 {

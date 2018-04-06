@@ -9,7 +9,7 @@
 extern crate byteorder;
 extern crate docopt;
 extern crate regex;
-extern crate rustc_serialize;
+#[macro_use] extern crate serde_derive;
 
 extern crate simproc;
 
