@@ -20,7 +20,7 @@ Options:
     -v, --version               Print the spasm version
 ";
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct Args {
     arg_input: String,
@@ -57,7 +57,7 @@ impl Args {
 #[allow(dead_code)]
 pub fn parse_args() -> Args {
     Docopt::new(USAGE)
-        .and_then(|d| d.decode())
+        .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit())
 }
 
@@ -144,7 +144,7 @@ mod test {
     fn should_parse_help() {
         let argv = || vec!["spasm", "--version"];
         let args: Args = Docopt::new(super::USAGE)
-                        .and_then(|d| d.argv(argv().into_iter()).decode())
+                        .and_then(|d| d.argv(argv().into_iter()).deserialize())
                         .unwrap_or_else(|e| e.exit());
         assert!(args.flag_version);
     }
@@ -153,7 +153,7 @@ mod test {
     fn should_parse_bin() {
         let argv = || vec!["spasm", "--bin", "foobar.asm"];
         let args: Args = Docopt::new(super::USAGE)
-                        .and_then(|d| d.argv(argv().into_iter()).decode())
+                        .and_then(|d| d.argv(argv().into_iter()).deserialize())
                         .unwrap_or_else(|e| e.exit());
         assert!(!args.flag_text);
         assert!(args.flag_bin);

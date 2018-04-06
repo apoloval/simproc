@@ -9,7 +9,7 @@
 use cpu::clock::Cycle;
 use cpu::io::*;
 use cpu::reg::{Regs, StatusReg};
-use inst::*;
+use inst::{AddrReg, Immediate, Inst, IoPort, Reg, RuntimeInst};
 use mem::{Addr, Memory, RelAddr};
 
 pub trait ExecCtx<'a> {
@@ -89,7 +89,7 @@ fn exec_addi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8) -> Cycle {
 }
 
 fn do_add<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8, carry: bool) {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let lhs = regs.reg(dst) as u16;
     let rhs = src as u16;
     let c = if carry && regs.st.carry { 1 } else { 0 };
@@ -115,7 +115,7 @@ fn exec_subi<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8) -> Cycle {
 }
 
 fn do_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8, carry: bool) {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let lhs = regs.reg(dst) as i16;
     let rhs = src as i16;
     let c = if carry && regs.st.carry { 1 } else { 0 };
@@ -131,7 +131,7 @@ fn do_sub<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: u8, carry: bool) {
 fn exec_unary_logic<M: Memory, L: Fn(u8) -> u8>(
     ctx: &mut ExecCtx<Mem=M>, dst: Reg, logic: L) -> Cycle
 {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let val = regs.reg(dst);
     let res = logic(val) as u16;
     regs.set_reg(dst, res as u8);
@@ -147,7 +147,7 @@ fn exec_unary_logic<M: Memory, L: Fn(u8) -> u8>(
 fn exec_binary_logic<M: Memory, L: Fn(u8, u8) -> u8>(
     ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg, logic: L) -> Cycle
 {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let lhs = regs.reg(dst);
     let rhs = regs.reg(src);
     let res = logic(lhs, rhs) as u16;
@@ -163,7 +163,7 @@ fn exec_binary_logic<M: Memory, L: Fn(u8, u8) -> u8>(
 }
 
 fn exec_inc<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, positive: bool) -> Cycle {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let val = regs.reg(dst) as i16;
     let res = val + if positive { 1 } else { -1 };
     regs.set_reg(dst, res as u8);
@@ -177,7 +177,7 @@ fn exec_inc<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, positive: bool) -> Cy
 }
 
 fn exec_incw<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, positive: bool) -> Cycle {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let val = regs.areg(dst) as i32;
     let res = val + if positive { 1 } else { -1 };
     regs.set_areg(dst, res as u16);
@@ -193,7 +193,7 @@ fn exec_incw<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: AddrReg, positive: bool) 
 fn exec_shift<M: Memory, F: Fn(u8) -> u8, G: Fn(u8) -> bool>(
     ctx: &mut ExecCtx<Mem=M>, dst: Reg, f: F, g: G) -> Cycle
 {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let val = regs.reg(dst);
     let res = f(val);
     regs.set_reg(dst, res);
@@ -207,7 +207,7 @@ fn exec_shift<M: Memory, F: Fn(u8) -> u8, G: Fn(u8) -> bool>(
 }
 
 fn exec_mov<M: Memory>(ctx: &mut ExecCtx<Mem=M>, dst: Reg, src: Reg) -> Cycle {
-    let mut regs = ctx.regs();
+    let regs = ctx.regs();
     let from = regs.reg(src);
     regs.set_reg(dst, from);
     if src == Reg::R0 && dst.encode() < 4 { regs.pc += 1; 4 }

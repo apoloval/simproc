@@ -109,9 +109,6 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::data::*;
-    use asm::expr::*;
-    use asm::pre::*;
     use asm::symbol::*;
 
     use super::*;

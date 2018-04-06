@@ -6,13 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::ascii::AsciiExt;
 use std::fmt;
 use std::iter::{IntoIterator, Peekable};
 use std::str::FromStr;
-
-use byteorder::{BigEndian, ReadBytesExt};
-use rustc_serialize::hex::FromHex;
 
 use simproc::inst::{AddrReg, Reg};
 
@@ -20,10 +16,6 @@ use simproc::inst::{AddrReg, Reg};
 pub struct Line {
     pub row: usize,
     pub content: String,
-}
-
-macro_rules! sline {
-    ($r:expr, $c:expr) => ($crate::asm::lexer::Line { row: $r, content: $c.to_string() });
 }
 
 impl Line {
@@ -52,9 +44,14 @@ pub enum Token {
     Unknown(String),
 }
 
-macro_rules! direct { ($i:expr) => (Token::Direct($i.to_string())) }
-macro_rules! eol { ($r:expr, $l:expr) => (Token::Eol(sline!($r, $l))) }
-macro_rules! ident { ($i:expr) => (Token::Ident($i.to_string())) }
+#[cfg(test)]
+macro_rules! sline {
+    ($r:expr, $c:expr) => ($crate::asm::lexer::Line { row: $r, content: $c.to_string() });
+}
+
+#[cfg(test)] macro_rules! direct { ($i:expr) => (Token::Direct($i.to_string())) }
+#[cfg(test)] macro_rules! eol { ($r:expr, $l:expr) => (Token::Eol(sline!($r, $l))) }
+#[cfg(test)] macro_rules! ident { ($i:expr) => (Token::Ident($i.to_string())) }
 
 impl fmt::Display for Token {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -175,8 +172,8 @@ impl<I : Iterator<Item=ScannerInput>> Scanner<I> {
 
     fn decode_hex(s: &str) -> i64 {
         if s.starts_with("0x") { return Self::decode_hex(&s[2..]) }
-        let buff = format!("{:0>16}", s).from_hex().ok().unwrap();
-        (&buff[..]).read_i64::<BigEndian>().ok().unwrap()
+        if s.is_empty() { return 0 }
+        i64::from_str_radix(s, 16).ok().unwrap()
     }
 
     fn decode_dec(s: &str) -> i64 {
