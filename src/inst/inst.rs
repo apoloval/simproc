@@ -11,7 +11,7 @@ use std::iter::Iterator;
 
 use byteorder::*;
 
-use inst::ops::*;
+use inst::ops::{AddrReg, Immediate, IoPort, Operands, Reg, RuntimeOperands};
 use mem::*;
 
 /// A SP-80 instruction

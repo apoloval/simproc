@@ -6,7 +6,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::ascii::AsciiExt;
 use std::fmt;
 
 use simproc::mem::*;
@@ -75,8 +74,6 @@ fn pre_assemble_org(args: ExprList) -> Result<Direct, DirectAssembleError> {
 
 #[cfg(test)]
 mod test {
-
-    use asm::expr::*;
 
     use super::*;
 

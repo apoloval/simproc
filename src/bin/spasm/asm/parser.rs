@@ -9,8 +9,8 @@
 use std::fmt;
 use std::iter::IntoIterator;
 
-use asm::expr::*;
-use asm::lexer::*;
+use asm::expr::{Expr, ExprList};
+use asm::lexer::{Line, ScannerOutput, Token};
 
 type Label = Option<String>;
 type DirectName = String;

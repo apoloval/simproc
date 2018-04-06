@@ -9,7 +9,7 @@
 use std::fmt;
 
 use asm::number::*;
-use asm::expr::*;
+use asm::expr::{Expr, ExprList};
 use asm::symbol::*;
 
 #[derive(Debug, PartialEq)]
@@ -29,6 +29,7 @@ pub struct PreAssembledData {
     pub content: ExprList,
 }
 
+#[cfg(test)]
 macro_rules! pdata {
     ($s:expr) => ($crate::asm::data::PreAssembledData {
         size: $s,

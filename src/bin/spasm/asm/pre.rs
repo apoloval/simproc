@@ -9,7 +9,6 @@
 use std::fmt;
 use std::iter::FromIterator;
 
-use simproc::inst::*;
 use simproc::mem::*;
 
 use asm::data::*;
@@ -195,9 +194,6 @@ mod test {
 
     use simproc::inst::*;
 
-    use asm::data::*;
-    use asm::expr::*;
-    use asm::parser::*;
     use asm::symbol::*;
 
     use super::*;

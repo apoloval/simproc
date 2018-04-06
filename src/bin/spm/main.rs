@@ -19,7 +19,6 @@ use std::fs::File;
 use std::io;
 use std::io::{Read, stdout};
 
-use args::*;
 use machine::Machine;
 
 enum Error {

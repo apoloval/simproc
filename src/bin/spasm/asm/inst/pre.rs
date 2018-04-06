@@ -6,13 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::ascii::AsciiExt;
 use std::fmt;
 
-use simproc::inst::*;
+use simproc::inst::Inst;
 
 use asm::expr::*;
-use asm::inst::*;
+use asm::inst::{PreAssembledInst};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MnemoAssembleError {
@@ -151,7 +150,6 @@ mod test {
     use simproc::inst::*;
 
     use asm::inst::*;
-    use asm::expr::*;
 
     use super::*;
 

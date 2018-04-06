@@ -53,6 +53,7 @@ impl Assembly {
 
     pub fn has_errors(&self) -> bool { self.errors().count() != 0 }
 
+    #[allow(dead_code)]
     pub fn symbols(&self) -> &SymbolTable { &self.symbols }
 
     pub fn code<'a>(&'a self) -> Code<'a> {

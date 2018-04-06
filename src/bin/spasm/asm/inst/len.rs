@@ -8,7 +8,6 @@
 
 use simproc::inst::*;
 
-use asm::expr::*;
 use asm::inst::*;
 
 pub fn inst_len(inst: &PreAssembledInst) -> usize {
@@ -80,8 +79,6 @@ pub fn inst_len(inst: &PreAssembledInst) -> usize {
 mod test {
 
     use simproc::inst::*;
-
-    use asm::expr::*;
 
     use super::*;
 

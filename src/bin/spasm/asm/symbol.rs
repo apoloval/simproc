@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 pub type SymbolTable = HashMap<String, i64>;
 
+#[cfg(test)]
 macro_rules! symbols {
 	($($k:expr => $v:expr),*) => ({
 		let mut symbols = $crate::asm::symbol::SymbolTable::new();
